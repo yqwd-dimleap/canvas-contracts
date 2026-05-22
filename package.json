@@ -1,0 +1,55 @@
+{
+  "name": "@deep-cx/canvas-contracts",
+  "version": "0.1.0",
+  "description": "Shared TypeScript and Zod contracts for Dimleap canvas services.",
+  "type": "module",
+  "private": false,
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./agent": {
+      "types": "./dist/agent/index.d.ts",
+      "import": "./dist/agent/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js"
+    },
+    "./canvas": {
+      "types": "./dist/canvas/index.d.ts",
+      "import": "./dist/canvas/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun run build"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deep-cx/canvas-contracts.git"
+  },
+  "author": "Deep CX",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/deep-cx/canvas-contracts/issues"
+  },
+  "homepage": "https://github.com/deep-cx/canvas-contracts#readme"
+}
