@@ -34,7 +34,14 @@ export const imageGenerationModelSchema = z.enum([
 
 export const imageQualitySchema = z.enum(['auto', 'high', 'medium', 'low'])
 export const imageBackgroundSchema = z.enum(['auto', 'opaque', 'transparent'])
-export const outputFormatSchema = z.enum(['png', 'jpeg', 'webp', 'gif', 'mp4', 'webm'])
+export const outputFormatSchema = z.enum([
+  'png',
+  'jpeg',
+  'webp',
+  'gif',
+  'mp4',
+  'webm'
+])
 export const imageTransportModeSchema = z.enum(['base64', 'url'])
 
 export const base64ImageSourceSchema = z.object({
@@ -104,14 +111,18 @@ export const videoGenerationRequestPayloadSchema = z
             z.object({
               type: z.string().optional(),
               url: z.string().optional(),
-              image_url: z.union([z.string(), z.object({ url: z.string().optional() })]).optional(),
+              image_url: z
+                .union([z.string(), z.object({ url: z.string().optional() })])
+                .optional(),
               role: z.string().optional()
             })
           )
           .optional()
       })
       .optional(),
-    metadata: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(),
+    metadata: z
+      .union([z.record(z.string(), z.unknown()), z.string()])
+      .optional(),
     parameters: z.record(z.string(), z.unknown()).optional()
   })
   .catchall(z.unknown())
@@ -126,6 +137,12 @@ export type ImageTransportMode = z.infer<typeof imageTransportModeSchema>
 export type Base64ImageSource = z.infer<typeof base64ImageSourceSchema>
 export type UrlImageSource = z.infer<typeof urlImageSourceSchema>
 export type CompletionInputImage = z.infer<typeof completionInputImageSchema>
-export type CanvasNodeGenerationConfig = z.infer<typeof canvasNodeGenerationConfigSchema>
-export type ImageGenerationRequestPayload = z.infer<typeof imageGenerationRequestPayloadSchema>
-export type VideoGenerationRequestPayload = z.infer<typeof videoGenerationRequestPayloadSchema>
+export type CanvasNodeGenerationConfig = z.infer<
+  typeof canvasNodeGenerationConfigSchema
+>
+export type ImageGenerationRequestPayload = z.infer<
+  typeof imageGenerationRequestPayloadSchema
+>
+export type VideoGenerationRequestPayload = z.infer<
+  typeof videoGenerationRequestPayloadSchema
+>

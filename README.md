@@ -1,6 +1,6 @@
 # Canvas Contracts
 
-Shared TypeScript and Zod contracts for Dimleap canvas frontend and agent services.
+Shared TypeScript and Zod contracts for Deep CX canvas frontend and agent services.
 
 This package is intentionally an independent repository/package. Frontend and backend should depend on a versioned release instead of importing source from each other.
 
@@ -15,7 +15,7 @@ This package is intentionally an independent repository/package. Frontend and ba
 ## Install
 
 ```sh
-bun add @dimleap/canvas-contracts
+bun add @deep-cx/canvas-contracts
 ```
 
 During local development, use a registry package, a git tag, or `bun link`.
@@ -42,7 +42,7 @@ Use semver.
 Backend request validation:
 
 ```ts
-import { canvasPlanRequestSchema } from "@dimleap/canvas-contracts/agent"
+import { canvasPlanRequestSchema } from "@deep-cx/canvas-contracts/agent"
 
 const parsed = canvasPlanRequestSchema.safeParse(body)
 ```
@@ -50,7 +50,7 @@ const parsed = canvasPlanRequestSchema.safeParse(body)
 Frontend response validation:
 
 ```ts
-import { listAgentProfilesResponseSchema } from "@dimleap/canvas-contracts/agent"
+import { listAgentProfilesResponseSchema } from "@deep-cx/canvas-contracts/agent"
 
 const json = await res.json()
 const parsed = listAgentProfilesResponseSchema.parse(json)
@@ -64,3 +64,25 @@ src/
   agent/    agent profile and route contracts
   canvas/   resource and canvas context contracts
 ```
+
+## Release
+
+This package is published to GitHub Packages as a private organization package.
+
+1. Update `version` in `package.json`.
+2. Run checks locally:
+
+```sh
+bun run check
+```
+
+3. Commit and push to `main`.
+4. Create and push a version tag:
+
+```sh
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The `Publish` GitHub Action publishes only on `v*` tags. Normal pushes and pull
+requests only run CI checks.

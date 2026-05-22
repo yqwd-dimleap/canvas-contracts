@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { canvasNodeGenerationConfigSchema, imageTransportModeSchema, base64ImageSourceSchema, urlImageSourceSchema } from './generation.js'
+import {
+  base64ImageSourceSchema,
+  canvasNodeGenerationConfigSchema,
+  imageTransportModeSchema,
+  urlImageSourceSchema
+} from './generation.js'
 import { canvasMediaEntrySchema, xyPositionSchema } from './media.js'
 import { canvasResourceSchema } from './resources.js'
 
@@ -180,15 +185,23 @@ export const persistedProjectCanvasSchema = z.object({
 })
 
 export type ProjectCanvasNodeType = z.infer<typeof projectCanvasNodeTypeSchema>
-export type ProjectCanvasEdgeVariant = z.infer<typeof projectCanvasEdgeVariantSchema>
-export type NormalResourceNodeData = z.infer<typeof normalResourceNodeDataSchema>
+export type ProjectCanvasEdgeVariant = z.infer<
+  typeof projectCanvasEdgeVariantSchema
+>
+export type NormalResourceNodeData = z.infer<
+  typeof normalResourceNodeDataSchema
+>
 export type AiPromptNodeData = z.infer<typeof aiPromptNodeDataSchema>
 export type AiImageNodeData = z.infer<typeof aiImageNodeDataSchema>
 export type AiVideoNodeData = z.infer<typeof aiVideoNodeDataSchema>
 export type AiWriteNodeData = z.infer<typeof aiWriteNodeDataSchema>
 export type AiWriteShotNodeData = z.infer<typeof aiWriteShotNodeDataSchema>
 export type StoryboardTableRow = z.infer<typeof storyboardTableRowSchema>
-export type StoryboardTableNodeData = z.infer<typeof storyboardTableNodeDataSchema>
+export type StoryboardTableNodeData = z.infer<
+  typeof storyboardTableNodeDataSchema
+>
 export type ImageGridNodeData = z.infer<typeof imageGridNodeDataSchema>
 export type ProjectCanvasFlowNode = z.infer<typeof projectCanvasFlowNodeSchema>
-export type PersistedProjectCanvas = z.infer<typeof persistedProjectCanvasSchema>
+export type PersistedProjectCanvas = z.infer<
+  typeof persistedProjectCanvasSchema
+>

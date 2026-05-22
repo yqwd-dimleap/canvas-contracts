@@ -6,7 +6,9 @@ export const apiErrorResponseSchema = z.object({
   details: z.unknown().optional()
 })
 
-export function apiSuccessResponseSchema<TSchema extends z.ZodType>(data: TSchema) {
+export function apiSuccessResponseSchema<TSchema extends z.ZodType>(
+  data: TSchema
+) {
   return z.object({
     ok: z.literal(true),
     data

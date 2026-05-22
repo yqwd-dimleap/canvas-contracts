@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-export const canvasResourceTypeSchema = z.enum(['image', 'video', 'audio', 'text'])
+export const canvasResourceTypeSchema = z.enum([
+  'image',
+  'video',
+  'audio',
+  'text'
+])
 
 export const canvasResourceMetadataSchema = z
   .object({

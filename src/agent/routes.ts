@@ -1,7 +1,13 @@
 import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../api/response.js'
-import { canvasContextSchema, canvasSelectionSchema } from '../canvas/context.js'
-import { agentModelProfileSchema, agentProfileSummarySchema } from './profiles.js'
+import {
+  canvasContextSchema,
+  canvasSelectionSchema
+} from '../canvas/context.js'
+import {
+  agentModelProfileSchema,
+  agentProfileSummarySchema
+} from './profiles.js'
 
 export const agentChatRequestSchema = z.object({
   message: z.string().min(1),
@@ -127,7 +133,9 @@ export const listAgentProfilesResponseSchema = apiSuccessResponseSchema(
 
 export type AgentChatRequest = z.infer<typeof agentChatRequestSchema>
 export type AgentChatResponse = z.infer<typeof agentChatResponseSchema>
-export type CanvasAgentBaseRequest = z.infer<typeof canvasAgentBaseRequestSchema>
+export type CanvasAgentBaseRequest = z.infer<
+  typeof canvasAgentBaseRequestSchema
+>
 export type CanvasPlanRequest = z.infer<typeof canvasPlanRequestSchema>
 export type CanvasPlanAction = z.infer<typeof canvasPlanActionSchema>
 export type CanvasPlanResponse = z.infer<typeof canvasPlanResponseSchema>
@@ -137,4 +145,6 @@ export type ReviewResultRequest = z.infer<typeof reviewResultRequestSchema>
 export type ReviewResultResponse = z.infer<typeof reviewResultResponseSchema>
 export type RepairNodeRequest = z.infer<typeof repairNodeRequestSchema>
 export type RepairNodeResponse = z.infer<typeof repairNodeResponseSchema>
-export type ListAgentProfilesResponse = z.infer<typeof listAgentProfilesResponseSchema>
+export type ListAgentProfilesResponse = z.infer<
+  typeof listAgentProfilesResponseSchema
+>
