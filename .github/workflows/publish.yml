@@ -25,12 +25,10 @@ jobs:
       - name: Run checks
         run: bun run check
 
-      - name: Setup .npmrc
-        run: |
-          echo "@yqwd-dimleap:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
-
       - name: Publish to GitHub Packages
-        run: npm publish
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN" > ~/.npmrc
+          echo "@yqwd-dimleap:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
