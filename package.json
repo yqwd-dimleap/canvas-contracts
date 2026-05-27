@@ -1,5 +1,5 @@
 {
-  "name": "@deep-cx/canvas-contracts",
+  "name": "@yqwd-dimleap/canvas-contracts",
   "version": "0.2.0",
   "description": "Shared TypeScript and Zod contracts for Dimleap canvas services.",
   "type": "module",
@@ -59,7 +59,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deep-cx/canvas-contracts.git"
+    "url": "git+https://github.com/yqwd-dimleap/canvas-contracts.git"
   },
   "author": "Deep CX",
   "license": "MIT",
