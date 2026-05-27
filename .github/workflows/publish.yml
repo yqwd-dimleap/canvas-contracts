@@ -27,9 +27,7 @@ jobs:
         run: bun run check
 
       - name: Publish to GitHub Packages
-        run: |
-          echo "//npm.pkg.github.com/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          echo "@yqwd-dimleap:registry=https://npm.pkg.github.com" >> ~/.npmrc
+        run:
           npm publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
