@@ -1,41 +1,36 @@
-name: Publish
+name: Publish Package
 
 on:
   push:
     tags:
       - 'v*'
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Configure GitHub Packages
-        run: |
-          cat > .npmrc <<'EOF'
-          @deep-cx:registry=https://npm.pkg.github.com
-          //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-          EOF
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun install
 
-      - name: Check
+      - name: Run checks
         run: bun run check
 
-      - name: Publish
-        run: bun publish
+      - name: Setup .npmrc
+        run: |
+          echo "@yqwd-dimleap:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
+
+      - name: Publish to GitHub Packages
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
