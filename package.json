@@ -1,6 +1,6 @@
 {
   "name": "@yqwd-dimleap/canvas-contracts",
-  "version": "0.3.1",
+  "version": "0.6.0",
   "description": "Shared TypeScript and Zod contracts for Dimleap canvas services.",
   "type": "module",
   "private": false,
@@ -21,6 +21,10 @@
     "./api": {
       "types": "./dist/api/index.d.ts",
       "import": "./dist/api/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js"
     },
     "./canvas": {
       "types": "./dist/canvas/index.d.ts",
