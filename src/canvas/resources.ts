@@ -37,6 +37,9 @@ export const resourceFilterSchema = z.object({
 })
 
 export type CanvasResourceType = z.infer<typeof canvasResourceTypeSchema>
+export type CanvasResourceMetadata = z.infer<
+  typeof canvasResourceMetadataSchema
+>
 export type CanvasResource = z.infer<typeof canvasResourceSchema>
 export type EdgeDependencyType = z.infer<typeof edgeDependencyTypeSchema>
 export type ResourceFilter = z.infer<typeof resourceFilterSchema>

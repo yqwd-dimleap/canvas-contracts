@@ -9,7 +9,41 @@ export const agentProfileTaskSchema = z.enum([
   'repair'
 ])
 
-export const agentModelProviderSchema = z.enum(['openai', 'gateway'])
+export const agentModelProviderSchema = z.enum([
+  'openai',
+  'gateway',
+  'anthropic',
+  'azure',
+  'custom'
+])
+
+export const modelProviderModelSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  enabled: z.boolean().default(true),
+  contextWindow: z.number().int().positive().optional(),
+  maxOutputTokens: z.number().int().positive().optional(),
+  creditsPerImage: z.number().min(0).default(1),
+  costCentsPerImage: z.number().min(0).default(0),
+  metadata: z.record(z.string(), z.unknown()).optional()
+})
+
+export const modelProviderSchema = z.object({
+  id: z.string().min(1),
+  provider: z.string().min(1),
+  name: z.string().min(1),
+  enabled: z.boolean().default(true),
+  models: z.array(modelProviderModelSchema).default([]),
+  apiConfig: z
+    .object({
+      baseUrl: z.string().optional(),
+      authType: z.enum(['bearer', 'api-key', 'custom']).optional()
+    })
+    .optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  createdAt: z.number(),
+  updatedAt: z.number()
+})
 
 export const agentModelProfileSchema = z.object({
   id: z.string().min(1),
@@ -37,3 +71,5 @@ export type AgentProfileTask = z.infer<typeof agentProfileTaskSchema>
 export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
 export type AgentModelProfile = z.infer<typeof agentModelProfileSchema>
 export type AgentProfileSummary = z.infer<typeof agentProfileSummarySchema>
+export type ModelProviderModel = z.infer<typeof modelProviderModelSchema>
+export type ModelProvider = z.infer<typeof modelProviderSchema>

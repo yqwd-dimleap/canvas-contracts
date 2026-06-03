@@ -6,12 +6,26 @@ import {
   urlImageSourceSchema
 } from './generation.js'
 import { canvasMediaEntrySchema, xyPositionSchema } from './media.js'
-import { canvasResourceSchema } from './resources.js'
+import { type CanvasResource, canvasResourceSchema } from './resources.js'
 
+/**
+ * Resource arrays shared across all node data types.
+ * These track input/output/manual resources for workflow execution.
+ */
 const resourceArrays = {
   inputResources: z.array(canvasResourceSchema).optional(),
   outputResources: z.array(canvasResourceSchema).optional(),
   manualResources: z.array(canvasResourceSchema).optional()
+}
+
+/**
+ * Exported type for node resource arrays.
+ * All node data types extend this interface.
+ */
+export type NodeResourceArrays = {
+  inputResources?: CanvasResource[]
+  outputResources?: CanvasResource[]
+  manualResources?: CanvasResource[]
 }
 
 export const projectCanvasNodeTypeSchema = z.enum([
