@@ -77,7 +77,10 @@ export const canvasNodeGenerationConfigSchema = z.object({
   urlImages: z.array(urlImageSourceSchema),
   pendingUrl: z.string(),
   videoDurationSeconds: z.number().optional(),
-  videoResolution: z.string().optional()
+  videoResolution: z.string().optional(),
+  videoAspectRatio: z.string().optional(),
+  promptExtend: z.boolean().optional(),
+  watermark: z.boolean().optional()
 })
 
 export const imageGenerationRequestPayloadSchema = z.object({

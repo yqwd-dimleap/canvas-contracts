@@ -25,12 +25,12 @@ export const projectCanvasNodeTypeSchema = z.enum([
   'canvasAiImageGrid'
 ])
 
-export const projectCanvasEdgeVariantSchema = z.enum(['solid', 'dashed'])
-
 export const normalResourceNodeDataSchema = z.object({
   src: z.string(),
   caption: z.string().optional(),
   kind: z.enum(['image', 'video']),
+  assetId: z.string().nullable().optional(),
+  modelUrl: z.string().nullable().optional(),
   ...resourceArrays
 })
 
@@ -185,9 +185,6 @@ export const persistedProjectCanvasSchema = z.object({
 })
 
 export type ProjectCanvasNodeType = z.infer<typeof projectCanvasNodeTypeSchema>
-export type ProjectCanvasEdgeVariant = z.infer<
-  typeof projectCanvasEdgeVariantSchema
->
 export type NormalResourceNodeData = z.infer<
   typeof normalResourceNodeDataSchema
 >
