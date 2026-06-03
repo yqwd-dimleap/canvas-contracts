@@ -15,7 +15,7 @@ This package is intentionally an independent repository/package. Frontend and ba
 ## Install
 
 ```sh
-bun add @deep-cx/canvas-contracts
+bun add @yqwd-dimleap/canvas-contracts
 ```
 
 During local development, use a registry package, a git tag, or `bun link`.
@@ -42,7 +42,7 @@ Use semver.
 Backend request validation:
 
 ```ts
-import { canvasPlanRequestSchema } from "@deep-cx/canvas-contracts/agent"
+import { canvasPlanRequestSchema } from "@yqwd-dimleap/canvas-contracts/agent"
 
 const parsed = canvasPlanRequestSchema.safeParse(body)
 ```
@@ -50,7 +50,7 @@ const parsed = canvasPlanRequestSchema.safeParse(body)
 Frontend response validation:
 
 ```ts
-import { listAgentProfilesResponseSchema } from "@deep-cx/canvas-contracts/agent"
+import { listAgentProfilesResponseSchema } from "@yqwd-dimleap/canvas-contracts/agent"
 
 const json = await res.json()
 const parsed = listAgentProfilesResponseSchema.parse(json)
