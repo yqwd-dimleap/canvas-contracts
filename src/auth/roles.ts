@@ -9,7 +9,8 @@ export const roleSchema = z.enum([
   'admin',
   'reviewer',
   'editor',
-  'viewer'
+  'viewer',
+  'root'
 ])
 
 export type Role = z.infer<typeof roleSchema>
@@ -70,10 +71,15 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions[] = [
       'generation:generate',
       'workspace:sync'
     ],
-    description: 'Content reviewer with admin access'
+    description: 'Content reviewer with admin and root access'
   },
   {
     role: 'admin',
+    permissions: ['*:*'],
+    description: 'Full system access'
+  },
+  {
+    role: 'root',
     permissions: ['*:*'],
     description: 'Full system access'
   }

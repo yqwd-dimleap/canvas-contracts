@@ -14,7 +14,7 @@ export async function buildAuthzContextWithProvider(
   const roles = await roleProvider.getRolesForUser(session.user.id)
   const rolesArray = Array.from(roles) as any[]
   const permissions = aggregateRolePermissions(rolesArray)
-  const isAdmin = roles.has('admin')
+  const isAdmin = roles.has('admin') || roles.has('root')
 
   return {
     session,

@@ -15,7 +15,8 @@ export const resourceSchema = z.enum([
   'publish',
   'system',
   'workspace',
-  'admin'
+  'admin',
+  'root'
 ])
 
 /**
@@ -37,7 +38,7 @@ export const actionSchema = z.enum([
 
 /**
  * 权限字符串格式: resource:action
- * 例如: "canvas:create", "users:read", "admin:access"
+ * 例如: "canvas:create", "users:read", "admin:access", "root:access"
  */
 export const permissionSchema = z.string().regex(/^[a-z-]+:[a-z]+$/)
 

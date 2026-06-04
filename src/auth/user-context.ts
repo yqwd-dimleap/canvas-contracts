@@ -54,6 +54,6 @@ export function createUserPermissionContext(
     emailVerified,
     roles: roles as any[],
     permissions,
-    isAdmin: roles.includes('admin')
+    isAdmin: roles.includes('admin') || roles.includes('root')
   }
 }
