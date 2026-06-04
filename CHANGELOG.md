@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0] - 2026-06-04
+## [0.3.1] - 2026-06-04
 
 ### Added
 
@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking Changes
 
-- Major version bump to 0.4.0 due to extensive new `auth` module exports
+- Major version bump to 0.3.1 due to extensive new `auth` module exports
 - Projects consuming this package should review and adopt the new authorization system
 
 ### Migration Guide
@@ -40,7 +40,7 @@ All notable changes to this project will be documented in this file.
 
 1. Update dependency:
    ```bash
-   bun add @yqwd-dimleap/canvas-contracts@0.4.0
+   bun add @yqwd-dimleap/canvas-contracts@0.3.1
    ```
 
 2. Import new authorization modules:
