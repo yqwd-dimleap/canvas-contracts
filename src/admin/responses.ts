@@ -1,14 +1,12 @@
 import { z } from 'zod'
 import {
-  type AgentModelProfile,
   agentModelProfileSchema,
-  type ModelProvider,
   modelProviderSchema
 } from '../agent/profiles.js'
 
 /**
- * Admin API Response Schemas
- * 使用现有的 schema 定义
+ * Admin - Models List Response
+ * 管理后台：模型列表
  */
 export const modelsResponseSchema = z.object({
   models: z.array(
@@ -22,14 +20,26 @@ export const modelsResponseSchema = z.object({
   )
 })
 
+/**
+ * Admin - Model Providers List Response
+ * 管理后台：模型提供商列表
+ */
 export const modelProvidersResponseSchema = z.object({
   providers: z.array(modelProviderSchema)
 })
 
+/**
+ * Admin - Agent Profiles List Response
+ * 管理后台：Agent 配置列表
+ */
 export const agentProfilesResponseSchema = z.object({
   profiles: z.array(agentModelProfileSchema)
 })
 
+/**
+ * Admin - Gateway Models List Response
+ * 管理后台：网关模型列表
+ */
 export const gatewayModelsResponseSchema = z.object({
   models: z.array(
     z.object({
@@ -46,6 +56,3 @@ export type ModelProvidersResponse = z.infer<
 >
 export type AgentProfilesResponse = z.infer<typeof agentProfilesResponseSchema>
 export type GatewayModelsResponse = z.infer<typeof gatewayModelsResponseSchema>
-
-// Re-export for convenience
-export type { AgentModelProfile, ModelProvider }

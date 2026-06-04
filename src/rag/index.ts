@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { canvasPlanActionSchema } from '../agent/routes.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
+import { canvasPlanActionSchema } from '../workflow/plan.js'
 
 // ============================================================================
 // Workflow Feedback
