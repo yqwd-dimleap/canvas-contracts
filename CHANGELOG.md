@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2026-06-05
+- **删除bun.lock文件，使用bun.lockb二进制，并解决每次提交依赖变更导致的lockfile is frozen错误
+
 ## [0.5.1] - 2026-06-05
 - **增加模型列表枚举类型，增强渠道返回模型列表的可读性
 
