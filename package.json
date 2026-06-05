@@ -58,6 +58,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@yqwd-dimleap/canvas-contracts": "0.5.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

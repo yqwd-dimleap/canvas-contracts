@@ -17,6 +17,23 @@ export const agentModelProviderSchema = z.enum([
   'custom'
 ])
 
+/**
+ * 模型类别（按网关返回的模型列表做归类）。
+ * 后台用于将导入的模型分到 image / video / chat / other，
+ * 也是 node_type_models 配置中“某类节点可用哪些模型”的映射键。
+ */
+export const modelCategorySchema = z.enum(['image', 'video', 'chat', 'other'])
+
+/**
+ * 时间戳：统一以 epoch 毫秒（number）表示。
+ * 兼容历史/跨服务写入的 BSON Date（前端 Mongo repo 曾写入 Date），
+ * 读取时强制归一为 number，避免 `expected number, received Date`。
+ */
+const timestampSchema = z.preprocess(
+  (value) => (value instanceof Date ? value.getTime() : value),
+  z.number()
+)
+
 export const modelProviderModelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -41,8 +58,8 @@ export const modelProviderSchema = z.object({
     })
     .optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  createdAt: z.number(),
-  updatedAt: z.number()
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema
 })
 
 export const agentModelProfileSchema = z.object({
@@ -56,8 +73,8 @@ export const agentModelProfileSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   enabled: z.boolean().default(true),
   description: z.string().optional(),
-  createdAt: z.number(),
-  updatedAt: z.number()
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema
 })
 
 export const agentProfileSummarySchema = agentModelProfileSchema.pick({
@@ -69,6 +86,7 @@ export const agentProfileSummarySchema = agentModelProfileSchema.pick({
 
 export type AgentProfileTask = z.infer<typeof agentProfileTaskSchema>
 export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
+export type ModelCategory = z.infer<typeof modelCategorySchema>
 export type AgentModelProfile = z.infer<typeof agentModelProfileSchema>
 export type AgentProfileSummary = z.infer<typeof agentProfileSummarySchema>
 export type ModelProviderModel = z.infer<typeof modelProviderModelSchema>
