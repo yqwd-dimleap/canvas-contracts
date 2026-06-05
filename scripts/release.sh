@@ -177,6 +177,19 @@ fi
 echo ""
 echo -e "${GREEN}✓ All checks passed${NC}"
 
+echo ""
+echo -e "${GREEN}Verifying package tarball contents...${NC}"
+if ! bun run pack:verify; then
+  echo ""
+  echo -e "${RED}✗ Package verification failed!${NC}"
+  echo "Please fix the package exports or build output and try again."
+  git checkout package.json
+  exit 1
+fi
+
+echo ""
+echo -e "${GREEN}✓ Package contents verified${NC}"
+
 # 提交版本变更
 echo ""
 echo -e "${GREEN}Committing version bump and changelog...${NC}"
