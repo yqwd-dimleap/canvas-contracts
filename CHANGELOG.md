@@ -2,6 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-06-05
+- **增加模型列表枚举类型，增强渠道返回模型列表的可读性
+
 ## [0.4.0] - 2026-06-04
 
 ### Added
