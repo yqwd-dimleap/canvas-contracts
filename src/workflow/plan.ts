@@ -7,24 +7,79 @@ import {
 } from '../canvas/context.js'
 
 /**
+ * Canvas Action Ref
+ * 前后端共享的动作级逻辑引用。Agent 可以先返回 ref/clientRef，
+ * 前端 materialize 时再建立 ref -> realNodeId 映射。
+ */
+export const canvasActionStatusSchema = z.enum([
+  'pending',
+  'running',
+  'requires_confirmation',
+  'succeeded',
+  'failed',
+  'skipped',
+  'cancelled'
+])
+
+export const canvasActionErrorSchema = z.object({
+  code: z.string().optional(),
+  message: z.string().min(1),
+  retryable: z.boolean().optional(),
+  details: z.unknown().optional()
+})
+
+export const canvasActionCostSchema = z.object({
+  credits: z.number().nonnegative().optional(),
+  amount: z.number().nonnegative().optional(),
+  currency: z.string().min(1).optional(),
+  estimated: z.boolean().optional()
+})
+
+export const canvasActionRefSchema = z.object({
+  ref: z.string().min(1).optional(),
+  nodeId: z.string().min(1).optional(),
+  actionId: z.string().min(1).optional()
+})
+
+const canvasActionProtocolFields = {
+  runId: z.string().min(1).optional(),
+  actionId: z.string().min(1).optional(),
+  clientRef: z.string().min(1).optional(),
+  ref: z.string().min(1).optional(),
+  status: canvasActionStatusSchema.optional(),
+  requiresConfirmation: z.boolean().optional(),
+  cost: canvasActionCostSchema.optional(),
+  toolName: z.string().min(1).optional(),
+  result: z.unknown().optional(),
+  error: canvasActionErrorSchema.optional(),
+  traceId: z.string().min(1).optional()
+} as const
+
+/**
  * Canvas Plan Action
  * 画布操作的原子动作（创建节点、更新数据、创建边）
  */
 export const canvasPlanActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('createNode'),
+    ...canvasActionProtocolFields,
     nodeType: z.string().min(1),
     data: z.record(z.string(), z.unknown()).default({})
   }),
   z.object({
     type: z.literal('patchNodeData'),
+    ...canvasActionProtocolFields,
     nodeId: z.string().min(1),
+    nodeRef: z.string().min(1).optional(),
     data: z.record(z.string(), z.unknown()).default({})
   }),
   z.object({
     type: z.literal('createEdge'),
+    ...canvasActionProtocolFields,
     source: z.string().min(1),
     target: z.string().min(1),
+    sourceRef: z.string().min(1).optional(),
+    targetRef: z.string().min(1).optional(),
     data: z.record(z.string(), z.unknown()).default({})
   })
 ])
@@ -70,6 +125,10 @@ export const canvasPlanResponseSchema = apiSuccessResponseSchema(
 )
 
 export type CanvasPlanAction = z.infer<typeof canvasPlanActionSchema>
+export type CanvasActionStatus = z.infer<typeof canvasActionStatusSchema>
+export type CanvasActionError = z.infer<typeof canvasActionErrorSchema>
+export type CanvasActionCost = z.infer<typeof canvasActionCostSchema>
+export type CanvasActionRef = z.infer<typeof canvasActionRefSchema>
 export type CanvasAgentBaseRequest = z.infer<
   typeof canvasAgentBaseRequestSchema
 >

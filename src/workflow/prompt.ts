@@ -8,7 +8,10 @@ import { canvasAgentBaseRequestSchema } from './plan.js'
  * 提示词优化请求（针对图片或视频生成）
  */
 export const improvePromptRequestSchema = canvasAgentBaseRequestSchema.extend({
+  canvas: canvasAgentBaseRequestSchema.shape.canvas.optional(),
+  selection: canvasAgentBaseRequestSchema.shape.selection.optional(),
   prompt: z.string().min(1),
+  model: z.string().min(1).optional(),
   target: z.enum(['image', 'video']).default('image'),
   styleGuide: z.string().optional()
 })
