@@ -19,10 +19,22 @@ export const agentModelProviderSchema = z.enum([
 
 /**
  * 模型类别（按网关返回的模型列表做归类）。
- * 后台用于将导入的模型分到 image / video / chat / other，
+ * 后台用于将导入的模型分到 image / video / chat / embedding / audio / other，
  * 也是 node_type_models 配置中“某类节点可用哪些模型”的映射键。
+ *
+ * 前端 helpers 的 ModelCategoryId 收敛到此枚举（单一真相源）。
  */
-export const modelCategorySchema = z.enum(['image', 'video', 'chat', 'other'])
+export const modelCategorySchema = z.enum([
+  'image',
+  'video',
+  'chat',
+  'embedding',
+  'audio',
+  'other'
+])
+
+/** 模型类别的稳定顺序（UI 分组/迭代用）。顺序即枚举声明顺序。 */
+export const MODEL_CATEGORIES = modelCategorySchema.options
 
 /**
  * 时间戳：统一以 epoch 毫秒（number）表示。
