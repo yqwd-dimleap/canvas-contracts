@@ -44,4 +44,4 @@ jobs:
       - name: Publish verified tarball to GitHub Packages
         run: npm publish "${{ steps.pack.outputs.tarball }}"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
