@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { canvasPlanActionSchema } from './plan.js'
+import { canvasIntentKindSchema, canvasPlanActionSchema } from './plan.js'
 
 export const agentRunStatusSchema = z.enum([
   'queued',
@@ -14,6 +14,7 @@ export const agentRunStatusSchema = z.enum([
   'requires_confirmation',
   'succeeded',
   'completed',
+  'skipped',
   'failed',
   'cancelled'
 ])
@@ -31,6 +32,7 @@ export const agentRunEventNameSchema = z.enum([
   'agent.run.started',
   'agent.run.completed',
   'agent.run.failed',
+  'agent.thinking',
   'agent.step.started',
   'agent.step.completed',
   'agent.step.failed',
@@ -87,6 +89,86 @@ export const agentToolCallSchema = z.object({
   startedAt: z.string().min(1),
   completedAt: z.string().min(1).optional()
 })
+
+export const agentThinkingSchema = z
+  .object({
+    phase: agentRunPhaseSchema.optional(),
+    summary: z.string().min(1),
+    intentKind: canvasIntentKindSchema.optional(),
+    confidence: z.number().min(0).max(1).optional(),
+    details: z.record(z.string(), z.unknown()).optional()
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionMediaSchema = z
+  .object({
+    actionId: z.string().min(1).optional(),
+    nodeId: z.string().min(1).optional(),
+    type: z.enum(['image', 'video']),
+    url: z.string().min(1),
+    prompt: z.string().optional(),
+    status: z.string().optional()
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionObservationSchema = z
+  .object({
+    projectId: z.string().nullable().optional(),
+    resultCount: z.number().int().nonnegative(),
+    failedCount: z.number().int().nonnegative(),
+    generatedMedia: z.array(agentExecutionMediaSchema).default([]),
+    summary: z.string().min(1),
+    needsCritique: z.boolean().default(true),
+    needsRepair: z.boolean().default(false)
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionReviewSchema = z
+  .object({
+    actionId: z.string().min(1).optional(),
+    nodeId: z.string().min(1).optional(),
+    resultType: z.enum(['image', 'video']).optional(),
+    resultUrl: z.string().min(1).optional(),
+    verdict: z.enum(['pass', 'needs_human_review', 'repair_recommended']),
+    score: z.number().nullable().optional(),
+    issues: z.array(z.string()).default([]),
+    suggestedFixes: z.array(z.string()).default([]),
+    notes: z.array(z.string()).default([])
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionCritiqueSchema = z
+  .object({
+    projectId: z.string().nullable().optional(),
+    verdict: z.enum(['pass', 'needs_human_review', 'repair_recommended']),
+    resultCount: z.number().int().nonnegative(),
+    reviews: z.array(agentExecutionReviewSchema).default([]),
+    summary: z.string().min(1)
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionRepairSuggestionSchema = z
+  .object({
+    actionId: z.string().min(1).optional(),
+    nodeId: z.string().min(1).optional(),
+    diagnosis: z.string().min(1),
+    actions: z.array(canvasPlanActionSchema).default([]),
+    retry: z
+      .object({
+        recommended: z.boolean(),
+        reason: z.string().min(1)
+      })
+      .optional()
+  })
+  .catchall(z.unknown())
+
+export const agentExecutionRepairPlanSchema = z
+  .object({
+    projectId: z.string().nullable().optional(),
+    suggestions: z.array(agentExecutionRepairSuggestionSchema).default([]),
+    summary: z.string().min(1)
+  })
+  .catchall(z.unknown())
 
 export const agentRunStepSchema = z.object({
   runId: z.string().min(1),
@@ -163,6 +245,10 @@ export const agentRunEventSchema = z.union([
     })
   }),
   agentRunEventBaseSchema.extend({
+    event: z.literal('agent.thinking'),
+    data: agentThinkingSchema
+  }),
+  agentRunEventBaseSchema.extend({
     event: z.enum([
       'agent.step.started',
       'agent.step.completed',
@@ -188,11 +274,11 @@ export const agentRunEventSchema = z.union([
   }),
   agentRunEventBaseSchema.extend({
     event: z.literal('review.completed'),
-    data: z.record(z.string(), z.unknown())
+    data: agentExecutionCritiqueSchema
   }),
   agentRunEventBaseSchema.extend({
     event: z.literal('repair.suggested'),
-    data: z.record(z.string(), z.unknown())
+    data: agentExecutionRepairPlanSchema
   }),
   agentRunEventBaseSchema.extend({
     event: z.literal('action.requires_confirmation'),
@@ -216,6 +302,21 @@ export type AgentTraceSpan = z.infer<typeof agentTraceSpanSchema>
 export type AgentTrace = z.infer<typeof agentTraceSchema>
 export type AgentToolCallStatus = z.infer<typeof agentToolCallStatusSchema>
 export type AgentToolCall = z.infer<typeof agentToolCallSchema>
+export type AgentThinking = z.infer<typeof agentThinkingSchema>
+export type AgentExecutionMedia = z.infer<typeof agentExecutionMediaSchema>
+export type AgentExecutionObservation = z.infer<
+  typeof agentExecutionObservationSchema
+>
+export type AgentExecutionReview = z.infer<typeof agentExecutionReviewSchema>
+export type AgentExecutionCritique = z.infer<
+  typeof agentExecutionCritiqueSchema
+>
+export type AgentExecutionRepairSuggestion = z.infer<
+  typeof agentExecutionRepairSuggestionSchema
+>
+export type AgentExecutionRepairPlan = z.infer<
+  typeof agentExecutionRepairPlanSchema
+>
 export type AgentRunStep = z.infer<typeof agentRunStepSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
 export type AgentRunEvent = z.infer<typeof agentRunEventSchema>

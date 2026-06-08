@@ -85,6 +85,61 @@ export const generationStatusResponseSchema = apiSuccessResponseSchema(
 )
 
 // ============================================================================
+// Generation Tasks
+// ============================================================================
+
+export const generationTaskTypeSchema = z.enum(['image', 'video'])
+
+export const generationTaskStatusSchema = z.enum([
+  'pending',
+  'polling',
+  'completed',
+  'failed'
+])
+
+export const generationTaskResultSchema = z.object({
+  url: z.string().optional(),
+  errorInfo: z.string().optional()
+})
+
+export const generationTaskSchema = z.object({
+  id: z.string().min(1),
+  type: generationTaskTypeSchema,
+  taskId: z.string().optional(),
+  nodeId: z.string().optional(),
+  projectId: z.string().optional(),
+  userId: z.string().min(1),
+  status: generationTaskStatusSchema,
+  progress: z.number().optional(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+  payload: z.record(z.string(), z.unknown()).default({}),
+  result: generationTaskResultSchema.optional()
+})
+
+export const createGenerationTaskRequestSchema = z.object({
+  type: generationTaskTypeSchema,
+  nodeId: z.string().optional(),
+  projectId: z.string().nullable().optional(),
+  payload: z.record(z.string(), z.unknown()).optional()
+})
+
+export const updateGenerationTaskRequestSchema = z.object({
+  taskId: z.string().optional(),
+  status: generationTaskStatusSchema.optional(),
+  progress: z.number().optional(),
+  result: generationTaskResultSchema.optional()
+})
+
+export const listGenerationTasksResponseSchema = z.object({
+  tasks: z.array(generationTaskSchema)
+})
+
+export const updateGenerationTaskResponseSchema = z.object({
+  task: generationTaskSchema.nullable().optional()
+})
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -107,4 +162,20 @@ export type GenerationStatusRequest = z.infer<
 >
 export type GenerationStatusResponse = z.infer<
   typeof generationStatusResponseSchema
+>
+export type GenerationTaskType = z.infer<typeof generationTaskTypeSchema>
+export type GenerationTaskStatus = z.infer<typeof generationTaskStatusSchema>
+export type GenerationTaskResult = z.infer<typeof generationTaskResultSchema>
+export type GenerationTask = z.infer<typeof generationTaskSchema>
+export type CreateGenerationTaskRequest = z.infer<
+  typeof createGenerationTaskRequestSchema
+>
+export type UpdateGenerationTaskRequest = z.infer<
+  typeof updateGenerationTaskRequestSchema
+>
+export type ListGenerationTasksResponse = z.infer<
+  typeof listGenerationTasksResponseSchema
+>
+export type UpdateGenerationTaskResponse = z.infer<
+  typeof updateGenerationTaskResponseSchema
 >
