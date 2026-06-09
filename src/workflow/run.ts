@@ -32,6 +32,10 @@ export const agentRunEventNameSchema = z.enum([
   'agent.run.started',
   'agent.run.completed',
   'agent.run.failed',
+  'agent.run.cancelled',
+  'agent.message.started',
+  'agent.message.delta',
+  'agent.message.completed',
   'agent.thinking',
   'agent.step.started',
   'agent.step.completed',
@@ -106,6 +110,9 @@ export const agentExecutionMediaSchema = z
     nodeId: z.string().min(1).optional(),
     type: z.enum(['image', 'video']),
     url: z.string().min(1),
+    assetId: z.string().nullable().optional(),
+    modelUrl: z.string().nullable().optional(),
+    thumbnailUrl: z.string().nullable().optional(),
     prompt: z.string().optional(),
     status: z.string().optional()
   })
@@ -218,6 +225,34 @@ const agentRunEventBaseSchema = z.object({
   sequence: z.number().int().nonnegative().optional()
 })
 
+export const agentMessageStreamEventSchema = z.union([
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.started'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      phase: agentRunPhaseSchema.optional()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.delta'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      delta: z.string(),
+      content: z.string()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.completed'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      content: z.string()
+    })
+  })
+])
+
 export const agentRunEventSchema = z.union([
   agentRunEventBaseSchema.extend({
     event: z.literal('agent.run.started'),
@@ -242,6 +277,39 @@ export const agentRunEventSchema = z.union([
       message: z.string().min(1),
       code: z.string().optional(),
       retryable: z.boolean().optional()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.run.cancelled'),
+    data: z.object({
+      message: z.string().min(1),
+      reason: z.string().min(1).optional(),
+      cancelledBy: z.enum(['user', 'system', 'timeout']).default('user')
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.started'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      phase: agentRunPhaseSchema.optional()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.delta'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      delta: z.string(),
+      content: z.string()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.message.completed'),
+    data: z.object({
+      messageId: z.string().min(1),
+      role: z.literal('assistant'),
+      content: z.string()
     })
   }),
   agentRunEventBaseSchema.extend({
@@ -320,3 +388,7 @@ export type AgentExecutionRepairPlan = z.infer<
 export type AgentRunStep = z.infer<typeof agentRunStepSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
 export type AgentRunEvent = z.infer<typeof agentRunEventSchema>
+export type AgentMessageStreamEvent = z.infer<
+  typeof agentMessageStreamEventSchema
+>
+export type AgentRuntimeEvent = AgentRunEvent | AgentMessageStreamEvent
