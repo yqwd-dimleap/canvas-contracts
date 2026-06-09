@@ -36,8 +36,135 @@ export const projectCanvasNodeTypeSchema = z.enum([
   'canvasAiWrite',
   'canvasAiWriteShot',
   'canvasAiStoryboardTable',
-  'canvasAiImageGrid'
+  'canvasAiImageGrid',
+  'canvasText',
+  'canvasShape',
+  'canvasFrame',
+  'canvasImageEdit',
+  'canvasMockup',
+  'canvasVector',
+  'canvasMask',
+  'canvasComposition'
 ])
+
+export const canvasNodeActionSchema = z.enum([
+  'crop',
+  'adjust',
+  'mockup',
+  'vectorize',
+  'mask',
+  'frame',
+  'text',
+  'shape',
+  'rotateLeft',
+  'rotateRight',
+  'flipHorizontal',
+  'flipVertical',
+  'duplicate',
+  'download',
+  'delete'
+])
+
+export const canvasNodeCapabilitySchema = z.enum([
+  'mediaInput',
+  'mediaOutput',
+  'text',
+  'shape',
+  'frame',
+  'crop',
+  'adjust',
+  'mockup',
+  'vector',
+  'mask',
+  'composition'
+])
+
+const canvasNodeStyleSchema = z.object({
+  fill: z.string().optional(),
+  stroke: z.string().optional(),
+  strokeWidth: z.number().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  radius: z.number().optional(),
+  rotation: z.number().optional()
+})
+
+export const canvasCreativeNodeBaseDataSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  actions: z.array(canvasNodeActionSchema).optional(),
+  capabilities: z.array(canvasNodeCapabilitySchema).optional(),
+  style: canvasNodeStyleSchema.optional(),
+  ...resourceArrays
+})
+
+export const canvasTextNodeDataSchema = canvasCreativeNodeBaseDataSchema.extend(
+  {
+    text: z.string(),
+    fontFamily: z.string().optional(),
+    fontSize: z.number().positive().optional(),
+    fontWeight: z.number().optional(),
+    color: z.string().optional(),
+    align: z.enum(['left', 'center', 'right']).optional()
+  }
+)
+
+export const canvasShapeNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    shape: z.enum(['rectangle', 'ellipse', 'triangle', 'line']),
+    label: z.string().optional()
+  })
+
+export const canvasFrameNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    frameKind: z
+      .enum(['freeform', 'square', 'portrait', 'landscape'])
+      .optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional()
+  })
+
+export const canvasImageEditNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    sourceNodeId: z.string().optional(),
+    sourceUrl: z.string().optional(),
+    operations: z
+      .array(
+        z.object({
+          id: z.string(),
+          action: canvasNodeActionSchema,
+          params: z.record(z.string(), z.unknown()).optional()
+        })
+      )
+      .optional()
+  })
+
+export const canvasMockupNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    sourceNodeId: z.string().optional(),
+    sourceUrl: z.string().optional(),
+    device: z.string().optional()
+  })
+
+export const canvasVectorNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    sourceNodeId: z.string().optional(),
+    sourceUrl: z.string().optional(),
+    svg: z.string().optional()
+  })
+
+export const canvasMaskNodeDataSchema = canvasCreativeNodeBaseDataSchema.extend(
+  {
+    sourceNodeId: z.string().optional(),
+    sourceUrl: z.string().optional(),
+    maskUrl: z.string().optional()
+  }
+)
+
+export const canvasCompositionNodeDataSchema =
+  canvasCreativeNodeBaseDataSchema.extend({
+    childrenNodeIds: z.array(z.string()).optional(),
+    outputUrl: z.string().optional()
+  })
 
 export const normalResourceNodeDataSchema = z.object({
   src: z.string(),
@@ -189,6 +316,54 @@ export const projectCanvasFlowNodeSchema = z.discriminatedUnion('type', [
     type: z.literal('canvasAiImageGrid'),
     position: xyPositionSchema,
     data: imageGridNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasText'),
+    position: xyPositionSchema,
+    data: canvasTextNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasShape'),
+    position: xyPositionSchema,
+    data: canvasShapeNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasFrame'),
+    position: xyPositionSchema,
+    data: canvasFrameNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasImageEdit'),
+    position: xyPositionSchema,
+    data: canvasImageEditNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasMockup'),
+    position: xyPositionSchema,
+    data: canvasMockupNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasVector'),
+    position: xyPositionSchema,
+    data: canvasVectorNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasMask'),
+    position: xyPositionSchema,
+    data: canvasMaskNodeDataSchema
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal('canvasComposition'),
+    position: xyPositionSchema,
+    data: canvasCompositionNodeDataSchema
   })
 ])
 
@@ -212,6 +387,24 @@ export type StoryboardTableNodeData = z.infer<
   typeof storyboardTableNodeDataSchema
 >
 export type ImageGridNodeData = z.infer<typeof imageGridNodeDataSchema>
+export type CanvasNodeAction = z.infer<typeof canvasNodeActionSchema>
+export type CanvasNodeCapability = z.infer<typeof canvasNodeCapabilitySchema>
+export type CanvasNodeStyle = z.infer<typeof canvasNodeStyleSchema>
+export type CanvasCreativeNodeBaseData = z.infer<
+  typeof canvasCreativeNodeBaseDataSchema
+>
+export type CanvasTextNodeData = z.infer<typeof canvasTextNodeDataSchema>
+export type CanvasShapeNodeData = z.infer<typeof canvasShapeNodeDataSchema>
+export type CanvasFrameNodeData = z.infer<typeof canvasFrameNodeDataSchema>
+export type CanvasImageEditNodeData = z.infer<
+  typeof canvasImageEditNodeDataSchema
+>
+export type CanvasMockupNodeData = z.infer<typeof canvasMockupNodeDataSchema>
+export type CanvasVectorNodeData = z.infer<typeof canvasVectorNodeDataSchema>
+export type CanvasMaskNodeData = z.infer<typeof canvasMaskNodeDataSchema>
+export type CanvasCompositionNodeData = z.infer<
+  typeof canvasCompositionNodeDataSchema
+>
 export type ProjectCanvasFlowNode = z.infer<typeof projectCanvasFlowNodeSchema>
 export type PersistedProjectCanvas = z.infer<
   typeof persistedProjectCanvasSchema
