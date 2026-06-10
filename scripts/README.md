@@ -10,7 +10,7 @@
 - ✅ 自动计算新版本号（patch/minor/major）
 - ✅ 显示自上次发布以来的 commit 历史
 - ✅ 自动更新 `package.json` 版本号
-- ✅ 提示更新 `CHANGELOG.md`（自动打开编辑器）
+- ✅ 默认跳过文档更新，需要时可用 `--with-changelog` 打开 `CHANGELOG.md`
 - ✅ 运行完整检查（lint + typecheck + build）
 - ✅ 创建版本提交和 annotated tag
 - ✅ 推送到远程仓库触发 GitHub Actions 发布
@@ -20,6 +20,9 @@
 ```bash
 # 在项目根目录运行
 ./scripts/release.sh
+
+# 需要同步维护发布说明时
+./scripts/release.sh --with-changelog
 ```
 
 ### 发布流程
@@ -41,8 +44,8 @@
 
 4. **更新文件**
    - 自动更新 `package.json` 中的版本号
-   - 打开编辑器让你更新 `CHANGELOG.md`
-   - 提示添加日期和变更内容
+   - 默认不更新 `CHANGELOG.md`
+   - 传入 `--with-changelog` 时会打开编辑器并提示添加日期和变更内容
 
 5. **运行检查**
    - 执行 `bun run check`（lint + typecheck + build）
@@ -86,8 +89,8 @@ git reset --hard HEAD~1
 
 - **发布前**：确保所有功能已开发完成、测试通过
 - **版本号**：严格遵循 semver 规范
-- **CHANGELOG**：详细记录所有用户可见的变更
-- **破坏性变更**：在 CHANGELOG 中添加 Migration Guide
+- **CHANGELOG**：默认不是必填；面向用户的重要变更或破坏性变更再用 `--with-changelog` 记录
+- **破坏性变更**：建议在 CHANGELOG 中添加 Migration Guide
 - **频率**：小改动可以积累后一起发布，重要功能立即发布
 
 ### 故障排除

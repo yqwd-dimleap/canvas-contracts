@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Release automation script for canvas-contracts
-# Usage: ./scripts/release.sh
+# Usage: ./scripts/release.sh [--with-changelog]
 
 set -e
 
@@ -15,6 +15,33 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${BLUE}  Canvas Contracts Release Script${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+
+WITH_CHANGELOG=0
+
+show_usage() {
+  echo "Usage: ./scripts/release.sh [--with-changelog]"
+  echo ""
+  echo "Options:"
+  echo "  --with-changelog  Open CHANGELOG.md and include it in the release commit"
+  echo "  -h, --help        Show this help message"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --with-changelog)
+      WITH_CHANGELOG=1
+      ;;
+    -h|--help)
+      show_usage
+      exit 0
+      ;;
+    *)
+      echo -e "${RED}Error: Unknown option '${arg}'${NC}"
+      show_usage
+      exit 1
+      ;;
+  esac
+done
 
 # 检查是否在 git 仓库中
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -134,33 +161,37 @@ else
   npm version ${NEW_VERSION} --no-git-tag-version
 fi
 
-# 打开编辑器更新 CHANGELOG
-echo ""
-echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
-echo -e "${YELLOW}  Please update CHANGELOG.md${NC}"
-echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
-echo ""
-echo "Add a new section for [${NEW_VERSION}] with:"
-echo "  - Date: $(date +%Y-%m-%d)"
-echo "  - Added/Changed/Fixed/Breaking Changes sections"
-echo "  - Migration guide if needed"
-echo ""
+if [[ "$WITH_CHANGELOG" == "1" ]]; then
+  # 按需打开编辑器更新 CHANGELOG，默认发布流程不再强制写文档。
+  echo ""
+  echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}  Update CHANGELOG.md${NC}"
+  echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
+  echo ""
+  echo "Add a new section for [${NEW_VERSION}] with:"
+  echo "  - Date: $(date +%Y-%m-%d)"
+  echo "  - Added/Changed/Fixed/Breaking Changes sections"
+  echo "  - Migration guide if needed"
+  echo ""
 
-# 尝试打开编辑器
-if [[ -n "$EDITOR" ]]; then
-  $EDITOR CHANGELOG.md
-elif command -v code &> /dev/null; then
-  code --wait CHANGELOG.md
-elif command -v vim &> /dev/null; then
-  vim CHANGELOG.md
-elif command -v nano &> /dev/null; then
-  nano CHANGELOG.md
+  if [[ -n "$EDITOR" ]]; then
+    $EDITOR CHANGELOG.md
+  elif command -v code &> /dev/null; then
+    code --wait CHANGELOG.md
+  elif command -v vim &> /dev/null; then
+    vim CHANGELOG.md
+  elif command -v nano &> /dev/null; then
+    nano CHANGELOG.md
+  else
+    echo -e "${YELLOW}Please open CHANGELOG.md manually and update it${NC}"
+  fi
+
+  echo ""
+  read -p "CHANGELOG updated? Press Enter to continue..."
 else
-  echo -e "${YELLOW}Please open CHANGELOG.md manually and update it${NC}"
+  echo ""
+  echo -e "${GREEN}Skipping CHANGELOG.md update. Use --with-changelog to include release notes.${NC}"
 fi
-
-echo ""
-read -p "CHANGELOG updated? Press Enter to continue..."
 
 # 运行检查
 echo ""
@@ -192,15 +223,17 @@ echo -e "${GREEN}✓ Package contents verified${NC}"
 
 # 提交版本变更
 echo ""
-echo -e "${GREEN}Committing version bump and changelog...${NC}"
-git add package.json CHANGELOG.md
+echo -e "${GREEN}Committing version bump...${NC}"
+RELEASE_FILES=(package.json)
+if [[ "$WITH_CHANGELOG" == "1" ]]; then
+  RELEASE_FILES+=(CHANGELOG.md)
+fi
+git add "${RELEASE_FILES[@]}"
 git commit -m "chore(release): v${NEW_VERSION}"
 
 # 创建 annotated tag
 echo -e "${GREEN}Creating annotated tag v${NEW_VERSION}...${NC}"
-git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}
-
-See CHANGELOG.md for details."
+git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
 
 # 显示即将推送的内容
 echo ""
