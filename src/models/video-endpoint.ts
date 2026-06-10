@@ -14,6 +14,7 @@ export type VideoModelPayloadType =
   | 'wan-r2v'
   | 'wan27-i2v'
   | 'wan27-r2v'
+  | 'seedance-content-task'
   | 'video-edit'
 
 export interface VideoModelConfig {
@@ -51,6 +52,14 @@ const VIDEO_MODEL_CONFIGS: Record<string, VideoModelConfig> = {
 }
 
 const VIDEO_MODEL_PATTERN_CONFIGS: VideoModelConfig[] = [
+  {
+    pattern: /seedance/i,
+    payloadType: 'seedance-content-task',
+    requiresImage: false,
+    defaultDuration: 5,
+    supportsMultipleImages: true,
+    apiEndpoint: VIDEO_SYNTHESIS_ENDPOINT
+  },
   {
     pattern: /video-edit|video_edit|videoedit/i,
     payloadType: 'video-edit',

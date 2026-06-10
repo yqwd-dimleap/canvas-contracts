@@ -36,3 +36,4 @@ export * from './server-authz.js'
 // Session schemas
 export * from './session.js'
 export * from './user-context.js'
+export * from './user-settings.js'

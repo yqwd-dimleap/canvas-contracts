@@ -36,7 +36,10 @@ export const videoReferenceMediaSchema = z
       'reference_image',
       'reference_video',
       'first_frame',
+      'last_frame',
+      'reference_audio',
       'driving_audio',
+      'audio',
       'video'
     ]),
     url: z.string(),
@@ -75,6 +78,34 @@ export const videoGenerationParamsSchema = z
     /** 是否开启提示词扩展 */
     promptExtend: z.boolean().optional(),
     /** 是否添加水印 */
-    watermark: z.boolean().optional()
+    watermark: z.boolean().optional(),
+    /** 火山 Seedance: 官方 content[] 原始结构 */
+    content: z.array(z.record(z.string(), z.unknown())).optional(),
+    /** 火山 Seedance: 视频宽高比 */
+    ratio: z.string().optional(),
+    /** 火山 Seedance: 随机数种子 */
+    seed: z.number().int().optional(),
+    /** 火山 Seedance: 是否固定摄像头 */
+    cameraFixed: z.boolean().optional(),
+    camera_fixed: z.boolean().optional(),
+    /** 火山 Seedance: 是否生成同步音频 */
+    generateAudio: z.boolean().optional(),
+    generate_audio: z.boolean().optional(),
+    /** 火山 Seedance: 是否返回尾帧 */
+    returnLastFrame: z.boolean().optional(),
+    return_last_frame: z.boolean().optional(),
+    /** 火山 Seedance: 回调地址 */
+    callbackUrl: z.string().optional(),
+    callback_url: z.string().optional(),
+    /** 火山 Seedance: 任务超时阈值（秒） */
+    executionExpiresAfter: z.number().int().optional(),
+    execution_expires_after: z.number().int().optional(),
+    /** 火山 Seedance: 执行优先级 */
+    priority: z.number().int().optional(),
+    /** 火山 Seedance: 终端用户唯一标识 */
+    safetyIdentifier: z.string().optional(),
+    safety_identifier: z.string().optional(),
+    /** 火山 Seedance: 工具配置 */
+    tools: z.array(z.record(z.string(), z.unknown())).optional()
   })
   .loose()

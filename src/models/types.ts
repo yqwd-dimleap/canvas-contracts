@@ -132,6 +132,7 @@ export interface ImageGatewayPayload {
 /** 网关 Payload（视频）—— builder 输出，对接 AI 网关 */
 export interface VideoGatewayPayload {
   model: string
+  content?: Array<Record<string, unknown>>
   prompt?: string
   duration?: number
   seconds?: string

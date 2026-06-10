@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { agentProfileSummarySchema } from '../agent/profiles.js'
+import { agentSkillIdSchema } from '../agent/skills.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
 import {
   canvasContextSchema,
@@ -109,6 +110,8 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
 export const canvasAgentBaseRequestSchema = z.object({
   projectId: z.string().nullable().optional(),
   profileId: z.string().nullable().optional(),
+  /** 智能推荐的模型ID（优先于 profileId） */
+  modelId: z.string().optional(),
   canvas: canvasContextSchema,
   selection: canvasSelectionSchema
 })
@@ -122,7 +125,14 @@ export const canvasPlanRequestSchema = canvasAgentBaseRequestSchema.extend({
 })
 
 export const canvasRunRequestSchema = canvasPlanRequestSchema.extend({
-  conversation: z.array(canvasAgentConversationMessageSchema).max(24).optional()
+  conversation: z
+    .array(canvasAgentConversationMessageSchema)
+    .max(24)
+    .optional(),
+  /** 选中的技能：注入到规划/对话系统提示，引导 agent 行为侧重。 */
+  skillId: agentSkillIdSchema.optional(),
+  /** 是否开启思考模式（真·reasoning，透传到网关 reasoning_effort）。 */
+  thinkingEnabled: z.boolean().optional()
 })
 
 export const canvasExecuteRequestSchema = z.object({
