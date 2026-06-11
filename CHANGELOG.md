@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-06-11
+
+首个正式版本。冻结跨服务 API 契约表面，作为 canvas-frontend / canvas-agent
+共享的单一真相源。自此遵循语义化版本：新增取值用 minor，移除/收紧用 major。
+
+### Added
+
+- **模型分类归一化工具（`agent/model-category`）**：把"网关模型 id + 元数据 →
+  modelCategory（image/video/chat/embedding/audio/other）"的启发式上移至 `agent`
+  子路径，作为前后端单一真相源（原先前端 `helpers/models` 与 canvas-agent
+  `routes/user` 各维护一份且已漂移）。导出 `categorizeGatewayModel`、
+  `categorizeModelId`、`getEffectiveModelCategory`（metadata.modelKind 覆盖优先）、
+  `isImageGenerationModelId` / `isVideoGenerationModelId` / `isImageToVideoModelId` /
+  `isVideoEditModelId`、`MODEL_CATEGORY_ORDER` 及相关 metadata 键常量。
+
+### Breaking
+
+- **删除未使用的"直接生成"死合约（`generation`）**：移除前后端均零引用、且约束与
+  实际链路冲突的 `imageGenerationRequest/Result/Response`、
+  `videoGenerationRequest/Result/Response`、`generationStatusRequest/Response`
+  及其类型。这些 schema 的 size/quality/resolution 取值与实际在用的 `canvas` 域
+  （`presetSizeOptionSchema` 8 值、`imageQualitySchema`、`videoResolution` 自由值）
+  矛盾，保留会误导。**实际在用的 `generationTask*` 体系与统一状态枚举
+  `generationTaskStatusSchema`（`pending|polling|completed|failed`）保留不变。**
+- **`agentChatResponseSchema` 类型化（`agent`）**：`content` 由 `z.unknown()` 收紧为
+  `chatMessageContentSchema`（`string | 多模态片段数组`）；`messages` 由
+  `z.array(z.unknown())` 收紧为 `z.array(agentChatMessageSchema)`（`{ role?, content }`，
+  `.loose()` 以容纳底层 LangChain `BaseMessage` 的额外字段）。新增导出
+  `AgentChatMessage` 类型。
+
+### Changed
+
+- **时间戳 schema 去重**：原先 `auth` / `agent` / `billing` 各自定义的
+  `timestampSchema`（Date→epoch ms 预处理）统一收敛到内部 `shared/timestamp`，
+  新增 `nullableTimestampSchema`（用于 `userBilling.renewsAt` 等可空时间戳）。
+  行为等价（取最健壮的 Date+ISO 字符串 → number 归一），非破坏性。
+- **视频分辨率大小写统一（`models/registry`）**：修正 `wan` registry 中
+  `defaults.size` / payload 兜底用小写 `'720p'` 而其自身规范化 `wanResolution`
+  产出大写的内部矛盾，统一为大写 `'720P'`。其余 provider（seedance/kling/runway、
+  happyhorse）的网关 payload 大小写按各自网关 API 要求保持不变。
+
+### Stability
+
+- 导出表面：`.`、`./admin`、`./agent`、`./api`、`./auth`、`./billing`、
+  `./canvas`、`./generation`、`./models`、`./rag`、`./workflow` 共 11 个子路径，
+  类型与运行时 schema 均可解析。
+- 模型 id 枚举与默认模型常量（`canvas/generation`、`models/registry`）视为 v1
+  基线快照：新增模型走 minor，弃用先标注、移除走 major。
+
 ## [0.5.2] - 2026-06-05
 - **删除bun.lock文件，使用bun.lockb二进制，并解决每次提交依赖变更导致的lockfile is frozen错误
 

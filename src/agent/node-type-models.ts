@@ -1,14 +1,6 @@
 import { z } from 'zod'
 import { projectCanvasNodeTypeSchema } from '../canvas/workflow.js'
-
-/**
- * 时间戳：统一以 epoch 毫秒（number）表示。
- * 兼容历史/跨服务写入的 BSON Date（前端 Mongo repo 曾写入 Date）。
- */
-const timestampSchema = z.preprocess(
-  (value) => (value instanceof Date ? value.getTime() : value),
-  z.number()
-)
+import { timestampSchema } from '../shared/timestamp.js'
 
 /**
  * node_type_models：某个**画布节点类型**（canvasAiImage / canvasAiVideo …）下，

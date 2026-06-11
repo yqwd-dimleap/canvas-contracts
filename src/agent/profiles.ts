@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { timestampSchema } from '../shared/timestamp.js'
 
 export const agentProfileTaskSchema = z.enum([
   'chat',
@@ -35,16 +36,6 @@ export const modelCategorySchema = z.enum([
 
 /** 模型类别的稳定顺序（UI 分组/迭代用）。顺序即枚举声明顺序。 */
 export const MODEL_CATEGORIES = modelCategorySchema.options
-
-/**
- * 时间戳：统一以 epoch 毫秒（number）表示。
- * 兼容历史/跨服务写入的 BSON Date（前端 Mongo repo 曾写入 Date），
- * 读取时强制归一为 number，避免 `expected number, received Date`。
- */
-const timestampSchema = z.preprocess(
-  (value) => (value instanceof Date ? value.getTime() : value),
-  z.number()
-)
 
 export const modelProviderModelSchema = z.object({
   id: z.string().min(1),

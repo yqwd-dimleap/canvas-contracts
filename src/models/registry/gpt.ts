@@ -4,6 +4,16 @@ import type {
   ModelRegistration
 } from '../types.js'
 
+const COMPRESSIBLE_OUTPUT_FORMATS = new Set(['jpeg', 'webp'])
+
+function outputCompressionFor(
+  params: ImageGenerationParams
+): number | undefined {
+  const outputFormat = (params.output_format ?? 'png').toLowerCase()
+  if (!COMPRESSIBLE_OUTPUT_FORMATS.has(outputFormat)) return undefined
+  return params.output_compression
+}
+
 /**
  * GPT Image 系列模型
  * 官方文档: https://platform.openai.com/docs/api-reference/images/create
@@ -51,7 +61,7 @@ export const gptImage2Model: ModelRegistration = {
       quality: params.quality, // auto, high, medium, low
       background: params.background, // transparent, opaque, auto
       output_format: params.output_format, // png, jpeg, webp
-      output_compression: params.output_compression, // 0-100
+      output_compression: outputCompressionFor(params), // 0-100, webp/jpeg only
       // 注意: gpt-image-2 不支持 response_format (总是返回 base64)
       // 注意: edits 模式下会使用 image 参数
       image: params.image
@@ -98,7 +108,7 @@ export const gptImage1Model: ModelRegistration = {
       quality: params.quality,
       background: params.background,
       output_format: params.output_format,
-      output_compression: params.output_compression
+      output_compression: outputCompressionFor(params)
     }
   }
 }
@@ -142,7 +152,7 @@ export const gptImage1_5Model: ModelRegistration = {
       quality: params.quality,
       background: params.background,
       output_format: params.output_format,
-      output_compression: params.output_compression
+      output_compression: outputCompressionFor(params)
     }
   }
 }

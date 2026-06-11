@@ -1,15 +1,7 @@
 import { z } from 'zod'
 import { modelCategorySchema } from '../agent/profiles.js'
 import { projectCanvasNodeTypeSchema } from '../canvas/workflow.js'
-
-const timestampSchema = z.preprocess((value) => {
-  if (value instanceof Date) return value.getTime()
-  if (typeof value === 'string') {
-    const time = new Date(value).getTime()
-    return Number.isFinite(time) ? time : value
-  }
-  return value
-}, z.number())
+import { timestampSchema } from '../shared/timestamp.js'
 
 export const userNotificationSettingsSchema = z.object({
   email: z.boolean().default(true),

@@ -37,7 +37,7 @@ export const wan25T2VModel: ModelRegistration = {
     },
     defaults: {
       duration: 5,
-      size: '720p'
+      size: '720P'
     }
   },
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
@@ -46,7 +46,7 @@ export const wan25T2VModel: ModelRegistration = {
       model: params.model,
       prompt: params.prompt,
       duration,
-      size: params.size ?? '720p'
+      size: params.size ?? '720P'
     }
   }
 }
@@ -74,7 +74,7 @@ export const wan26I2VModel: ModelRegistration = {
     },
     defaults: {
       duration: 5,
-      size: '720p'
+      size: '720P'
     }
   },
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
@@ -83,7 +83,7 @@ export const wan26I2VModel: ModelRegistration = {
       model: params.model,
       prompt: params.prompt,
       duration,
-      size: params.size ?? '720p',
+      size: params.size ?? '720P',
       input: { img_url: params.imgUrl },
       image: params.imgUrl
     }
@@ -113,7 +113,7 @@ export const wan26R2VModel: ModelRegistration = {
     },
     defaults: {
       duration: 5,
-      size: '720p'
+      size: '720P'
     }
   },
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
@@ -123,7 +123,7 @@ export const wan26R2VModel: ModelRegistration = {
       model: params.model,
       prompt: params.prompt,
       seconds,
-      size: params.size ?? '720p',
+      size: params.size ?? '720P',
       metadata: {
         input: {
           reference_urls: [params.imgUrl]

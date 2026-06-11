@@ -1,3 +1,4 @@
+export * from './model-category.js'
 export * from './node-type-model-preferences.js'
 export * from './node-type-models.js'
 export * from './profiles.js'

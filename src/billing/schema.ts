@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  nullableTimestampSchema,
+  timestampSchema
+} from '../shared/timestamp.js'
 
 /**
  * 计费相关 schema（user_billing / usage_event）。
@@ -6,13 +10,8 @@ import { z } from 'zod'
  * 单一真相源：前端（Next 路由 + 充值/订阅 webhook）与 canvas-agent（生成扣费）
  * 共读写同一 Mongo app 库的这两个集合，schema 收敛到此处，避免二次定义。
  *
- * 时间戳统一 epoch 毫秒（number）。兼容历史/跨服务写入的 BSON Date
- * （前端旧 Mongo repo 曾写 Date），读取时归一为 number。
+ * 时间戳统一 epoch 毫秒（number），见 ../shared/timestamp。
  */
-const timestampSchema = z.preprocess(
-  (value) => (value instanceof Date ? value.getTime() : value),
-  z.number()
-)
 
 /** user_billing：用户额度与套餐状态。文档 _id = userId（agent repo 映射为 id）。 */
 export const userBillingSchema = z.object({
@@ -21,10 +20,7 @@ export const userBillingSchema = z.object({
   status: z.string().default('active'),
   credits: z.number().default(0),
   monthlyCreditLimit: z.number().default(100),
-  renewsAt: z.preprocess(
-    (v) => (v instanceof Date ? v.getTime() : v),
-    z.number().nullable()
-  ),
+  renewsAt: nullableTimestampSchema,
   metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: timestampSchema,
   updatedAt: timestampSchema
@@ -62,3 +58,29 @@ export type UsageEvent = z.infer<typeof usageEventSchema>
 
 /** 生成可用的计费状态集合（生成扣费前校验）。 */
 export const GENERATION_ALLOWED_STATUSES = ['active', 'trialing'] as const
+
+/** 可配置的非媒体生成操作。模型级生成仍由 model_providers.models[].creditsPerImage 控制。 */
+export const creditOperationIdSchema = z.enum([
+  'agent.chat',
+  'canvas.plan',
+  'canvas.run',
+  'prompt.improve',
+  'prompt.script_split',
+  'result.review',
+  'node.repair'
+])
+
+export type CreditOperationId = z.infer<typeof creditOperationIdSchema>
+
+export const creditOperationConfigSchema = z.object({
+  id: creditOperationIdSchema,
+  label: z.string().min(1),
+  description: z.string().default(''),
+  credits: z.number().min(0).default(1),
+  enabled: z.boolean().default(true),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema
+})
+
+export type CreditOperationConfig = z.infer<typeof creditOperationConfigSchema>
