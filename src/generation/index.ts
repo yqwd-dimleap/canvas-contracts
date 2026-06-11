@@ -29,6 +29,12 @@ export const generationTaskTypeSchema = z.enum(['image', 'video'])
 
 export const generationTaskResultSchema = z.object({
   url: z.string().optional(),
+  // Lightweight derivatives surfaced before/while the full asset uploads.
+  posterUrl: z.string().optional(),
+  previewUrl: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  durationMs: z.number().optional(),
   errorInfo: z.string().optional()
 })
 

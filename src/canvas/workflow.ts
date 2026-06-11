@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { canvasDocumentSchema } from './document.js'
 import {
   base64ImageSourceSchema,
   canvasNodeGenerationConfigSchema,
@@ -125,8 +126,13 @@ export const canvasFrameNodeDataSchema =
 
 export const canvasImageEditNodeDataSchema =
   canvasCreativeNodeBaseDataSchema.extend({
+    documentId: z.string().optional(),
     sourceNodeId: z.string().optional(),
+    sourceResourceId: z.string().nullable().optional(),
     sourceUrl: z.string().optional(),
+    previewUrl: z.string().nullable().optional(),
+    outputUrl: z.string().nullable().optional(),
+    outputResourceId: z.string().nullable().optional(),
     operations: z
       .array(
         z.object({
@@ -370,7 +376,8 @@ export const projectCanvasFlowNodeSchema = z.discriminatedUnion('type', [
 export const persistedProjectCanvasSchema = z.object({
   mediaEntries: z.array(canvasMediaEntrySchema),
   nodes: z.array(projectCanvasFlowNodeSchema),
-  edges: z.array(z.record(z.string(), z.unknown()))
+  edges: z.array(z.record(z.string(), z.unknown())),
+  canvasDocuments: z.array(canvasDocumentSchema).default([])
 })
 
 export type ProjectCanvasNodeType = z.infer<typeof projectCanvasNodeTypeSchema>

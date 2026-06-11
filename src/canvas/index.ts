@@ -1,4 +1,5 @@
 export * from './context.js'
+export * from './document.js'
 export * from './edge.js'
 export * from './generation.js'
 export * from './media.js'
