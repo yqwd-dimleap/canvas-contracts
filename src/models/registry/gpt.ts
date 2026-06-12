@@ -33,6 +33,7 @@ export const gptImage2Model: ModelRegistration = {
     category: 'image',
     capabilities: {
       textToMedia: true,
+      imageEdit: true,
       imageToVideo: false,
       multipleImages: false, // 支持 n=1-10，但不是"多图参考"
       videoEdit: false,
@@ -80,6 +81,7 @@ export const gptImage1Model: ModelRegistration = {
     category: 'image',
     capabilities: {
       textToMedia: true,
+      imageEdit: true,
       imageToVideo: false,
       multipleImages: false,
       videoEdit: false,
@@ -124,6 +126,7 @@ export const gptImage1_5Model: ModelRegistration = {
     category: 'image',
     capabilities: {
       textToMedia: true,
+      imageEdit: true,
       imageToVideo: false,
       multipleImages: false,
       videoEdit: false,

@@ -15,6 +15,7 @@ export const qwenImageModel: ModelRegistration = {
     category: 'image',
     capabilities: {
       textToMedia: true,
+      imageEdit: true,
       imageToVideo: false,
       multipleImages: false,
       videoEdit: false,
@@ -84,6 +85,7 @@ export const nanoBanana2Model: ModelRegistration = {
     category: 'image',
     capabilities: {
       textToMedia: true,
+      imageEdit: true,
       imageToVideo: false,
       multipleImages: false,
       videoEdit: false,

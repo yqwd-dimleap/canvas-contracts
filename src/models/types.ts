@@ -12,6 +12,8 @@ export type ModelCategory = 'image' | 'video'
 export interface ModelCapabilities {
   /** 是否支持文生图/视频 */
   textToMedia: boolean
+  /** 是否支持图生图 / 图片编辑 */
+  imageEdit?: boolean
   /** 是否支持图生视频（首帧模式） */
   imageToVideo: boolean
   /** 是否支持多图参考（参考图模式） */

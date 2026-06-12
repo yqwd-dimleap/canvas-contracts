@@ -11,11 +11,7 @@ import {
   happyHorseT2VModel,
   happyHorseVideoEditVModel
 } from './registry/happyhorse.js'
-import {
-  doubaoSeedanceModel,
-  klingV21Model,
-  runwayGen3Model
-} from './registry/others.js'
+import { klingV21Model, runwayGen3Model } from './registry/others.js'
 import { nanoBanana2Model, qwenImageModel } from './registry/qwen.js'
 import {
   wan25T2VModel,
@@ -186,7 +182,7 @@ export { ModelRegistry }
 
 export const DEFAULT_PROMPT_GENERATION_MODEL = 'gpt-5.4'
 export const DEFAULT_IMAGE_GENERATION_MODEL = 'gpt-image-2'
-export const DEFAULT_VIDEO_GENERATION_MODEL = 'happyhorse-1.0-t2v'
+export const DEFAULT_VIDEO_GENERATION_MODEL = 'wan2.7-i2v'
 
 /** 注册全部静态模型（单例初始化时调用） */
 export function registerStaticModels(): void {
@@ -209,8 +205,7 @@ export function registerStaticModels(): void {
     wan27R2VModel,
     wan27VideoEditVModel,
     klingV21Model,
-    runwayGen3Model,
-    doubaoSeedanceModel
+    runwayGen3Model
   ])
 }
 

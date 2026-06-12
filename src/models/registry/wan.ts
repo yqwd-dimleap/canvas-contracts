@@ -221,7 +221,7 @@ export const wan27R2VModel: ModelRegistration = {
       imageToVideo: true,
       multipleImages: true,
       videoEdit: false,
-      videoMerge: false,
+      videoMerge: true,
       maxReferenceImages: 5
     },
     supportedParams: {

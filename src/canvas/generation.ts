@@ -27,7 +27,6 @@ export const imageGenerationModelSchema = z.enum([
   'happyhorse-1.0-i2v',
   'happyhorse-1.0-r2v',
   'happyhorse-1.0-t2v',
-  'doubao-seedance-2-0-260128',
   'kling-v2-1-master',
   'runway-gen3-alpha-turbo'
 ])

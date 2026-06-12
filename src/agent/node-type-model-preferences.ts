@@ -4,7 +4,7 @@
  * 根据画布节点类型自动选择最优模型，而不是让用户手动选择。
  * 优化原则：
  * - image 节点优先用 gpt-image-2
- * - video 节点优先用 doubao-seedance-2-0-260128 (Seedance 2.0)
+ * - video 节点优先用 Wan 2.7 I2V；纯文生视频优先 HappyHorse T2V
  */
 
 import type { ProjectCanvasNodeType } from '../canvas/workflow.js'
@@ -16,6 +16,21 @@ export interface NodeTypeModelPreference {
   /** 推荐模型列表（按优先级排序） */
   preferredModels: string[]
   /** 模型类别 */
+  category: ModelCategory
+}
+
+export type GenerationUseCase =
+  | 'text-to-image'
+  | 'image-to-image'
+  | 'image-edit'
+  | 'text-to-video'
+  | 'image-to-video'
+  | 'video-edit'
+  | 'video-merge'
+
+export interface GenerationUseCaseModelPreference {
+  useCase: GenerationUseCase
+  preferredModels: string[]
   category: ModelCategory
 }
 
@@ -39,17 +54,16 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
       'gpt-image-1'
     ]
   },
-  // 视频生成节点 - 优先 Seedance 2.0
+  // 视频生成节点 - 优先当前可用 Wan / HappyHorse / Kling / Runway
   {
     nodeType: 'canvasAiVideo',
     category: 'video',
     preferredModels: [
-      'doubao-seedance-2-0-260128', // Seedance 2.0
-      'happyhorse-1.0-t2v',
       'wan2.7-i2v',
       'wan2.7-r2v',
-      'kling-v2.1',
-      'runway-gen3'
+      'happyhorse-1.0-t2v',
+      'kling-v2-1-master',
+      'runway-gen3-alpha-turbo'
     ]
   },
   // 文案生成节点
@@ -74,12 +88,7 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
   {
     nodeType: 'canvasAiImageGrid',
     category: 'video',
-    preferredModels: [
-      'wan2.7-i2v',
-      'doubao-seedance-2-0-260128',
-      'happyhorse-1.0-i2v',
-      'happyhorse-1.0-t2v'
-    ]
+    preferredModels: ['wan2.7-i2v', 'happyhorse-1.0-i2v', 'happyhorse-1.0-t2v']
   },
   // 分镜表节点 - 同图片生成
   {
@@ -101,6 +110,84 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
 ]
 
 /**
+ * 生成场景到模型的推荐映射。
+ *
+ * 保持只引用 `models/registry` 中已经注册的模型 id；运行时仍会优先尊重
+ * 后台 node_type_models / 用户偏好，这里用于 planner、UI 文案和兜底选择。
+ */
+export const GENERATION_USE_CASE_MODEL_PREFERENCES: GenerationUseCaseModelPreference[] =
+  [
+    {
+      useCase: 'text-to-image',
+      category: 'image',
+      preferredModels: [
+        'gpt-image-2',
+        'gpt-image-2-vip',
+        'gpt-image-1.5',
+        'qwen-image-2.0',
+        'nano-banana-2',
+        'qwen-image-1.0',
+        'gpt-image-1'
+      ]
+    },
+    {
+      useCase: 'image-to-image',
+      category: 'image',
+      preferredModels: [
+        'gpt-image-2',
+        'qwen-image-2.0',
+        'nano-banana-2',
+        'gpt-image-1.5',
+        'gpt-image-1'
+      ]
+    },
+    {
+      useCase: 'image-edit',
+      category: 'image',
+      preferredModels: [
+        'gpt-image-2',
+        'qwen-image-2.0',
+        'nano-banana-2',
+        'gpt-image-1.5',
+        'gpt-image-1'
+      ]
+    },
+    {
+      useCase: 'text-to-video',
+      category: 'video',
+      preferredModels: [
+        'happyhorse-1.0-t2v',
+        'wan2.5-t2v-preview',
+        'kling-v2-1-master',
+        'runway-gen3-alpha-turbo'
+      ]
+    },
+    {
+      useCase: 'image-to-video',
+      category: 'video',
+      preferredModels: [
+        'wan2.7-i2v',
+        'wan2.7-r2v',
+        'wan2.6-i2v',
+        'happyhorse-1.0-i2v',
+        'happyhorse-1.0-r2v',
+        'kling-v2-1-master',
+        'runway-gen3-alpha-turbo'
+      ]
+    },
+    {
+      useCase: 'video-edit',
+      category: 'video',
+      preferredModels: ['wan2.7-videoedit', 'happyhorse-1.0-video-edit']
+    },
+    {
+      useCase: 'video-merge',
+      category: 'video',
+      preferredModels: ['wan2.7-r2v', 'happyhorse-1.0-r2v']
+    }
+  ]
+
+/**
  * 根据节点类型获取推荐模型列表
  */
 export function getPreferredModelsForNodeType(
@@ -108,6 +195,21 @@ export function getPreferredModelsForNodeType(
 ): string[] {
   const pref = NODE_TYPE_MODEL_PREFERENCES.find((p) => p.nodeType === nodeType)
   return pref?.preferredModels ?? []
+}
+
+export function getPreferredModelsForGenerationUseCase(
+  useCase: GenerationUseCase
+): string[] {
+  const pref = GENERATION_USE_CASE_MODEL_PREFERENCES.find(
+    (item) => item.useCase === useCase
+  )
+  return pref?.preferredModels ?? []
+}
+
+export function getDefaultModelForGenerationUseCase(
+  useCase: GenerationUseCase
+): string | undefined {
+  return getPreferredModelsForGenerationUseCase(useCase)[0]
 }
 
 /**

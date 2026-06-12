@@ -133,6 +133,7 @@ export const canvasImageEditNodeDataSchema =
     previewUrl: z.string().nullable().optional(),
     outputUrl: z.string().nullable().optional(),
     outputResourceId: z.string().nullable().optional(),
+    errorMessage: z.string().optional(),
     operations: z
       .array(
         z.object({
@@ -207,6 +208,8 @@ export const aiVideoNodeDataSchema = z.object({
   title: z.string().optional(),
   hint: z.string().optional(),
   thumbnailSrc: z.string().optional(),
+  videoAssetId: z.string().nullable().optional(),
+  videoModelUrl: z.string().nullable().optional(),
   durationLabel: z.string().optional(),
   errorMessage: z.string().optional(),
   seedPrompt: z.string().optional(),
