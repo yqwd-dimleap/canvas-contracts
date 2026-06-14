@@ -110,6 +110,8 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
 export const canvasAgentBaseRequestSchema = z.object({
   projectId: z.string().nullable().optional(),
   profileId: z.string().nullable().optional(),
+  /** Client-selected i18n locale used for user-facing generated text. */
+  locale: z.string().trim().min(2).max(16).optional(),
   /** 智能推荐的模型ID（优先于 profileId） */
   modelId: z.string().optional(),
   canvas: canvasContextSchema,
