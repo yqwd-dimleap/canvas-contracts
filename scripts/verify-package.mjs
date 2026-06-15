@@ -21,6 +21,7 @@ const requiredExports = [
   './generation',
   './models',
   './rag',
+  './storage',
   './workflow'
 ]
 
@@ -32,6 +33,8 @@ const requiredFiles = [
   'package/dist/billing/index.d.ts',
   'package/dist/models/index.js',
   'package/dist/models/index.d.ts',
+  'package/dist/storage/index.js',
+  'package/dist/storage/index.d.ts',
   'package/dist/workflow/index.js',
   'package/dist/workflow/index.d.ts',
   'package/dist/workflow/run.js',

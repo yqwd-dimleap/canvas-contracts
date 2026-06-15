@@ -25,7 +25,9 @@ export const imageGenerationParamsSchema = z
     /** Qwen: 是否添加水印，默认 false */
     watermark: z.boolean().optional(),
     /** Qwen: 随机数种子 [0, 2147483647] */
-    seed: z.number().optional()
+    seed: z.number().optional(),
+    /** Frontend project id; used by agent-side asset registration only. */
+    projectId: z.string().min(1).max(128).nullable().optional()
   })
   .loose()
 
@@ -106,6 +108,8 @@ export const videoGenerationParamsSchema = z
     safetyIdentifier: z.string().optional(),
     safety_identifier: z.string().optional(),
     /** 火山 Seedance: 工具配置 */
-    tools: z.array(z.record(z.string(), z.unknown())).optional()
+    tools: z.array(z.record(z.string(), z.unknown())).optional(),
+    /** Frontend project id; used by agent-side asset registration only. */
+    projectId: z.string().min(1).max(128).nullable().optional()
   })
   .loose()

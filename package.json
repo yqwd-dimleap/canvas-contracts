@@ -50,6 +50,10 @@
       "types": "./dist/rag/index.d.ts",
       "import": "./dist/rag/index.js"
     },
+    "./storage": {
+      "types": "./dist/storage/index.d.ts",
+      "import": "./dist/storage/index.js"
+    },
     "./workflow": {
       "types": "./dist/workflow/index.d.ts",
       "import": "./dist/workflow/index.js"
