@@ -18,6 +18,7 @@ export const imageGenerationModelSchema = z.enum([
   'gpt-image-2-flatfee',
   'gpt-image-2-vip',
   'qwen-image-2.0',
+  'qwen-image-2.0-pro',
   'nano-banana-2',
   'wan2.5-t2v-preview',
   'wan2.6-i2v',

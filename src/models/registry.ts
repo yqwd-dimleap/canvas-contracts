@@ -12,7 +12,11 @@ import {
   happyHorseVideoEditVModel
 } from './registry/happyhorse.js'
 import { klingV21Model, runwayGen3Model } from './registry/others.js'
-import { nanoBanana2Model, qwenImageModel } from './registry/qwen.js'
+import {
+  nanoBanana2Model,
+  qwenImage2ProModel,
+  qwenImageModel
+} from './registry/qwen.js'
 import {
   wan25T2VModel,
   wan26I2VModel,
@@ -188,6 +192,7 @@ export const DEFAULT_VIDEO_GENERATION_MODEL = 'wan2.7-i2v'
 export function registerStaticModels(): void {
   modelRegistry.registerAll([
     qwenImageModel,
+    qwenImage2ProModel,
     gptImage1Model,
     gptImage1_5Model,
     gptImage2Model,

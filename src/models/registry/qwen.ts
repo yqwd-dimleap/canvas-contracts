@@ -77,6 +77,15 @@ export const qwenImageModel: ModelRegistration = {
   }
 }
 
+export const qwenImage2ProModel: ModelRegistration = {
+  metadata: {
+    ...qwenImageModel.metadata,
+    id: 'qwen-image-2.0-pro',
+    displayName: 'Qwen Image 2.0 Pro'
+  },
+  buildImagePayload: qwenImageModel.buildImagePayload
+}
+
 /** Nano Banana 2 模型 */
 export const nanoBanana2Model: ModelRegistration = {
   metadata: {
