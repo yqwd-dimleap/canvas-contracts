@@ -21,8 +21,10 @@ import {
   wan25T2VModel,
   wan26I2VModel,
   wan26R2VModel,
+  wan26T2VModel,
   wan27I2VModel,
   wan27R2VModel,
+  wan27T2VModel,
   wan27VideoEditVModel
 } from './registry/wan.js'
 import type {
@@ -184,9 +186,31 @@ export const modelRegistry = new ModelRegistry()
 /** 便捷导出 */
 export { ModelRegistry }
 
-export const DEFAULT_PROMPT_GENERATION_MODEL = 'gpt-5.4'
+export const DEFAULT_PROMPT_GENERATION_MODEL = 'deepseek-v4-pro'
 export const DEFAULT_IMAGE_GENERATION_MODEL = 'gpt-image-2'
 export const DEFAULT_VIDEO_GENERATION_MODEL = 'wan2.7-i2v'
+
+export const CANVAS_VIDEO_GENERATION_MODEL_IDS = [
+  'wan2.6-i2v',
+  'wan2.6-r2v',
+  'wan2.6-t2v',
+  'wan2.7-r2v',
+  'wan2.7-i2v',
+  'wan2.7-t2v',
+  'happyhorse-1.0-i2v',
+  'happyhorse-1.0-video-edit'
+] as const
+
+export type CanvasVideoGenerationModelId =
+  (typeof CANVAS_VIDEO_GENERATION_MODEL_IDS)[number]
+
+const CANVAS_VIDEO_GENERATION_MODEL_ID_SET = new Set<string>(
+  CANVAS_VIDEO_GENERATION_MODEL_IDS
+)
+
+export function isCanvasVideoGenerationModel(modelId: string): boolean {
+  return CANVAS_VIDEO_GENERATION_MODEL_ID_SET.has(modelId.trim())
+}
 
 /** 注册全部静态模型（单例初始化时调用） */
 export function registerStaticModels(): void {
@@ -204,8 +228,10 @@ export function registerStaticModels(): void {
     happyHorseR2VModel,
     happyHorseVideoEditVModel,
     wan25T2VModel,
+    wan26T2VModel,
     wan26I2VModel,
     wan26R2VModel,
+    wan27T2VModel,
     wan27I2VModel,
     wan27R2VModel,
     wan27VideoEditVModel,

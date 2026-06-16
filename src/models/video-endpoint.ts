@@ -9,6 +9,8 @@ export const VIDEO_SYNTHESIS_ENDPOINT =
 
 export type VideoModelPayloadType =
   | 'standard'
+  | 'wan-t2v'
+  | 'wan-i2v'
   | 'happyhorse-i2v'
   | 'happyhorse-r2v'
   | 'wan-r2v'
@@ -52,6 +54,30 @@ const VIDEO_MODEL_CONFIGS: Record<string, VideoModelConfig> = {
 }
 
 const VIDEO_MODEL_PATTERN_CONFIGS: VideoModelConfig[] = [
+  {
+    pattern: /wan2\.[67].*t2v/i,
+    payloadType: 'wan-t2v',
+    requiresImage: false,
+    defaultDuration: 10,
+    supportsMultipleImages: false,
+    apiEndpoint: VIDEO_SYNTHESIS_ENDPOINT
+  },
+  {
+    pattern: /wan2\.6.*r2v/i,
+    payloadType: 'wan-r2v',
+    requiresImage: true,
+    defaultDuration: 5,
+    supportsMultipleImages: true,
+    apiEndpoint: VIDEO_SYNTHESIS_ENDPOINT
+  },
+  {
+    pattern: /wan2\.6.*i2v/i,
+    payloadType: 'wan-i2v',
+    requiresImage: true,
+    defaultDuration: 5,
+    supportsMultipleImages: false,
+    apiEndpoint: VIDEO_SYNTHESIS_ENDPOINT
+  },
   {
     pattern: /seedance/i,
     payloadType: 'seedance-content-task',

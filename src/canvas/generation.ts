@@ -23,11 +23,14 @@ export const imageGenerationModelSchema = z.enum([
   'wan2.5-t2v-preview',
   'wan2.6-i2v',
   'wan2.6-r2v',
+  'wan2.6-t2v',
   'wan2.7-i2v',
   'wan2.7-r2v',
+  'wan2.7-t2v',
   'happyhorse-1.0-i2v',
   'happyhorse-1.0-r2v',
   'happyhorse-1.0-t2v',
+  'happyhorse-1.0-video-edit',
   'kling-v2-1-master',
   'runway-gen3-alpha-turbo'
 ])

@@ -4,7 +4,7 @@
  * 根据画布节点类型自动选择最优模型，而不是让用户手动选择。
  * 优化原则：
  * - image 节点优先用 gpt-image-2
- * - video 节点优先用 Wan 2.7 I2V；纯文生视频优先 HappyHorse T2V
+ * - video 节点优先用 Wan 2.7 I2V；纯文生视频优先 Wan T2V
  */
 
 import type { ProjectCanvasNodeType } from '../canvas/workflow.js'
@@ -61,16 +61,19 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
     preferredModels: [
       'wan2.7-i2v',
       'wan2.7-r2v',
-      'happyhorse-1.0-t2v',
-      'kling-v2-1-master',
-      'runway-gen3-alpha-turbo'
+      'wan2.7-t2v',
+      'wan2.6-i2v',
+      'wan2.6-r2v',
+      'wan2.6-t2v',
+      'happyhorse-1.0-i2v',
+      'happyhorse-1.0-video-edit'
     ]
   },
   // 文案生成节点
   {
     nodeType: 'canvasAiWrite',
     category: 'chat',
-    preferredModels: ['claude-sonnet-4-6', 'gpt-5.4', 'gpt-4o']
+    preferredModels: ['deepseek-v4-pro']
   },
   // 分镜单镜头出图
   {
@@ -88,7 +91,13 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
   {
     nodeType: 'canvasAiImageGrid',
     category: 'video',
-    preferredModels: ['wan2.7-i2v', 'happyhorse-1.0-i2v', 'happyhorse-1.0-t2v']
+    preferredModels: [
+      'wan2.7-i2v',
+      'wan2.7-r2v',
+      'wan2.6-i2v',
+      'wan2.6-r2v',
+      'happyhorse-1.0-i2v'
+    ]
   },
   // 分镜表节点 - 同图片生成
   {
@@ -105,7 +114,7 @@ export const NODE_TYPE_MODEL_PREFERENCES: NodeTypeModelPreference[] = [
   {
     nodeType: 'canvasAiPrompt',
     category: 'chat',
-    preferredModels: ['gpt-4o-mini', 'claude-sonnet-4-6', 'gpt-5.4', 'gpt-4o']
+    preferredModels: ['deepseek-v4-pro']
   }
 ]
 
@@ -155,12 +164,7 @@ export const GENERATION_USE_CASE_MODEL_PREFERENCES: GenerationUseCaseModelPrefer
     {
       useCase: 'text-to-video',
       category: 'video',
-      preferredModels: [
-        'happyhorse-1.0-t2v',
-        'wan2.5-t2v-preview',
-        'kling-v2-1-master',
-        'runway-gen3-alpha-turbo'
-      ]
+      preferredModels: ['wan2.7-t2v', 'wan2.6-t2v']
     },
     {
       useCase: 'image-to-video',
@@ -169,21 +173,19 @@ export const GENERATION_USE_CASE_MODEL_PREFERENCES: GenerationUseCaseModelPrefer
         'wan2.7-i2v',
         'wan2.7-r2v',
         'wan2.6-i2v',
-        'happyhorse-1.0-i2v',
-        'happyhorse-1.0-r2v',
-        'kling-v2-1-master',
-        'runway-gen3-alpha-turbo'
+        'wan2.6-r2v',
+        'happyhorse-1.0-i2v'
       ]
     },
     {
       useCase: 'video-edit',
       category: 'video',
-      preferredModels: ['wan2.7-videoedit', 'happyhorse-1.0-video-edit']
+      preferredModels: ['happyhorse-1.0-video-edit']
     },
     {
       useCase: 'video-merge',
       category: 'video',
-      preferredModels: ['wan2.7-r2v', 'happyhorse-1.0-r2v']
+      preferredModels: ['wan2.7-r2v', 'wan2.6-r2v']
     }
   ]
 
