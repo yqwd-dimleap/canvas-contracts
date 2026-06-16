@@ -239,8 +239,7 @@ export const agentMessageStreamEventSchema = z.union([
     data: z.object({
       messageId: z.string().min(1),
       role: z.literal('assistant'),
-      delta: z.string(),
-      content: z.string()
+      delta: z.string()
     })
   }),
   agentRunEventBaseSchema.extend({
@@ -300,8 +299,7 @@ export const agentRunEventSchema = z.union([
     data: z.object({
       messageId: z.string().min(1),
       role: z.literal('assistant'),
-      delta: z.string(),
-      content: z.string()
+      delta: z.string()
     })
   }),
   agentRunEventBaseSchema.extend({
