@@ -30,6 +30,14 @@ export type UserBilling = z.infer<typeof userBillingSchema>
 
 /** usage_event 事件类型。 */
 export const usageEventTypeSchema = z.enum([
+  'chat.completion',
+  'agent.chat',
+  'canvas.plan',
+  'canvas.run',
+  'prompt.improve',
+  'prompt.script_split',
+  'result.review',
+  'node.repair',
   'image.generation',
   'image.edit',
   'video.generation',
@@ -59,7 +67,7 @@ export type UsageEvent = z.infer<typeof usageEventSchema>
 /** 生成可用的计费状态集合（生成扣费前校验）。 */
 export const GENERATION_ALLOWED_STATUSES = ['active', 'trialing'] as const
 
-/** 可配置的非媒体生成操作。模型级生成仍由 model_providers.models[].creditsPerImage 控制。 */
+/** 可配置的非模型固定操作。模型调用由 model_providers.models[].pricing 控制。 */
 export const creditOperationIdSchema = z.enum([
   'agent.chat',
   'canvas.plan',

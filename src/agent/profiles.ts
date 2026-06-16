@@ -37,13 +37,38 @@ export const modelCategorySchema = z.enum([
 /** 模型类别的稳定顺序（UI 分组/迭代用）。顺序即枚举声明顺序。 */
 export const MODEL_CATEGORIES = modelCategorySchema.options
 
+export const modelPricingUnitSchema = z.enum(['token', 'image', 'second'])
+
+export const modelPricingConfigSchema = z.object({
+  /**
+   * 对话/多模态文本通常按真实 token 用量计费；图片按张数或 token，
+   * 视频按秒。金额字段以 USD cent 计，token 字段的单位为每 1M tokens。
+   */
+  unit: modelPricingUnitSchema.default('image'),
+  currency: z.string().default('USD'),
+  inputCreditsPerMillionTokens: z.number().min(0).default(0),
+  cachedInputCreditsPerMillionTokens: z.number().min(0).default(0),
+  outputCreditsPerMillionTokens: z.number().min(0).default(0),
+  inputCostCentsPerMillionTokens: z.number().min(0).default(0),
+  cachedInputCostCentsPerMillionTokens: z.number().min(0).default(0),
+  outputCostCentsPerMillionTokens: z.number().min(0).default(0),
+  creditsPerImage: z.number().min(0).default(1),
+  costCentsPerImage: z.number().min(0).default(0),
+  creditsPerSecond: z.number().min(0).default(0),
+  costCentsPerSecond: z.number().min(0).default(0),
+  minimumCredits: z.number().min(0).default(0)
+})
+
 export const modelProviderModelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   enabled: z.boolean().default(true),
   contextWindow: z.number().int().positive().optional(),
   maxOutputTokens: z.number().int().positive().optional(),
+  pricing: modelPricingConfigSchema.optional(),
+  /** @deprecated Use pricing.creditsPerImage. Kept for existing documents. */
   creditsPerImage: z.number().min(0).default(1),
+  /** @deprecated Use pricing.costCentsPerImage. Kept for existing documents. */
   costCentsPerImage: z.number().min(0).default(0),
   metadata: z.record(z.string(), z.unknown()).optional()
 })
@@ -90,6 +115,8 @@ export const agentProfileSummarySchema = agentModelProfileSchema.pick({
 export type AgentProfileTask = z.infer<typeof agentProfileTaskSchema>
 export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
 export type ModelCategory = z.infer<typeof modelCategorySchema>
+export type ModelPricingUnit = z.infer<typeof modelPricingUnitSchema>
+export type ModelPricingConfig = z.infer<typeof modelPricingConfigSchema>
 export type AgentModelProfile = z.infer<typeof agentModelProfileSchema>
 export type AgentProfileSummary = z.infer<typeof agentProfileSummarySchema>
 export type ModelProviderModel = z.infer<typeof modelProviderModelSchema>
