@@ -61,9 +61,7 @@ export const userNodeModelPreferenceModelSchema = z.object({
   displayName: z.string().min(1),
   provider: z.string().min(1).optional(),
   category: modelCategorySchema,
-  pricing: modelPricingConfigSchema.optional(),
-  creditsPerImage: z.number().min(0).optional(),
-  costCentsPerImage: z.number().min(0).optional(),
+  pricing: modelPricingConfigSchema,
   isSystemDefault: z.boolean().default(false)
 })
 

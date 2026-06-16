@@ -65,11 +65,7 @@ export const modelProviderModelSchema = z.object({
   enabled: z.boolean().default(true),
   contextWindow: z.number().int().positive().optional(),
   maxOutputTokens: z.number().int().positive().optional(),
-  pricing: modelPricingConfigSchema.optional(),
-  /** @deprecated Use pricing.creditsPerImage. Kept for existing documents. */
-  creditsPerImage: z.number().min(0).default(1),
-  /** @deprecated Use pricing.costCentsPerImage. Kept for existing documents. */
-  costCentsPerImage: z.number().min(0).default(0),
+  pricing: modelPricingConfigSchema,
   metadata: z.record(z.string(), z.unknown()).optional()
 })
 
