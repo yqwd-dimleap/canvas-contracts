@@ -13,6 +13,8 @@ export const canvasMediaEntrySchema = z.object({
   kind: canvasMediaKindSchema,
   assetId: z.string().nullable().optional(),
   modelUrl: z.string().nullable().optional(),
+  width: z.number().positive().nullable().optional(),
+  height: z.number().positive().nullable().optional(),
   position: xyPositionSchema.nullable()
 })
 

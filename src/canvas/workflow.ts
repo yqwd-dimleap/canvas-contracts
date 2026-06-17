@@ -179,6 +179,8 @@ export const normalResourceNodeDataSchema = z.object({
   kind: z.enum(['image', 'video']),
   assetId: z.string().nullable().optional(),
   modelUrl: z.string().nullable().optional(),
+  width: z.number().positive().nullable().optional(),
+  height: z.number().positive().nullable().optional(),
   ...resourceArrays
 })
 
@@ -195,8 +197,11 @@ export const aiImageNodeDataSchema = z.object({
   title: z.string().optional(),
   hint: z.string().optional(),
   thumbnailSrc: z.string().optional(),
+  rawImageUrl: z.string().nullable().optional(),
   imageAssetId: z.string().nullable().optional(),
   imageModelUrl: z.string().nullable().optional(),
+  width: z.number().positive().nullable().optional(),
+  height: z.number().positive().nullable().optional(),
   seedPrompt: z.string().optional(),
   errorMessage: z.string().optional(),
   parentWriteNodeId: z.string().optional(),
