@@ -100,6 +100,11 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
     sourceRef: z.string().min(1).optional(),
     targetRef: z.string().min(1).optional(),
     data: z.record(z.string(), z.unknown()).default({})
+  }),
+  z.object({
+    type: z.literal('deleteNode'),
+    ...canvasActionProtocolFields,
+    nodeId: z.string().min(1)
   })
 ])
 
