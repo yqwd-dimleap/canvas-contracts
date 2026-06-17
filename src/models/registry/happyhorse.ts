@@ -214,13 +214,15 @@ export const happyHorseVideoEditVModel: ModelRegistration = {
 
     return {
       model: params.model,
-      prompt,
-      duration,
-      metadata: {
+      input: {
+        prompt,
+        media
+      },
+      parameters: {
         resolution,
         action: 'referenceGenerate',
-        watermark: false,
-        media
+        duration,
+        watermark: false
       }
     }
   }
