@@ -170,6 +170,7 @@ export const gptImage2FlatfeeModel: ModelRegistration = {
     displayName: 'GPT Image 2 (Flatfee)',
     category: 'image',
     capabilities: gptImage2Model.metadata.capabilities,
+    supportedParams: gptImage2Model.metadata.supportedParams,
     defaults: gptImage2Model.metadata.defaults
   },
   buildImagePayload: gptImage2Model.buildImagePayload
@@ -185,6 +186,7 @@ export const gptImage2VipModel: ModelRegistration = {
     displayName: 'GPT Image 2 (VIP)',
     category: 'image',
     capabilities: gptImage2Model.metadata.capabilities,
+    supportedParams: gptImage2Model.metadata.supportedParams,
     defaults: gptImage2Model.metadata.defaults
   },
   buildImagePayload: gptImage2Model.buildImagePayload

@@ -67,12 +67,55 @@ export const agentRunCancelledEventSchema = eventEnvelopeBaseSchema.extend({
   })
 })
 
+export const billingUpdatedEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('billing.updated'),
+  data: z.object({
+    reason: z
+      .enum([
+        'generation_charge',
+        'generation_refund',
+        'payment_settled',
+        'subscription_updated',
+        'billing_status_changed'
+      ])
+      .optional(),
+    credits: z.number().optional(),
+    plan: z.string().optional(),
+    status: z.string().optional(),
+    paymentOrderId: z.string().optional(),
+    usageEventId: z.string().optional()
+  })
+})
+
+export const notificationUpdatedEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('notification.updated'),
+  data: z.object({
+    scope: z.enum(['global', 'user']).default('global'),
+    reason: z
+      .enum([
+        'announcement_created',
+        'announcement_updated',
+        'announcement_deleted',
+        'message_created',
+        'message_updated',
+        'message_deleted'
+      ])
+      .optional(),
+    notificationId: z.string().min(1).optional(),
+    notificationKind: z.enum(['announcement', 'message']).optional(),
+    active: z.boolean().optional(),
+    title: z.string().optional()
+  })
+})
+
 export const canvasEventSchema = z.discriminatedUnion('eventType', [
   generationCompletedEventSchema,
   generationFailedEventSchema,
   agentRunCompletedEventSchema,
   agentRunFailedEventSchema,
-  agentRunCancelledEventSchema
+  agentRunCancelledEventSchema,
+  billingUpdatedEventSchema,
+  notificationUpdatedEventSchema
 ])
 
 /** 所有可路由事件类型的枚举（用于 webhook 订阅过滤、入站校验）。 */
@@ -81,7 +124,9 @@ export const canvasEventTypeSchema = z.enum([
   'generation.failed',
   'agent.run.completed',
   'agent.run.failed',
-  'agent.run.cancelled'
+  'agent.run.cancelled',
+  'billing.updated',
+  'notification.updated'
 ])
 
 export type GenerationCompletedEvent = z.infer<
@@ -94,6 +139,10 @@ export type AgentRunCompletedEvent = z.infer<
 export type AgentRunFailedEvent = z.infer<typeof agentRunFailedEventSchema>
 export type AgentRunCancelledEvent = z.infer<
   typeof agentRunCancelledEventSchema
+>
+export type BillingUpdatedEvent = z.infer<typeof billingUpdatedEventSchema>
+export type NotificationUpdatedEvent = z.infer<
+  typeof notificationUpdatedEventSchema
 >
 export type CanvasEvent = z.infer<typeof canvasEventSchema>
 export type CanvasEventType = z.infer<typeof canvasEventTypeSchema>

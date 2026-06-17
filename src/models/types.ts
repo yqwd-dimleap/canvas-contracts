@@ -50,6 +50,14 @@ export interface ModelSupportedParams {
   watermark?: boolean
   /** 是否支持参考图片 */
   referenceImages?: boolean
+  /** 可直接选择的尺寸预设 */
+  sizeOptions?: string[]
+  /** 自定义尺寸允许的最大宽度 */
+  maxWidth?: number
+  /** 自定义尺寸允许的最大高度 */
+  maxHeight?: number
+  /** 是否只支持方形尺寸 */
+  squareOnly?: boolean
 }
 
 /** 模型元信息 */

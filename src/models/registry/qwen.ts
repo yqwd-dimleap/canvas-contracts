@@ -4,6 +4,26 @@ import type {
   ModelRegistration
 } from '../types.js'
 
+const QWEN_IMAGE_MAX_SIZE = 2048
+const QWEN_IMAGE_DEFAULT_SIZE = '2048*2048'
+const QWEN_IMAGE_SIZE_OPTIONS = ['1024x1024', '2048x2048']
+
+function normalizeQwenImageSize(value: string | undefined): string {
+  const match = value?.trim().match(/^(\d+)\s*[xX*]\s*(\d+)$/)
+  if (!match) return QWEN_IMAGE_DEFAULT_SIZE
+
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    return QWEN_IMAGE_DEFAULT_SIZE
+  }
+
+  if (width !== height) return QWEN_IMAGE_DEFAULT_SIZE
+
+  const edge = Math.max(1, Math.min(QWEN_IMAGE_MAX_SIZE, width))
+  return `${edge}*${edge}`
+}
+
 /**
  * Qwen 图片生成模型
  * API 文档: https://help.aliyun.com/zh/model-studio/qwen-image-api
@@ -28,10 +48,14 @@ export const qwenImageModel: ModelRegistration = {
       outputFormat: false, // Qwen 不支持指定输出格式
       imageCount: true,
       promptExtend: true,
-      watermark: true
+      watermark: true,
+      sizeOptions: QWEN_IMAGE_SIZE_OPTIONS,
+      maxWidth: QWEN_IMAGE_MAX_SIZE,
+      maxHeight: QWEN_IMAGE_MAX_SIZE,
+      squareOnly: true
     },
     defaults: {
-      size: '2048*2048', // Qwen 默认 2048*2048
+      size: QWEN_IMAGE_DEFAULT_SIZE, // Qwen 默认 2048*2048
       quality: 'auto',
       promptExtend: true,
       watermark: false
@@ -39,7 +63,7 @@ export const qwenImageModel: ModelRegistration = {
   },
   buildImagePayload: (params: ImageGenerationParams): ImageGatewayPayload => {
     // Qwen API 规范: 使用嵌套的 input/parameters 结构
-    const qwenSize = params.size?.replace(/x/gi, '*')
+    const qwenSize = normalizeQwenImageSize(params.size)
 
     // 构建 content 数组 - 每个对象只能有 text 或 image，不能同时存在
     const content: Array<{ text: string } | { image: string }> = []
