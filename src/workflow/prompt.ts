@@ -13,6 +13,7 @@ export const improvePromptRequestSchema = canvasAgentBaseRequestSchema.extend({
   prompt: z.string().min(1),
   model: z.string().min(1).optional(),
   target: z.enum(['image', 'video']).default('image'),
+  referenceImages: z.array(z.string().min(1)).max(8).optional(),
   styleGuide: z.string().optional()
 })
 
