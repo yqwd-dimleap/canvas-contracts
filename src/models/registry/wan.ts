@@ -22,12 +22,50 @@ function wanReferenceImages(params: VideoGenerationParams): string[] {
     .filter((url, index, all) => url && all.indexOf(url) === index)
 }
 
+function cleanUrl(url?: string): string | undefined {
+  const trimmed = url?.trim()
+  return trimmed ? trimmed : undefined
+}
+
 function wanFirstFrameUrl(params: VideoGenerationParams): string | undefined {
-  return (
-    params.referenceMedia?.find(
-      (item) => item.type === 'first_frame' || item.type === 'reference_image'
-    )?.url ?? wanReferenceImages(params)[0]
+  const firstFrame = params.referenceMedia?.find(
+    (item) => item.type === 'first_frame' && cleanUrl(item.url)
   )
+  const referenceImage = params.referenceMedia?.find(
+    (item) => item.type === 'reference_image' && cleanUrl(item.url)
+  )
+  const firstMergeReference = params.mergeReferenceImageUrls
+    ?.map(cleanUrl)
+    .find((url): url is string => Boolean(url))
+
+  return (
+    cleanUrl(firstFrame?.url) ??
+    cleanUrl(params.imgUrl) ??
+    cleanUrl(referenceImage?.url) ??
+    firstMergeReference
+  )
+}
+
+function requireWanFirstFrameUrl(params: VideoGenerationParams): string {
+  const firstFrameUrl = wanFirstFrameUrl(params)
+  if (!firstFrameUrl) {
+    throw new Error(
+      `${params.model} requires imgUrl or a first_frame referenceMedia URL.`
+    )
+  }
+  return firstFrameUrl
+}
+
+function wanDrivingAudioMedia(params: VideoGenerationParams) {
+  const drivingAudioUrl = cleanUrl(params.drivingAudioUrl)
+  return drivingAudioUrl
+    ? [
+        {
+          type: 'driving_audio' as const,
+          url: drivingAudioUrl
+        }
+      ]
+    : undefined
 }
 
 function wanPromptExtend(params: VideoGenerationParams): boolean {
@@ -159,31 +197,15 @@ export const wan26I2VModel: ModelRegistration = {
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
     const duration = params.duration ?? 5
     const resolution = wanResolution(params.size)
-    const firstFrameUrl = wanFirstFrameUrl(params)
-    const media = [
-      ...(firstFrameUrl
-        ? [
-            {
-              type: 'first_frame' as const,
-              url: firstFrameUrl
-            }
-          ]
-        : []),
-      ...(params.drivingAudioUrl
-        ? [
-            {
-              type: 'driving_audio' as const,
-              url: params.drivingAudioUrl
-            }
-          ]
-        : [])
-    ]
+    const firstFrameUrl = requireWanFirstFrameUrl(params)
+    const drivingAudioMedia = wanDrivingAudioMedia(params)
 
     return {
       model: params.model,
       input: {
         prompt: params.prompt,
-        media
+        img_url: firstFrameUrl,
+        ...(drivingAudioMedia ? { media: drivingAudioMedia } : {})
       },
       parameters: {
         resolution,
@@ -340,31 +362,15 @@ export const wan27I2VModel: ModelRegistration = {
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
     const duration = params.duration ?? 10
     const resolution = wanResolution(params.size)
-    const firstFrameUrl = wanFirstFrameUrl(params)
-    const media = [
-      ...(firstFrameUrl
-        ? [
-            {
-              type: 'first_frame' as const,
-              url: firstFrameUrl
-            }
-          ]
-        : []),
-      ...(params.drivingAudioUrl
-        ? [
-            {
-              type: 'driving_audio' as const,
-              url: params.drivingAudioUrl
-            }
-          ]
-        : [])
-    ]
+    const firstFrameUrl = requireWanFirstFrameUrl(params)
+    const drivingAudioMedia = wanDrivingAudioMedia(params)
 
     return {
       model: params.model,
       input: {
         prompt: params.prompt,
-        media
+        img_url: firstFrameUrl,
+        ...(drivingAudioMedia ? { media: drivingAudioMedia } : {})
       },
       parameters: {
         resolution,
