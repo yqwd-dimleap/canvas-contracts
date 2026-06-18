@@ -114,7 +114,13 @@ describe('video model payloads', () => {
     const payload = buildVideoPayload({
       model: 'wan2.7-i2v',
       imgUrl: IMAGE_URL,
-      drivingAudioUrl: audioUrl
+      drivingAudioUrl: audioUrl,
+      referenceMedia: [
+        {
+          type: 'driving_audio',
+          url: audioUrl
+        }
+      ]
     })
 
     expect(payload.input?.media).toEqual([

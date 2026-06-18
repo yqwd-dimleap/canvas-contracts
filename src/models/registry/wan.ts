@@ -57,14 +57,20 @@ function requireWanFirstFrameUrl(params: VideoGenerationParams): string {
 }
 
 function wanDrivingAudioMedia(params: VideoGenerationParams) {
-  const drivingAudioUrl = cleanUrl(params.drivingAudioUrl)
-  return drivingAudioUrl
-    ? [
-        {
-          type: 'driving_audio' as const,
-          url: drivingAudioUrl
-        }
-      ]
+  const urls = [
+    cleanUrl(params.drivingAudioUrl),
+    ...(params.referenceMedia ?? [])
+      .filter((item) => item.type === 'driving_audio')
+      .map((item) => cleanUrl(item.url))
+  ].filter((url, index, all): url is string =>
+    Boolean(url && all.indexOf(url) === index)
+  )
+
+  return urls.length > 0
+    ? urls.map((url) => ({
+        type: 'driving_audio' as const,
+        url
+      }))
     : undefined
 }
 
