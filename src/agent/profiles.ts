@@ -39,6 +39,8 @@ export const MODEL_CATEGORIES = modelCategorySchema.options
 
 export const modelPricingUnitSchema = z.enum(['token', 'image', 'second'])
 
+export const modelReasoningEffortSchema = z.enum(['low', 'medium', 'high'])
+
 export const modelPricingTierModeSchema = z.enum(['volume', 'graduated'])
 
 export const modelPricingTierSchema = z.object({
@@ -77,7 +79,7 @@ export const modelPricingRuleMatchSchema = z
     resolution: z.array(z.string().min(1)).optional(),
     size: z.array(z.string().min(1)).optional(),
     aspectRatio: z.array(z.string().min(1)).optional(),
-    reasoningEffort: z.array(z.enum(['low', 'medium', 'high'])).optional(),
+    reasoningEffort: z.array(modelReasoningEffortSchema).optional(),
     operation: z.array(z.string().min(1)).optional(),
     metadata: z.record(z.string(), z.array(z.string().min(1))).optional()
   })
@@ -162,6 +164,7 @@ export const agentProfileSummarySchema = agentModelProfileSchema.pick({
 export type AgentProfileTask = z.infer<typeof agentProfileTaskSchema>
 export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
 export type ModelCategory = z.infer<typeof modelCategorySchema>
+export type ModelReasoningEffort = z.infer<typeof modelReasoningEffortSchema>
 export type ModelPricingUnit = z.infer<typeof modelPricingUnitSchema>
 export type ModelPricingTierMode = z.infer<typeof modelPricingTierModeSchema>
 export type ModelPricingTier = z.infer<typeof modelPricingTierSchema>

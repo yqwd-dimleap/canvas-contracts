@@ -9,7 +9,12 @@
  */
 
 import { modelRegistry, registerStaticModels } from '../models/registry.js'
-import { MODEL_CATEGORIES, type ModelCategory } from './profiles.js'
+import {
+  MODEL_CATEGORIES,
+  type ModelCategory,
+  type ModelReasoningEffort,
+  modelReasoningEffortSchema
+} from './profiles.js'
 
 /**
  * 网关 /v1/models 列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。
@@ -31,7 +36,13 @@ export const AI_MODEL_KIND_METADATA_KEY = 'modelKind'
 /** 网关导入时的 `object` / `owned_by` 快照（便于后台复核），存于 metadata 的键。 */
 export const AI_MODEL_GATEWAY_HINTS_METADATA_KEY = 'gatewayHints'
 
+/** 管理员声明该模型可安全接收哪些 reasoning_effort 档位。 */
+export const AI_MODEL_REASONING_EFFORTS_METADATA_KEY = 'reasoningEfforts'
+
 const VALID_CATEGORIES = new Set<string>(MODEL_CATEGORY_ORDER)
+const VALID_REASONING_EFFORTS = new Set<string>(
+  modelReasoningEffortSchema.options
+)
 
 /**
  * 按 id 与可选 hints 推断模型类别。
@@ -227,6 +238,29 @@ export function readGatewayHintsFromMetadata(
     object: typeof o.object === 'string' ? o.object : undefined,
     ownedBy: typeof o.ownedBy === 'string' ? o.ownedBy : undefined
   }
+}
+
+/** metadata.reasoningEfforts 中声明的可用 reasoning 档位。 */
+export function readReasoningEffortsFromMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): ModelReasoningEffort[] {
+  const raw = metadata?.[AI_MODEL_REASONING_EFFORTS_METADATA_KEY]
+  if (!Array.isArray(raw)) return []
+  return Array.from(
+    new Set(
+      raw.filter(
+        (item): item is ModelReasoningEffort =>
+          typeof item === 'string' && VALID_REASONING_EFFORTS.has(item)
+      )
+    )
+  )
+}
+
+export function modelSupportsReasoningEffort(
+  metadata: Record<string, unknown> | null | undefined,
+  effort: ModelReasoningEffort
+): boolean {
+  return readReasoningEffortsFromMetadata(metadata).includes(effort)
 }
 
 /**

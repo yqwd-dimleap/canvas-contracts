@@ -119,6 +119,10 @@ export const canvasAgentBaseRequestSchema = z.object({
   locale: z.string().trim().min(2).max(16).optional(),
   /** 智能推荐的模型ID（优先于 profileId） */
   modelId: z.string().optional(),
+  /** 是否开启思考模式（向后兼容；未传 reasoningEffort 时映射为 medium）。 */
+  thinkingEnabled: z.boolean().optional(),
+  /** 思考档位，透传为网关 reasoning_effort 并参与计费规则匹配。 */
+  reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   canvas: canvasContextSchema,
   selection: canvasSelectionSchema
 })
@@ -137,9 +141,7 @@ export const canvasRunRequestSchema = canvasPlanRequestSchema.extend({
     .max(24)
     .optional(),
   /** 选中的技能：注入到规划/对话系统提示，引导 agent 行为侧重。 */
-  skillId: agentSkillIdSchema.optional(),
-  /** 是否开启思考模式（真·reasoning，透传到网关 reasoning_effort）。 */
-  thinkingEnabled: z.boolean().optional()
+  skillId: agentSkillIdSchema.optional()
 })
 
 export const canvasExecuteRequestSchema = z.object({
