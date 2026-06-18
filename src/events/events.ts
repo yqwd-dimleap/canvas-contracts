@@ -53,6 +53,7 @@ export const agentRunFailedEventSchema = eventEnvelopeBaseSchema.extend({
   data: z.object({
     runId: z.string().min(1),
     traceId: z.string().optional(),
+    projectId: z.string().nullable().optional(),
     message: z.string().min(1),
     retryable: z.boolean().optional()
   })
