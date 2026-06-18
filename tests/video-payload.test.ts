@@ -20,12 +20,9 @@ function buildVideoPayload(
 }
 
 describe('video model payloads', () => {
-  test.each([
-    'wan2.6-i2v',
-    'wan2.7-i2v'
-  ])('%s sends first-frame URL as input.img_url', (model) => {
+  test('wan2.6-i2v sends first-frame URL as input.img_url', () => {
     const payload = buildVideoPayload({
-      model,
+      model: 'wan2.6-i2v',
       imgUrl: IMAGE_URL,
       mergeReferenceImageUrls: [SECOND_IMAGE_URL],
       mergeVideoAspectRatio: '16:9',
@@ -38,6 +35,35 @@ describe('video model payloads', () => {
       img_url: IMAGE_URL
     })
     expect(payload.input).not.toHaveProperty('media')
+    expect(payload.parameters).toMatchObject({
+      resolution: '720P',
+      ratio: '16:9',
+      duration: 5,
+      prompt_extend: true,
+      watermark: true
+    })
+  })
+
+  test('wan2.7-i2v sends first-frame URL as input.media', () => {
+    const payload = buildVideoPayload({
+      model: 'wan2.7-i2v',
+      imgUrl: IMAGE_URL,
+      mergeReferenceImageUrls: [SECOND_IMAGE_URL],
+      mergeVideoAspectRatio: '16:9',
+      promptExtend: true,
+      watermark: true
+    })
+
+    expect(payload.input).toMatchObject({
+      prompt: 'generate a short video',
+      media: [
+        {
+          type: 'first_frame',
+          url: IMAGE_URL
+        }
+      ]
+    })
+    expect(payload.input).not.toHaveProperty('img_url')
     expect(payload.parameters).toMatchObject({
       resolution: '720P',
       ratio: '16:9',
@@ -61,6 +87,46 @@ describe('video model payloads', () => {
     expect(payload.input).toMatchObject({
       img_url: IMAGE_URL
     })
+  })
+
+  test('wan2.7-i2v falls back to first_frame referenceMedia in input.media', () => {
+    const payload = buildVideoPayload({
+      model: 'wan2.7-i2v',
+      referenceMedia: [
+        {
+          type: 'first_frame',
+          url: IMAGE_URL
+        }
+      ]
+    })
+
+    expect(payload.input?.media).toEqual([
+      {
+        type: 'first_frame',
+        url: IMAGE_URL
+      }
+    ])
+    expect(payload.input).not.toHaveProperty('img_url')
+  })
+
+  test('wan2.7-i2v includes driving audio in input.media', () => {
+    const audioUrl = 'https://example.com/rap.mp3'
+    const payload = buildVideoPayload({
+      model: 'wan2.7-i2v',
+      imgUrl: IMAGE_URL,
+      drivingAudioUrl: audioUrl
+    })
+
+    expect(payload.input?.media).toEqual([
+      {
+        type: 'first_frame',
+        url: IMAGE_URL
+      },
+      {
+        type: 'driving_audio',
+        url: audioUrl
+      }
+    ])
   })
 
   test('wan i2v rejects missing image input before gateway submission', () => {

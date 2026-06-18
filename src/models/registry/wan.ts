@@ -68,6 +68,18 @@ function wanDrivingAudioMedia(params: VideoGenerationParams) {
     : undefined
 }
 
+function wanI2vMedia(params: VideoGenerationParams) {
+  const firstFrameUrl = requireWanFirstFrameUrl(params)
+  const drivingAudioMedia = wanDrivingAudioMedia(params) ?? []
+  return [
+    {
+      type: 'first_frame' as const,
+      url: firstFrameUrl
+    },
+    ...drivingAudioMedia
+  ]
+}
+
 function wanPromptExtend(params: VideoGenerationParams): boolean {
   return params.promptExtend ?? true
 }
@@ -362,15 +374,13 @@ export const wan27I2VModel: ModelRegistration = {
   buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
     const duration = params.duration ?? 10
     const resolution = wanResolution(params.size)
-    const firstFrameUrl = requireWanFirstFrameUrl(params)
-    const drivingAudioMedia = wanDrivingAudioMedia(params)
+    const media = wanI2vMedia(params)
 
     return {
       model: params.model,
       input: {
         prompt: params.prompt,
-        img_url: firstFrameUrl,
-        ...(drivingAudioMedia ? { media: drivingAudioMedia } : {})
+        media
       },
       parameters: {
         resolution,
