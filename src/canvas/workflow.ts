@@ -131,8 +131,6 @@ export const canvasImageEditNodeDataSchema =
     sourceResourceId: z.string().nullable().optional(),
     sourceUrl: z.string().optional(),
     previewUrl: z.string().nullable().optional(),
-    outputUrl: z.string().nullable().optional(),
-    outputResourceId: z.string().nullable().optional(),
     errorMessage: z.string().optional(),
     operations: z
       .array(
@@ -169,18 +167,11 @@ export const canvasMaskNodeDataSchema = canvasCreativeNodeBaseDataSchema.extend(
 
 export const canvasCompositionNodeDataSchema =
   canvasCreativeNodeBaseDataSchema.extend({
-    childrenNodeIds: z.array(z.string()).optional(),
-    outputUrl: z.string().optional()
+    childrenNodeIds: z.array(z.string()).optional()
   })
 
 export const normalResourceNodeDataSchema = z.object({
-  src: z.string(),
   caption: z.string().optional(),
-  kind: z.enum(['image', 'video']),
-  assetId: z.string().nullable().optional(),
-  modelUrl: z.string().nullable().optional(),
-  width: z.number().positive().nullable().optional(),
-  height: z.number().positive().nullable().optional(),
   ...resourceArrays
 })
 
@@ -196,12 +187,6 @@ export const aiPromptNodeDataSchema = z.object({
 export const aiImageNodeDataSchema = z.object({
   title: z.string().optional(),
   hint: z.string().optional(),
-  thumbnailSrc: z.string().optional(),
-  rawImageUrl: z.string().nullable().optional(),
-  imageAssetId: z.string().nullable().optional(),
-  imageModelUrl: z.string().nullable().optional(),
-  width: z.number().positive().nullable().optional(),
-  height: z.number().positive().nullable().optional(),
   seedPrompt: z.string().optional(),
   errorMessage: z.string().optional(),
   parentWriteNodeId: z.string().optional(),
@@ -212,9 +197,6 @@ export const aiImageNodeDataSchema = z.object({
 export const aiVideoNodeDataSchema = z.object({
   title: z.string().optional(),
   hint: z.string().optional(),
-  thumbnailSrc: z.string().optional(),
-  videoAssetId: z.string().nullable().optional(),
-  videoModelUrl: z.string().nullable().optional(),
   durationLabel: z.string().optional(),
   errorMessage: z.string().optional(),
   seedPrompt: z.string().optional(),
@@ -247,9 +229,6 @@ export const aiWriteShotNodeDataSchema = z.object({
   shotIndex: z.number(),
   totalShots: z.number(),
   imagePrompt: z.string().optional(),
-  thumbnailSrc: z.string().optional(),
-  imageAssetId: z.string().nullable().optional(),
-  imageModelUrl: z.string().nullable().optional(),
   errorMessage: z.string().optional(),
   ...resourceArrays
 })
@@ -257,7 +236,7 @@ export const aiWriteShotNodeDataSchema = z.object({
 export const storyboardTableRowSchema = z.object({
   beat: z.string(),
   imagePrompt: z.string(),
-  thumbnailSrc: z.string().optional()
+  imageResource: canvasResourceSchema.optional()
 })
 
 export const storyboardTableNodeDataSchema = z.object({
@@ -274,7 +253,7 @@ export const imageGridNodeDataSchema = z.object({
   title: z.string().optional(),
   parentTableNodeId: z.string().optional(),
   cellPrompts: z.array(z.string()),
-  cellUrls: z.array(z.string().optional()),
+  cellResources: z.array(canvasResourceSchema.optional()),
   pipelineImageNodeIds: z.array(z.string()).optional(),
   pipelineVideoNodeIds: z.array(z.string()).optional(),
   pipelineMergeVideoNodeId: z.string().optional(),
