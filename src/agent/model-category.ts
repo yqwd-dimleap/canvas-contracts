@@ -1,7 +1,7 @@
 /**
  * 模型分类（modelCategory）归一化 —— 单一真相源。
  *
- * 把"网关 /v1/models 返回的模型 id + 元数据"归类到 modelCategory
+ * 把网关模型 id + `/api/pricing` 元数据归类到 modelCategory
  * （image / video / chat / embedding / audio / other）。
  * 前后端共用本模块，避免各自维护启发式造成漂移。
  *
@@ -17,7 +17,7 @@ import {
 } from './profiles.js'
 
 /**
- * 网关 /v1/models 列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。
+ * 网关模型列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。
  * 保留 `ModelCategoryId` 别名以兼容历史调用方命名。
  */
 export type ModelCategoryId = ModelCategory
@@ -33,7 +33,7 @@ export type GatewayModelKindHints = {
 /** 管理员覆盖启发式分类时，写入 `AiModelRow.metadata` 的键。 */
 export const AI_MODEL_KIND_METADATA_KEY = 'modelKind'
 
-/** 网关导入时的 `object` / `owned_by` 快照（便于后台复核），存于 metadata 的键。 */
+/** 网关导入时的上游快照（便于后台复核），存于 metadata 的键。 */
 export const AI_MODEL_GATEWAY_HINTS_METADATA_KEY = 'gatewayHints'
 
 /** 管理员声明该模型可安全接收哪些 reasoning_effort 档位。 */

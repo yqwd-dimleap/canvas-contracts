@@ -37,7 +37,12 @@ export const modelCategorySchema = z.enum([
 /** 模型类别的稳定顺序（UI 分组/迭代用）。顺序即枚举声明顺序。 */
 export const MODEL_CATEGORIES = modelCategorySchema.options
 
-export const modelPricingUnitSchema = z.enum(['token', 'image', 'second'])
+export const modelPricingUnitSchema = z.enum([
+  'token',
+  'image',
+  'second',
+  'run'
+])
 
 export const modelReasoningEffortSchema = z.enum(['low', 'medium', 'high'])
 
@@ -70,7 +75,8 @@ export const modelPricingRatesSchema = z.object({
   cachedInputTokens: modelPricingRateSchema.default(DEFAULT_PRICING_RATE),
   outputTokens: modelPricingRateSchema.default(DEFAULT_PRICING_RATE),
   images: modelPricingRateSchema.default(DEFAULT_PRICING_RATE),
-  seconds: modelPricingRateSchema.default(DEFAULT_PRICING_RATE)
+  seconds: modelPricingRateSchema.default(DEFAULT_PRICING_RATE),
+  runs: modelPricingRateSchema.default(DEFAULT_PRICING_RATE)
 })
 
 export const modelPricingRuleMatchSchema = z
@@ -99,7 +105,7 @@ export const modelPricingRuleSchema = z.object({
 export const modelPricingConfigSchema = z.object({
   /**
    * 对话/多模态文本通常按真实 token 用量计费；图片按图像单位，
-   * 视频按秒。金额字段以 USD cent 计，token 费率的单位为每 1M tokens。
+   * 视频可按秒或按次。金额字段以 USD cent 计，token 费率的单位为每 1M tokens。
    *
    * rates 是基础费率；rules 是按请求维度（quality / resolution /
    * reasoningEffort 等）匹配的覆盖层；rate.tiers 支持 volume /
