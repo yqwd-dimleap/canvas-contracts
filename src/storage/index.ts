@@ -1,4 +1,6 @@
 export const STORAGE_KEY_VERSION = 'v1' as const
+export * from './imgproxy.js'
+export * from './workspace-assets.js'
 
 export const STORAGE_ENVIRONMENTS = ['dev', 'test', 'prod'] as const
 export type StorageEnvironment = (typeof STORAGE_ENVIRONMENTS)[number]
@@ -257,14 +259,6 @@ export function buildWorkspaceObjectKey(input: {
   return `${storageEnvironmentPrefix(input.environment)}/workspaces/${input.workspaceId}/objects/${input.objectId}${ext}`
 }
 
-export function imageDerivativeKey(
-  originalKey: string,
-  width: number,
-  format: string
-): string {
-  return `${originalKey}.thumb-w${width}.${format}`
-}
-
 export function storageObjectViewPathFromKey(key: string): string {
   return `/api/storage/objects/${key
     .split('/')
@@ -295,44 +289,6 @@ export function storageObjectKeyFromViewUrl(input: string): string | null {
   } catch {
     return null
   }
-}
-
-export function storageObjectThumbnailViewPathFromViewUrl(
-  input: string,
-  width: number,
-  format = 'avif'
-): string | null {
-  const key = storageObjectKeyFromViewUrl(input)
-  if (!key) return null
-  return storageObjectViewPathFromKey(imageDerivativeKey(key, width, format))
-}
-
-export function storageObjectThumbnailUrlFromPublicUrl(
-  input: string,
-  width: number,
-  format = 'avif'
-): string | null {
-  const raw = input.trim()
-  if (!raw) return null
-
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    return null
-  }
-
-  const decodedPath = decodeURIComponent(url.pathname)
-  if (
-    !decodedPath.includes('/v1/users/') &&
-    !decodedPath.includes('/workspaces/')
-  ) {
-    return null
-  }
-
-  url.pathname = imageDerivativeKey(url.pathname, width, format)
-  url.search = ''
-  return url.toString()
 }
 
 export function rustfsPublicObjectUrlFromEnv(
