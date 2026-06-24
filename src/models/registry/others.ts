@@ -243,6 +243,80 @@ export const runwayGen3Model: ModelRegistration = {
 }
 
 /** Doubao Seedance 2.0 */
+export function buildSeedanceVideoPayload(
+  params: VideoGenerationParams
+): VideoGatewayPayload {
+  const seconds =
+    typeof params.seconds === 'string' ? Number(params.seconds.trim()) : NaN
+  const duration =
+    typeof params.duration === 'number' && Number.isFinite(params.duration)
+      ? Math.floor(params.duration)
+      : Number.isFinite(seconds)
+        ? Math.floor(seconds)
+        : 5
+  const payload: VideoGatewayPayload = {
+    model: params.model,
+    content: seedanceContent(params),
+    resolution: seedanceResolution(params.size),
+    ratio: seedanceRatio(params),
+    duration,
+    watermark: params.watermark ?? false
+  }
+
+  const frames = numberParam(params, 'frames')
+  if (frames !== undefined) payload.frames = Math.floor(frames)
+
+  const seed = numberParam(params, 'seed')
+  if (seed !== undefined) payload.seed = Math.floor(seed)
+
+  const cameraFixed =
+    booleanParam(params, 'camera_fixed') ?? booleanParam(params, 'cameraFixed')
+  if (cameraFixed !== undefined) payload.camera_fixed = cameraFixed
+
+  const generateAudio =
+    booleanParam(params, 'generate_audio') ??
+    booleanParam(params, 'generateAudio')
+  if (generateAudio !== undefined) payload.generate_audio = generateAudio
+
+  const returnLastFrame =
+    booleanParam(params, 'return_last_frame') ??
+    booleanParam(params, 'returnLastFrame')
+  if (returnLastFrame !== undefined) {
+    payload.return_last_frame = returnLastFrame
+  }
+
+  const callbackUrl =
+    stringParam(params, 'callback_url') ?? stringParam(params, 'callbackUrl')
+  if (callbackUrl) payload.callback_url = callbackUrl
+
+  const executionExpiresAfter =
+    numberParam(params, 'execution_expires_after') ??
+    numberParam(params, 'executionExpiresAfter')
+  if (executionExpiresAfter !== undefined) {
+    payload.execution_expires_after = Math.floor(executionExpiresAfter)
+  }
+
+  const priority = numberParam(params, 'priority')
+  if (priority !== undefined) payload.priority = Math.floor(priority)
+
+  const serviceTier =
+    stringParam(params, 'service_tier') ?? stringParam(params, 'serviceTier')
+  if (serviceTier) payload.service_tier = serviceTier
+
+  const draft = booleanParam(params, 'draft')
+  if (draft !== undefined) payload.draft = draft
+
+  const safetyIdentifier =
+    stringParam(params, 'safety_identifier') ??
+    stringParam(params, 'safetyIdentifier')
+  if (safetyIdentifier) payload.safety_identifier = safetyIdentifier
+
+  const tools = (params as { tools?: unknown }).tools
+  if (Array.isArray(tools) && tools.length > 0) payload.tools = tools
+
+  return payload
+}
+
 export const doubaoSeedanceModel: ModelRegistration = {
   metadata: {
     id: 'doubao-seedance-2-0-260128',
@@ -271,66 +345,5 @@ export const doubaoSeedanceModel: ModelRegistration = {
       watermark: false
     }
   },
-  buildVideoPayload: (params: VideoGenerationParams): VideoGatewayPayload => {
-    const seconds =
-      typeof params.seconds === 'string' ? Number(params.seconds.trim()) : NaN
-    const duration =
-      typeof params.duration === 'number' && Number.isFinite(params.duration)
-        ? Math.floor(params.duration)
-        : Number.isFinite(seconds)
-          ? Math.floor(seconds)
-          : 5
-    const payload: VideoGatewayPayload = {
-      model: params.model,
-      content: seedanceContent(params),
-      resolution: seedanceResolution(params.size),
-      ratio: seedanceRatio(params),
-      duration,
-      watermark: params.watermark ?? false
-    }
-
-    const seed = numberParam(params, 'seed')
-    if (seed !== undefined) payload.seed = Math.floor(seed)
-
-    const cameraFixed =
-      booleanParam(params, 'camera_fixed') ??
-      booleanParam(params, 'cameraFixed')
-    if (cameraFixed !== undefined) payload.camera_fixed = cameraFixed
-
-    const generateAudio =
-      booleanParam(params, 'generate_audio') ??
-      booleanParam(params, 'generateAudio')
-    if (generateAudio !== undefined) payload.generate_audio = generateAudio
-
-    const returnLastFrame =
-      booleanParam(params, 'return_last_frame') ??
-      booleanParam(params, 'returnLastFrame')
-    if (returnLastFrame !== undefined) {
-      payload.return_last_frame = returnLastFrame
-    }
-
-    const callbackUrl =
-      stringParam(params, 'callback_url') ?? stringParam(params, 'callbackUrl')
-    if (callbackUrl) payload.callback_url = callbackUrl
-
-    const executionExpiresAfter =
-      numberParam(params, 'execution_expires_after') ??
-      numberParam(params, 'executionExpiresAfter')
-    if (executionExpiresAfter !== undefined) {
-      payload.execution_expires_after = Math.floor(executionExpiresAfter)
-    }
-
-    const priority = numberParam(params, 'priority')
-    if (priority !== undefined) payload.priority = Math.floor(priority)
-
-    const safetyIdentifier =
-      stringParam(params, 'safety_identifier') ??
-      stringParam(params, 'safetyIdentifier')
-    if (safetyIdentifier) payload.safety_identifier = safetyIdentifier
-
-    const tools = (params as { tools?: unknown }).tools
-    if (Array.isArray(tools) && tools.length > 0) payload.tools = tools
-
-    return payload
-  }
+  buildVideoPayload: buildSeedanceVideoPayload
 }

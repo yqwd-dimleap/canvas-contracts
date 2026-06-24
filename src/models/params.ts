@@ -85,6 +85,8 @@ export const videoGenerationParamsSchema = z
     content: z.array(z.record(z.string(), z.unknown())).optional(),
     /** 火山 Seedance: 视频宽高比 */
     ratio: z.string().optional(),
+    /** 火山 Seedance: 生成视频帧数；与 duration 二选一，frames 优先 */
+    frames: z.number().int().optional(),
     /** 火山 Seedance: 随机数种子 */
     seed: z.number().int().optional(),
     /** 火山 Seedance: 是否固定摄像头 */
@@ -104,6 +106,11 @@ export const videoGenerationParamsSchema = z
     execution_expires_after: z.number().int().optional(),
     /** 火山 Seedance: 执行优先级 */
     priority: z.number().int().optional(),
+    /** 火山 Seedance: 服务等级 */
+    serviceTier: z.string().optional(),
+    service_tier: z.string().optional(),
+    /** 火山 Seedance: 是否开启样片模式 */
+    draft: z.boolean().optional(),
     /** 火山 Seedance: 终端用户唯一标识 */
     safetyIdentifier: z.string().optional(),
     safety_identifier: z.string().optional(),

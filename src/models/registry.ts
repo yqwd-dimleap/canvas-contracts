@@ -11,7 +11,12 @@ import {
   happyHorseT2VModel,
   happyHorseVideoEditVModel
 } from './registry/happyhorse.js'
-import { klingV21Model, runwayGen3Model } from './registry/others.js'
+import {
+  buildSeedanceVideoPayload,
+  doubaoSeedanceModel,
+  klingV21Model,
+  runwayGen3Model
+} from './registry/others.js'
 import {
   nanoBanana2Model,
   qwenImage2ProModel,
@@ -54,7 +59,10 @@ class ModelRegistry {
 
   /** 获取模型元信息 */
   getMetadata(modelId: string): ModelMetadata | undefined {
-    return this.models.get(modelId)?.metadata
+    return (
+      this.models.get(modelId)?.metadata ??
+      dynamicVideoRegistration(modelId)?.metadata
+    )
   }
 
   /** 获取所有模型 ID */
@@ -120,7 +128,9 @@ class ModelRegistry {
 
   /** 检查模型是否存在 */
   hasModel(modelId: string): boolean {
-    return this.models.has(modelId)
+    return (
+      this.models.has(modelId) || Boolean(dynamicVideoRegistration(modelId))
+    )
   }
 
   /** 构建图片生成 Payload */
@@ -139,7 +149,8 @@ class ModelRegistry {
 
   /** 构建视频生成 Payload */
   buildVideoPayload(params: VideoGenerationParams): VideoGatewayPayload {
-    const registration = this.models.get(params.model)
+    const registration =
+      this.models.get(params.model) ?? dynamicVideoRegistration(params.model)
     if (!registration) {
       throw new Error(`Unknown model: ${params.model}`)
     }
@@ -153,13 +164,15 @@ class ModelRegistry {
 
   /** 获取模型默认时长（视频模型） */
   getDefaultDuration(modelId: string): number {
-    const metadata = this.getMetadata(modelId)
+    const metadata =
+      this.getMetadata(modelId) ?? dynamicVideoRegistration(modelId)?.metadata
     return metadata?.defaults.duration ?? 5
   }
 
   /** 检查模型是否需要图片输入 */
   requiresImage(modelId: string): boolean {
-    const metadata = this.getMetadata(modelId)
+    const metadata =
+      this.getMetadata(modelId) ?? dynamicVideoRegistration(modelId)?.metadata
     if (!metadata) return false
     return (
       metadata.capabilities.imageToVideo ||
@@ -170,14 +183,60 @@ class ModelRegistry {
 
   /** 检查模型是否支持多图 */
   supportsMultipleImages(modelId: string): boolean {
-    const metadata = this.getMetadata(modelId)
+    const metadata =
+      this.getMetadata(modelId) ?? dynamicVideoRegistration(modelId)?.metadata
     return metadata?.capabilities.multipleImages ?? false
   }
 
   /** 根据 ID 获取模型 */
   getModelById(modelId: string): ModelRegistration | undefined {
-    return this.models.get(modelId)
+    return this.models.get(modelId) ?? dynamicVideoRegistration(modelId)
   }
+}
+
+function seedanceMetadata(modelId: string): ModelMetadata {
+  return {
+    id: modelId,
+    displayName: modelId,
+    category: 'video',
+    capabilities: {
+      textToMedia: true,
+      imageToVideo: true,
+      multipleImages: true,
+      videoEdit: true,
+      videoMerge: false,
+      maxReferenceImages: 9
+    },
+    supportedParams: {
+      size: true,
+      duration: true,
+      aspectRatio: true,
+      promptExtend: false,
+      watermark: true,
+      referenceImages: true
+    },
+    defaults: {
+      duration: 5,
+      size: '720p',
+      aspectRatio: 'adaptive',
+      watermark: false
+    }
+  }
+}
+
+function dynamicVideoRegistration(
+  modelId: string
+): ModelRegistration | undefined {
+  const id = modelId.trim()
+  if (!id) return undefined
+  const lower = id.toLowerCase()
+  if (lower.includes('seedance')) {
+    return {
+      metadata: seedanceMetadata(id),
+      buildVideoPayload: buildSeedanceVideoPayload
+    }
+  }
+  return undefined
 }
 
 /** 全局单例 */
@@ -197,6 +256,7 @@ export const CANVAS_VIDEO_GENERATION_MODEL_IDS = [
   'wan2.7-r2v',
   'wan2.7-i2v',
   'wan2.7-t2v',
+  'doubao-seedance-2-0-260128',
   'happyhorse-1.0-i2v',
   'happyhorse-1.0-video-edit'
 ] as const
@@ -209,7 +269,28 @@ const CANVAS_VIDEO_GENERATION_MODEL_ID_SET = new Set<string>(
 )
 
 export function isCanvasVideoGenerationModel(modelId: string): boolean {
-  return CANVAS_VIDEO_GENERATION_MODEL_ID_SET.has(modelId.trim())
+  const id = modelId.trim()
+  if (CANVAS_VIDEO_GENERATION_MODEL_ID_SET.has(id)) return true
+  if (isVideoGenerationModel(id)) return true
+
+  const lower = id.toLowerCase()
+  return (
+    lower.includes('i2v') ||
+    lower.includes('r2v') ||
+    lower.includes('t2v') ||
+    lower.includes('text-to-video') ||
+    lower.includes('image-to-video') ||
+    lower.includes('img2vid') ||
+    lower.includes('videoedit') ||
+    lower.includes('video-edit') ||
+    lower.includes('video_edit') ||
+    lower.includes('seedance') ||
+    lower.includes('kling') ||
+    lower.includes('runway') ||
+    lower.includes('wan2.') ||
+    lower.includes('happyhorse') ||
+    /\bvideo\b/.test(lower)
+  )
 }
 
 /** 注册全部静态模型（单例初始化时调用） */
@@ -235,6 +316,7 @@ export function registerStaticModels(): void {
     wan27I2VModel,
     wan27R2VModel,
     wan27VideoEditVModel,
+    doubaoSeedanceModel,
     klingV21Model,
     runwayGen3Model
   ])

@@ -64,7 +64,7 @@ export const workspaceImageDerivativesSchema = z.object({
 })
 
 export const WORKSPACE_IMAGE_THUMBNAIL_FORMAT = 'avif' as const
-export const WORKSPACE_MODEL_REFERENCE_WIDTH = 1536 as const
+export const WORKSPACE_MODEL_REFERENCE_WIDTH = 768 as const
 export const WORKSPACE_MODEL_REFERENCE_FORMAT = 'webp' as const
 export const WORKSPACE_MODEL_REFERENCE_QUALITY = 76 as const
 
@@ -155,11 +155,11 @@ export const workspaceAssetSchema = z.object({
 
 export const workspaceAssetMediaSourcesSchema = z.object({
   originalUrl: z.string().nullable(),
-  thumbnailUrl: z.string().nullable(),
-  previewUrl: z.string().nullable(),
+  displayUrl: z.string().nullable(),
+  downloadUrl: z.string().nullable(),
   posterUrl: z.string().nullable(),
-  modelUrl: z.string().nullable(),
-  motionPreviewUrl: z.string().nullable(),
+  motionUrl: z.string().nullable(),
+  isAnimated: z.boolean(),
   derivatives: workspaceImageDerivativesSchema.nullable()
 })
 
@@ -191,6 +191,13 @@ export type WorkspaceAsset = z.infer<typeof workspaceAssetSchema>
 export type WorkspaceAssetMediaSources = z.infer<
   typeof workspaceAssetMediaSourcesSchema
 >
+
+export type WorkspaceAssetMediaContext =
+  | 'canvas'
+  | 'preview'
+  | 'thumbnail'
+  | 'download'
+  | 'responsive'
 
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -261,33 +268,89 @@ export function workspaceAssetMediaSources(
   const media = workspaceAssetMediaFromMetadata(asset.metadata)
   const image = media?.image
   const video = media?.video
-
-  const originalUrl =
-    stringValue(media?.original?.url) ?? stringValue(asset.url)
-  const thumbnailUrl =
-    asset.type === 'image'
-      ? stringValue(image?.thumbnail?.url)
-      : stringValue(video?.poster?.url)
-  const previewUrl =
-    asset.type === 'image'
-      ? (stringValue(image?.preview?.url) ?? thumbnailUrl)
-      : (stringValue(video?.poster?.url) ?? originalUrl)
-  const modelUrl =
-    asset.type === 'image'
-      ? (stringValue(image?.model?.url) ?? originalUrl)
-      : originalUrl
+  const originalUrl = stringValue(media?.original?.url)
+  const isAnimated = Boolean(asset.type === 'image' && image?.isAnimated)
+  const imageDisplayUrl = isAnimated
+    ? originalUrl
+    : (stringValue(image?.thumbnail?.url) ??
+      stringValue(image?.preview?.url) ??
+      stringValue(image?.derivatives?.thumb) ??
+      stringValue(image?.derivatives?.preview))
+  const videoPosterUrl = stringValue(video?.poster?.url)
+  const displayUrl =
+    asset.type === 'image' ? imageDisplayUrl : (videoPosterUrl ?? originalUrl)
   const motionPreviewUrl =
-    asset.type === 'video' ? stringValue(video?.preview?.url) : null
+    asset.type === 'video'
+      ? (stringValue(video?.preview?.url) ?? originalUrl)
+      : null
 
   return {
     originalUrl,
-    thumbnailUrl,
-    previewUrl,
-    posterUrl: asset.type === 'video' ? stringValue(video?.poster?.url) : null,
-    modelUrl,
-    motionPreviewUrl,
-    derivatives: image?.derivatives ?? null
+    displayUrl,
+    downloadUrl: originalUrl,
+    posterUrl: asset.type === 'video' ? videoPosterUrl : null,
+    motionUrl: motionPreviewUrl,
+    isAnimated,
+    derivatives: isAnimated ? null : (image?.derivatives ?? null)
   }
+}
+
+export function workspaceAssetMediaForContext(
+  asset: Pick<WorkspaceAsset, 'type' | 'url' | 'metadata'>,
+  context: WorkspaceAssetMediaContext,
+  containerWidth?: number
+): string | null {
+  const media = workspaceAssetMediaFromMetadata(asset.metadata)
+  if (!media) return null
+
+  if (media.type === 'video') {
+    if (context === 'thumbnail' || context === 'preview') {
+      return stringValue(media.video?.poster?.url)
+    }
+    return (
+      stringValue(media.video?.preview?.url) ?? stringValue(media.original.url)
+    )
+  }
+
+  const originalUrl = stringValue(media.original.url)
+  const image = media.image
+  if (!image || image.isAnimated) return originalUrl
+
+  if (context === 'download') return originalUrl
+  if (context === 'canvas') {
+    return (
+      stringValue(image.preview?.url) ??
+      stringValue(image.derivatives?.preview) ??
+      stringValue(image.thumbnail?.url) ??
+      stringValue(image.derivatives?.thumb) ??
+      originalUrl
+    )
+  }
+  if (context === 'preview') {
+    return (
+      stringValue(image.preview?.url) ??
+      stringValue(image.derivatives?.preview) ??
+      originalUrl
+    )
+  }
+  if (context === 'thumbnail') {
+    return (
+      stringValue(image.thumbnail?.url) ??
+      stringValue(image.derivatives?.thumb) ??
+      originalUrl
+    )
+  }
+
+  const width = numberValue(containerWidth)
+  const thumbnails = image.derivatives?.thumbnails
+  if (!width || !thumbnails) {
+    return stringValue(image.preview?.url) ?? originalUrl
+  }
+  if (width <= 128) return thumbnails.w128
+  if (width <= 320) return thumbnails.w320
+  if (width <= 640) return thumbnails.w640
+  if (width <= 1280) return thumbnails.w1280
+  return thumbnails.w2048
 }
 
 export function buildWorkspaceAssetOriginalMedia(input: {

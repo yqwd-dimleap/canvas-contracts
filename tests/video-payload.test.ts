@@ -199,4 +199,56 @@ describe('video model payloads', () => {
       img_url: IMAGE_URL
     })
   })
+
+  test('doubao seedance builds official content task payload', () => {
+    const payload = buildVideoPayload({
+      model: 'doubao-seedance-2-0-260128',
+      imgUrl: IMAGE_URL,
+      mergeReferenceImageUrls: [IMAGE_URL, SECOND_IMAGE_URL],
+      mergeVideoAspectRatio: '16:9',
+      size: '4k',
+      duration: 8,
+      frames: 57,
+      watermark: true,
+      generate_audio: false,
+      service_tier: 'default',
+      return_last_frame: true,
+      execution_expires_after: 3600,
+      priority: 5,
+      safety_identifier: 'user_hash',
+      tools: [{ type: 'web_search' }]
+    })
+
+    expect(payload).toMatchObject({
+      model: 'doubao-seedance-2-0-260128',
+      resolution: '720p',
+      ratio: '16:9',
+      duration: 8,
+      frames: 57,
+      watermark: true,
+      generate_audio: false,
+      service_tier: 'default',
+      return_last_frame: true,
+      execution_expires_after: 3600,
+      priority: 5,
+      safety_identifier: 'user_hash',
+      tools: [{ type: 'web_search' }]
+    })
+    expect(payload.content).toEqual([
+      {
+        type: 'text',
+        text: 'generate a short video'
+      },
+      {
+        type: 'image_url',
+        image_url: { url: IMAGE_URL },
+        role: 'first_frame'
+      },
+      {
+        type: 'image_url',
+        image_url: { url: SECOND_IMAGE_URL },
+        role: 'reference_image'
+      }
+    ])
+  })
 })

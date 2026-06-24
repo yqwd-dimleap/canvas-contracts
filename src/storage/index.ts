@@ -1,5 +1,6 @@
 export const STORAGE_KEY_VERSION = 'v1' as const
 export * from './imgproxy.js'
+export * from './imgproxy-derivatives.js'
 export * from './workspace-assets.js'
 
 export const STORAGE_ENVIRONMENTS = ['dev', 'test', 'prod'] as const

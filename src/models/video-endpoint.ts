@@ -7,6 +7,9 @@
 export const VIDEO_SYNTHESIS_ENDPOINT =
   '/api/v1/services/aigc/video-generation/video-synthesis'
 
+export const VOLCENGINE_CONTENTS_GENERATIONS_TASKS_ENDPOINT =
+  '/api/v3/contents/generations/tasks'
+
 export type VideoModelPayloadType =
   | 'standard'
   | 'wan-t2v'
@@ -84,7 +87,7 @@ const VIDEO_MODEL_PATTERN_CONFIGS: VideoModelConfig[] = [
     requiresImage: false,
     defaultDuration: 5,
     supportsMultipleImages: true,
-    apiEndpoint: VIDEO_SYNTHESIS_ENDPOINT
+    apiEndpoint: VOLCENGINE_CONTENTS_GENERATIONS_TASKS_ENDPOINT
   },
   {
     pattern: /video-edit|video_edit|videoedit/i,
