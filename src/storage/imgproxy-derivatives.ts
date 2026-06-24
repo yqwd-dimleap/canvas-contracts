@@ -6,7 +6,11 @@ import {
   imgproxyUrlWithSignature
 } from './imgproxy.js'
 import type { WorkspaceImageDerivatives } from './workspace-assets.js'
-import { WORKSPACE_MODEL_REFERENCE_WIDTH } from './workspace-assets.js'
+import {
+  WORKSPACE_MODEL_REFERENCE_FORMAT,
+  WORKSPACE_MODEL_REFERENCE_QUALITY,
+  WORKSPACE_MODEL_REFERENCE_WIDTH
+} from './workspace-assets.js'
 
 /**
  * imgproxy 签名函数类型
@@ -150,11 +154,14 @@ function generateImgproxyDerivativePaths(input: {
   const modelReferencePath = imgproxyUnsignedPath(input.source, {
     width: modelReferenceSize.width,
     height: modelReferenceSize.height,
-    format: 'webp',
-    quality: 76
+    format: WORKSPACE_MODEL_REFERENCE_FORMAT,
+    quality: WORKSPACE_MODEL_REFERENCE_QUALITY
   })
 
-  const thumbnailPaths: Record<number, string> = {}
+  const thumbnailPaths = {} as Record<
+    (typeof IMGPROXY_THUMBNAIL_WIDTHS)[number],
+    string
+  >
   for (const width of IMGPROXY_THUMBNAIL_WIDTHS) {
     const size = calculateFitSize(originalWidth, originalHeight, width)
     thumbnailPaths[width] = imgproxyUnsignedPath(input.source, {
@@ -169,10 +176,7 @@ function generateImgproxyDerivativePaths(input: {
     originalPath,
     previewPath,
     thumbPath,
-    thumbnailPaths: thumbnailPaths as Record<
-      (typeof IMGPROXY_THUMBNAIL_WIDTHS)[number],
-      string
-    >,
+    thumbnailPaths,
     modelReferencePath,
     previewSize,
     thumbnailSize,
@@ -206,7 +210,10 @@ export function generateImgproxyDerivativeUrls(input: {
   const paths = generateImgproxyDerivativePaths(input)
 
   // 响应式缩略图（不同宽度）
-  const thumbnails: Record<number, string> = {}
+  const thumbnails = {} as Record<
+    (typeof IMGPROXY_THUMBNAIL_WIDTHS)[number],
+    string
+  >
   for (const width of IMGPROXY_THUMBNAIL_WIDTHS) {
     thumbnails[width] = `${baseUrl}${paths.thumbnailPaths[width]}`
   }
@@ -215,7 +222,7 @@ export function generateImgproxyDerivativeUrls(input: {
     original: `${baseUrl}${paths.originalPath}`,
     preview: `${baseUrl}${paths.previewPath}`,
     thumb: `${baseUrl}${paths.thumbPath}`,
-    thumbnails: thumbnails as any,
+    thumbnails,
     modelReference: `${baseUrl}${paths.modelReferencePath}`,
     previewSize: paths.previewSize,
     thumbnailSize: paths.thumbnailSize,
