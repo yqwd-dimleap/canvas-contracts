@@ -1,6 +1,6 @@
 {
   "name": "@yqwd-dimleap/canvas-contracts",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Shared TypeScript and Zod contracts for Dimleap canvas services.",
   "type": "module",
   "private": false,
