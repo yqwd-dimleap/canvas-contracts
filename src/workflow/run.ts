@@ -111,8 +111,6 @@ export const agentExecutionMediaSchema = z
     type: z.enum(['image', 'video']),
     url: z.string().min(1),
     assetId: z.string().nullable().optional(),
-    modelUrl: z.string().nullable().optional(),
-    thumbnailUrl: z.string().nullable().optional(),
     prompt: z.string().optional(),
     status: z.string().optional()
   })

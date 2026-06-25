@@ -53,8 +53,9 @@ export function calculateFitSize(
   maxWidth: number,
   maxHeight?: number
 ): { width: number; height: number } {
+  if (maxWidth <= 0) return { width: 0, height: 0 }
   if (originalWidth <= 0 || originalHeight <= 0) {
-    return { width: 0, height: 0 }
+    return { width: maxWidth, height: 0 }
   }
 
   const effectiveMaxHeight = maxHeight ?? maxWidth
