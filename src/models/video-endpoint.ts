@@ -8,7 +8,7 @@ export const VIDEO_SYNTHESIS_ENDPOINT =
   '/api/v1/services/aigc/video-generation/video-synthesis'
 
 export const VOLCENGINE_CONTENTS_GENERATIONS_TASKS_ENDPOINT =
-  '/api/v3/contents/generations/tasks'
+  '/api/v1/contents/generations/tasks'
 
 export type VideoModelPayloadType =
   | 'standard'

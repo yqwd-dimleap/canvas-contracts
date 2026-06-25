@@ -221,20 +221,23 @@ describe('video model payloads', () => {
 
     expect(payload).toMatchObject({
       model: 'doubao-seedance-2-0-260128',
+      prompt: 'generate a short video',
       resolution: '720p',
-      ratio: '16:9',
-      duration: 8,
-      frames: 57,
-      watermark: true,
-      generate_audio: false,
       service_tier: 'default',
-      return_last_frame: true,
       execution_expires_after: 3600,
       priority: 5,
       safety_identifier: 'user_hash',
       tools: [{ type: 'web_search' }]
     })
-    expect(payload.content).toEqual([
+    expect(payload.metadata).toMatchObject({
+      ratio: '16:9',
+      duration: 8,
+      frames: 57,
+      watermark: true,
+      generate_audio: false,
+      return_last_frame: true
+    })
+    expect((payload.metadata as any).content).toEqual([
       {
         type: 'text',
         text: 'generate a short video'

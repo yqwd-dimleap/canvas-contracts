@@ -256,6 +256,7 @@ export function buildSeedanceVideoPayload(
         : 5
   const payload: VideoGatewayPayload = {
     model: params.model,
+    prompt: params.prompt,
     content: seedanceContent(params),
     resolution: seedanceResolution(params.size),
     ratio: seedanceRatio(params),
