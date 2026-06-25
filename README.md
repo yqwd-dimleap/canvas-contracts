@@ -58,31 +58,44 @@ const parsed = listAgentProfilesResponseSchema.parse(json)
 
 ## Package Layout
 
+Each domain is a separate subpath export (e.g.
+`@yqwd-dimleap/canvas-contracts/agent`). Importers should pull from the specific
+domain, not the package root.
+
 ```txt
 src/
-  api/      shared API response envelopes
-  agent/    agent profile and route contracts
-  canvas/   resource and canvas context contracts
+  admin/       admin console responses
+  agent/       agent profile, model-preference, and route contracts
+  api/          shared API response envelopes
+  auth/         auth/session and user contracts
+  billing/      billing and credit schemas
+  canvas/       resource and canvas context contracts
+  events/       agent SSE / runtime event contracts
+  generation/   image/video generation contracts
+  models/       model catalog and registry contracts
+  rag/          RAG search request/response contracts
+  storage/      storage/asset contracts
+  team/         team membership schemas
+  workflow/     workflow and storyboard contracts
+  shared/       internal-only helpers (not re-exported)
 ```
 
 ## Release
 
 This package is published to GitHub Packages as a private organization package.
-
-1. Update `version` in `package.json`.
-2. Run checks locally:
+Use the automated release script (see `scripts/README.md` for full details):
 
 ```sh
-bun run check
+./scripts/release.sh
+# or, to also edit CHANGELOG.md:
+./scripts/release.sh --with-changelog
 ```
 
-3. Commit and push to `main`.
-4. Create and push a version tag:
+The script checks the working tree is clean and on `main`, prompts for the bump
+type (patch/minor/major), updates `package.json`, runs `bun run check`
+(lint + typecheck + build), commits, creates an annotated `v*` tag, and pushes —
+which triggers the `Publish` GitHub Action. The Action publishes only on `v*`
+tags; normal pushes and pull requests only run CI checks.
 
-```sh
-git tag v0.1.1
-git push origin v0.1.1
-```
-
-The `Publish` GitHub Action publishes only on `v*` tags. Normal pushes and pull
-requests only run CI checks.
+To release manually instead, bump `version` in `package.json`, run
+`bun run check`, commit to `main`, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
