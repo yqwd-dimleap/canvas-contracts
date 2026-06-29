@@ -19,6 +19,7 @@ export const generationCompletedEventSchema = eventEnvelopeBaseSchema.extend({
   eventType: z.literal('generation.completed'),
   data: z.object({
     taskId: z.string().min(1),
+    providerTaskId: z.string().optional(),
     nodeId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
@@ -30,11 +31,25 @@ export const generationFailedEventSchema = eventEnvelopeBaseSchema.extend({
   eventType: z.literal('generation.failed'),
   data: z.object({
     taskId: z.string().min(1),
+    providerTaskId: z.string().optional(),
     nodeId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
     message: z.string().min(1),
     retryable: z.boolean().optional()
+  })
+})
+
+export const generationProgressEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('generation.progress'),
+  data: z.object({
+    taskId: z.string().min(1),
+    providerTaskId: z.string().optional(),
+    nodeId: z.string().optional(),
+    projectId: z.string().nullable().optional(),
+    type: generationTaskTypeSchema,
+    status: z.enum(['pending', 'polling', 'completed', 'failed']),
+    progress: z.number().min(0).max(100)
   })
 })
 
@@ -112,6 +127,7 @@ export const notificationUpdatedEventSchema = eventEnvelopeBaseSchema.extend({
 export const canvasEventSchema = z.discriminatedUnion('eventType', [
   generationCompletedEventSchema,
   generationFailedEventSchema,
+  generationProgressEventSchema,
   agentRunCompletedEventSchema,
   agentRunFailedEventSchema,
   agentRunCancelledEventSchema,
@@ -123,6 +139,7 @@ export const canvasEventSchema = z.discriminatedUnion('eventType', [
 export const canvasEventTypeSchema = z.enum([
   'generation.completed',
   'generation.failed',
+  'generation.progress',
   'agent.run.completed',
   'agent.run.failed',
   'agent.run.cancelled',
@@ -134,6 +151,9 @@ export type GenerationCompletedEvent = z.infer<
   typeof generationCompletedEventSchema
 >
 export type GenerationFailedEvent = z.infer<typeof generationFailedEventSchema>
+export type GenerationProgressEvent = z.infer<
+  typeof generationProgressEventSchema
+>
 export type AgentRunCompletedEvent = z.infer<
   typeof agentRunCompletedEventSchema
 >

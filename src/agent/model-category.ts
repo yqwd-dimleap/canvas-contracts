@@ -28,6 +28,7 @@ export const MODEL_CATEGORY_ORDER: ModelCategoryId[] = [...MODEL_CATEGORIES]
 export type GatewayModelKindHints = {
   object?: string
   ownedBy?: string
+  supportedEndpointTypes?: string[]
 }
 
 /** 管理员覆盖启发式分类时，写入 `AiModelRow.metadata` 的键。 */
@@ -54,6 +55,10 @@ export function categorizeGatewayModel(
   const lower = modelId.toLowerCase()
 
   // hints 优先
+  const endpointCategory = categoryFromSupportedEndpointTypes(
+    hints?.supportedEndpointTypes
+  )
+  if (endpointCategory) return endpointCategory
   if (hintSuggestsVideo(hints)) return 'video'
 
   if (isVideoModelId(lower)) return 'video'
@@ -63,6 +68,71 @@ export function categorizeGatewayModel(
   if (isChatLikeModelId(lower)) return 'chat'
 
   return 'other'
+}
+
+function normalizeEndpointType(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_/\s]+/g, '-')
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return Array.from(
+    new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean)
+    )
+  )
+}
+
+function endpointIncludes(endpoint: string, token: string): boolean {
+  return endpoint === token || endpoint.includes(token)
+}
+
+export function categoryFromSupportedEndpointTypes(
+  supportedEndpointTypes: readonly string[] | null | undefined
+): ModelCategoryId | null {
+  const endpoints = supportedEndpointTypes
+    ?.map((item) => normalizeEndpointType(item))
+    .filter(Boolean)
+  if (!endpoints || endpoints.length === 0) return null
+
+  if (
+    endpoints.some(
+      (endpoint) =>
+        endpointIncludes(endpoint, 'video') ||
+        endpointIncludes(endpoint, 'contents-generations')
+    )
+  ) {
+    return 'video'
+  }
+  if (endpoints.some((endpoint) => endpointIncludes(endpoint, 'image'))) {
+    return 'image'
+  }
+  if (
+    endpoints.some(
+      (endpoint) =>
+        endpointIncludes(endpoint, 'audio') ||
+        endpointIncludes(endpoint, 'music')
+    )
+  ) {
+    return 'audio'
+  }
+  if (endpoints.some((endpoint) => endpointIncludes(endpoint, 'embedding'))) {
+    return 'embedding'
+  }
+  if (
+    endpoints.some((endpoint) =>
+      ['chat', 'openai', 'anthropic', 'gemini'].includes(endpoint)
+    )
+  ) {
+    return 'chat'
+  }
+
+  return null
 }
 
 function hintSuggestsVideo(hints: GatewayModelKindHints | undefined): boolean {
@@ -232,12 +302,82 @@ export function readGatewayHintsFromMetadata(
   metadata: Record<string, unknown> | null | undefined
 ): GatewayModelKindHints | undefined {
   const raw = metadata?.[AI_MODEL_GATEWAY_HINTS_METADATA_KEY]
-  if (!raw || typeof raw !== 'object') return undefined
+  const supportedEndpointTypes =
+    readSupportedEndpointTypesFromMetadata(metadata)
+  if (!raw || typeof raw !== 'object') {
+    return supportedEndpointTypes.length > 0
+      ? { supportedEndpointTypes }
+      : undefined
+  }
   const o = raw as Record<string, unknown>
   return {
     object: typeof o.object === 'string' ? o.object : undefined,
-    ownedBy: typeof o.ownedBy === 'string' ? o.ownedBy : undefined
+    ownedBy: typeof o.ownedBy === 'string' ? o.ownedBy : undefined,
+    supportedEndpointTypes
   }
+}
+
+export function readSupportedEndpointTypesFromMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): string[] {
+  const gatewayHints = metadata?.[AI_MODEL_GATEWAY_HINTS_METADATA_KEY]
+  const gatewayHintsRecord =
+    gatewayHints &&
+    typeof gatewayHints === 'object' &&
+    !Array.isArray(gatewayHints)
+      ? (gatewayHints as Record<string, unknown>)
+      : undefined
+  return Array.from(
+    new Set(
+      [
+        ...readStringArray(metadata?.supportedEndpointTypes),
+        ...readStringArray(gatewayHintsRecord?.supportedEndpointTypes)
+      ]
+        .map(normalizeEndpointType)
+        .filter(Boolean)
+    )
+  )
+}
+
+export function modelSupportsEndpointType(
+  metadata: Record<string, unknown> | null | undefined,
+  endpointType: string
+): boolean {
+  const normalized = normalizeEndpointType(endpointType)
+  if (!normalized) return false
+  return readSupportedEndpointTypesFromMetadata(metadata).includes(normalized)
+}
+
+export function getConfiguredModelCategory(
+  modelId: string,
+  metadata: Record<string, unknown> | null | undefined,
+  extraHints?: GatewayModelKindHints
+): ModelCategoryId {
+  return getEffectiveModelCategory(modelId, metadata, extraHints)
+}
+
+export function isConfiguredVideoGenerationModel(
+  modelId: string,
+  metadata?: Record<string, unknown> | null
+): boolean {
+  if (!hasVideoPayloadBuilder(modelId)) return false
+  if (!hasExplicitModelCategoryMetadata(metadata)) return true
+  return getConfiguredModelCategory(modelId, metadata) === 'video'
+}
+
+function hasVideoPayloadBuilder(modelId: string): boolean {
+  registerStaticModels()
+  return Boolean(modelRegistry.getModelById(modelId)?.buildVideoPayload)
+}
+
+function hasExplicitModelCategoryMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): boolean {
+  return Boolean(
+    metadata &&
+      (isStoredModelKind(metadata[AI_MODEL_KIND_METADATA_KEY]) ||
+        readSupportedEndpointTypesFromMetadata(metadata).length > 0)
+  )
 }
 
 /** metadata.reasoningEfforts 中声明的可用 reasoning 档位。 */

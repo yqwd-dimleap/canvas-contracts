@@ -51,8 +51,7 @@ function seedanceContentItemFromMedia(
   if (item.type === 'reference_video' || item.type === 'video') {
     return {
       type: 'video_url',
-      video_url: { url },
-      role: item.role ?? 'reference_video'
+      video_url: { url }
     }
   }
 
@@ -63,15 +62,13 @@ function seedanceContentItemFromMedia(
   ) {
     return {
       type: 'audio_url',
-      audio_url: { url },
-      role: item.role ?? 'reference_audio'
+      audio_url: { url }
     }
   }
 
   return {
     type: 'image_url',
-    image_url: { url },
-    role: item.role ?? item.type
+    image_url: { url }
   }
 }
 
@@ -92,16 +89,21 @@ function uniqueSeedanceContent(
 function seedanceContent(
   params: VideoGenerationParams
 ): Record<string, unknown>[] {
+  const content: Record<string, unknown>[] = []
   const rawContent = (params as { content?: unknown }).content
-  if (Array.isArray(rawContent) && rawContent.length > 0) {
-    return rawContent.filter((item): item is Record<string, unknown> =>
-      Boolean(item && typeof item === 'object' && !Array.isArray(item))
+  if (Array.isArray(rawContent)) {
+    content.push(
+      ...rawContent.filter((item): item is Record<string, unknown> =>
+        Boolean(item && typeof item === 'object' && !Array.isArray(item))
+      )
     )
   }
 
-  const content: Record<string, unknown>[] = []
   const prompt = params.prompt?.trim()
-  if (prompt) {
+  const hasTextContent = content.some(
+    (item) => item.type === 'text' && typeof item.text === 'string'
+  )
+  if (prompt && !hasTextContent) {
     content.push({
       type: 'text',
       text: prompt
@@ -119,16 +121,14 @@ function seedanceContent(
     if (firstFrameUrl) {
       content.push({
         type: 'image_url',
-        image_url: { url: firstFrameUrl },
-        role: 'first_frame'
+        image_url: { url: firstFrameUrl }
       })
     }
 
     for (const url of params.mergeReferenceImageUrls?.slice(1) ?? []) {
       content.push({
         type: 'image_url',
-        image_url: { url },
-        role: 'reference_image'
+        image_url: { url }
       })
     }
   }
@@ -136,16 +136,14 @@ function seedanceContent(
   if (params.videoEditVideoUrl) {
     content.push({
       type: 'video_url',
-      video_url: { url: params.videoEditVideoUrl },
-      role: 'reference_video'
+      video_url: { url: params.videoEditVideoUrl }
     })
   }
 
   if (params.drivingAudioUrl) {
     content.push({
       type: 'audio_url',
-      audio_url: { url: params.drivingAudioUrl },
-      role: 'reference_audio'
+      audio_url: { url: params.drivingAudioUrl }
     })
   }
 

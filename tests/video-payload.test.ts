@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { isConfiguredVideoGenerationModel } from '../src/agent/model-category.js'
+import { applyGenerationGatewayConfig } from '../src/generation/gateway-config.js'
 import { modelRegistry } from '../src/models/registry.js'
 import type {
   VideoGatewayPayload,
@@ -20,6 +22,22 @@ function buildVideoPayload(
 }
 
 describe('video model payloads', () => {
+  test('configured video eligibility requires a payload builder', () => {
+    expect(
+      isConfiguredVideoGenerationModel('third-party-video-model', {
+        modelKind: 'video'
+      })
+    ).toBe(false)
+    expect(
+      isConfiguredVideoGenerationModel('doubao-seedance-2-0-fast-260128', {
+        modelKind: 'video'
+      })
+    ).toBe(true)
+    expect(
+      isConfiguredVideoGenerationModel('doubao-seedance-2-0-fast-260128')
+    ).toBe(true)
+  })
+
   test('wan2.6-i2v sends first-frame URL as input.img_url', () => {
     const payload = buildVideoPayload({
       model: 'wan2.6-i2v',
@@ -223,34 +241,69 @@ describe('video model payloads', () => {
       model: 'doubao-seedance-2-0-260128',
       prompt: 'generate a short video',
       resolution: '720p',
+      ratio: '16:9',
+      duration: 8,
+      frames: 57,
+      watermark: true,
+      generate_audio: false,
+      return_last_frame: true,
       service_tier: 'default',
       execution_expires_after: 3600,
       priority: 5,
       safety_identifier: 'user_hash',
       tools: [{ type: 'web_search' }]
     })
-    expect(payload.metadata).toMatchObject({
-      ratio: '16:9',
-      duration: 8,
-      frames: 57,
-      watermark: true,
-      generate_audio: false,
-      return_last_frame: true
-    })
-    expect((payload.metadata as any).content).toEqual([
+    expect(payload.content).toEqual([
       {
         type: 'text',
         text: 'generate a short video'
       },
       {
         type: 'image_url',
-        image_url: { url: IMAGE_URL },
-        role: 'first_frame'
+        image_url: { url: IMAGE_URL }
       },
       {
         type: 'image_url',
-        image_url: { url: SECOND_IMAGE_URL },
-        role: 'reference_image'
+        image_url: { url: SECOND_IMAGE_URL }
+      }
+    ])
+  })
+
+  test('generation gateway parameters cannot override dynamic seedance content', () => {
+    const basePayload = buildVideoPayload({
+      model: 'doubao-seedance-2-0-fast-260128',
+      prompt: 'make this a dynamic wallpaper',
+      referenceMedia: [
+        {
+          type: 'first_frame',
+          url: IMAGE_URL
+        }
+      ]
+    }) as Record<string, unknown>
+
+    const payload = applyGenerationGatewayConfig(basePayload, {
+      parameters: {
+        content: [
+          {
+            type: 'text',
+            text: 'static metadata content'
+          }
+        ],
+        watermark: false
+      },
+      omitParameters: ['content', 'model']
+    })
+
+    expect(payload.model).toBe('doubao-seedance-2-0-fast-260128')
+    expect(payload.watermark).toBe(false)
+    expect(payload.content).toEqual([
+      {
+        type: 'text',
+        text: 'make this a dynamic wallpaper'
+      },
+      {
+        type: 'image_url',
+        image_url: { url: IMAGE_URL }
       }
     ])
   })
