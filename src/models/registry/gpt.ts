@@ -49,7 +49,10 @@ export const gptImage2Model: ModelRegistration = {
     },
     defaults: {
       quality: 'auto',
-      size: '1024x1024'
+      size: '1024x1024',
+      background: 'auto',
+      outputFormat: 'png',
+      imageCount: 1
     }
   },
   buildImagePayload: (params: ImageGenerationParams): ImageGatewayPayload => {
@@ -97,7 +100,10 @@ export const gptImage1Model: ModelRegistration = {
     },
     defaults: {
       quality: 'auto',
-      size: '1024x1024'
+      size: '1024x1024',
+      background: 'auto',
+      outputFormat: 'png',
+      imageCount: 1
     }
   },
   buildImagePayload: (params: ImageGenerationParams): ImageGatewayPayload => {
@@ -142,7 +148,10 @@ export const gptImage1_5Model: ModelRegistration = {
     },
     defaults: {
       quality: 'auto',
-      size: '1024x1024'
+      size: '1024x1024',
+      background: 'auto',
+      outputFormat: 'png',
+      imageCount: 1
     }
   },
   buildImagePayload: (params: ImageGenerationParams): ImageGatewayPayload => {

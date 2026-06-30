@@ -1,4 +1,9 @@
 import {
+  buildConfiguredGenerationPayload,
+  compactGenerationRecord,
+  type GenerationGatewayConfig
+} from '../generation/gateway-config.js'
+import {
   gptImage1_5Model,
   gptImage1Model,
   gptImage2FlatfeeModel,
@@ -41,6 +46,9 @@ import type {
   VideoGatewayPayload,
   VideoGenerationParams
 } from './types.js'
+import { normalizeVideoGenerationReferenceParams } from './video-reference.js'
+
+const COMPRESSIBLE_IMAGE_OUTPUT_FORMATS = new Set(['jpeg', 'webp'])
 
 class ModelRegistry {
   private models = new Map<string, ModelRegistration>()
@@ -248,6 +256,270 @@ export { ModelRegistry }
 export const DEFAULT_PROMPT_GENERATION_MODEL = 'deepseek-v4-pro'
 export const DEFAULT_IMAGE_GENERATION_MODEL = 'gpt-image-2'
 export const DEFAULT_VIDEO_GENERATION_MODEL = 'wan2.7-i2v'
+
+function trimmedString(value: unknown): string | undefined {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return text || undefined
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  return value
+}
+
+function positiveInteger(value: unknown): number | undefined {
+  const number = finiteNumber(value)
+  if (number === undefined) return undefined
+  const integer = Math.floor(number)
+  return integer > 0 ? integer : undefined
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function normalizeImageUrls(
+  values: unknown,
+  limit: number | undefined
+): string[] | undefined {
+  if (!Array.isArray(values)) return undefined
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const url = trimmedString(value)
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    out.push(url)
+    if (typeof limit === 'number' && out.length >= limit) break
+  }
+  return out.length > 0 ? out : undefined
+}
+
+function supportsImageParam(metadata: ModelMetadata | undefined): boolean {
+  if (!metadata || metadata.category !== 'image') return true
+  return Boolean(
+    metadata.capabilities.imageEdit ||
+      metadata.capabilities.multipleImages ||
+      metadata.supportedParams?.referenceImages
+  )
+}
+
+function supportsParam(
+  metadata: ModelMetadata | undefined,
+  key: keyof NonNullable<ModelMetadata['supportedParams']>
+): boolean {
+  if (!metadata || metadata.category !== 'image') return true
+  return metadata.supportedParams?.[key] === true
+}
+
+function defaultString(
+  metadata: ModelMetadata | undefined,
+  key: 'size' | 'quality' | 'background' | 'outputFormat' | 'aspectRatio'
+): string | undefined {
+  return trimmedString(metadata?.defaults[key])
+}
+
+function defaultBoolean(
+  metadata: ModelMetadata | undefined,
+  key: 'promptExtend' | 'watermark'
+): boolean | undefined {
+  return booleanValue(metadata?.defaults[key])
+}
+
+function defaultNumber(
+  metadata: ModelMetadata | undefined,
+  key: 'duration' | 'outputCompression' | 'imageCount'
+): number | undefined {
+  return finiteNumber(metadata?.defaults[key])
+}
+
+/**
+ * Normalize the raw frontend -> agent image generation params before any
+ * provider-specific payload builder runs.
+ *
+ * This keeps browser requests canonical and prevents unsupported UI defaults
+ * such as quality/background/output_format from leaking into model-specific
+ * gateway payloads.
+ */
+export function normalizeImageGenerationParams(
+  params: ImageGenerationParams
+): ImageGenerationParams {
+  const model = trimmedString(params.model)
+  if (!model) throw new Error('Image model is required.')
+
+  const prompt = trimmedString(params.prompt)
+  if (!prompt) throw new Error('Image prompt is required.')
+
+  const metadata = modelRegistry.getMetadata(model)
+  const maxReferenceImages =
+    typeof metadata?.capabilities.maxReferenceImages === 'number'
+      ? metadata.capabilities.maxReferenceImages
+      : undefined
+  const image = supportsImageParam(metadata)
+    ? normalizeImageUrls(params.image, maxReferenceImages)
+    : undefined
+  const size = trimmedString(params.size) ?? defaultString(metadata, 'size')
+  const imageCount =
+    positiveInteger(params.n) ??
+    positiveInteger(defaultNumber(metadata, 'imageCount'))
+  const quality =
+    trimmedString(params.quality) ?? defaultString(metadata, 'quality')
+  const background =
+    trimmedString(params.background) ?? defaultString(metadata, 'background')
+  const outputFormat = (
+    trimmedString(params.output_format) ??
+    defaultString(metadata, 'outputFormat')
+  )?.toLowerCase()
+  const outputCompression =
+    finiteNumber(params.output_compression) ??
+    defaultNumber(metadata, 'outputCompression')
+  const promptExtend =
+    booleanValue(params.prompt_extend) ??
+    defaultBoolean(metadata, 'promptExtend')
+  const watermark =
+    booleanValue(params.watermark) ?? defaultBoolean(metadata, 'watermark')
+  const seed = finiteNumber(params.seed)
+  const projectId =
+    typeof params.projectId === 'string'
+      ? trimmedString(params.projectId)
+      : params.projectId === null
+        ? null
+        : undefined
+
+  return {
+    model,
+    prompt,
+    ...(supportsParam(metadata, 'size') && size ? { size } : {}),
+    ...(supportsParam(metadata, 'imageCount') && imageCount
+      ? { n: imageCount }
+      : {}),
+    ...(image ? { image } : {}),
+    ...(supportsParam(metadata, 'quality') && quality ? { quality } : {}),
+    ...(supportsParam(metadata, 'background') && background
+      ? { background }
+      : {}),
+    ...(supportsParam(metadata, 'outputFormat') && outputFormat
+      ? { output_format: outputFormat }
+      : {}),
+    ...(supportsParam(metadata, 'outputCompression') &&
+    outputFormat &&
+    COMPRESSIBLE_IMAGE_OUTPUT_FORMATS.has(outputFormat) &&
+    outputCompression !== undefined
+      ? { output_compression: outputCompression }
+      : {}),
+    ...(trimmedString(params.negative_prompt)
+      ? { negative_prompt: trimmedString(params.negative_prompt)! }
+      : {}),
+    ...(supportsParam(metadata, 'promptExtend') && promptExtend !== undefined
+      ? { prompt_extend: promptExtend }
+      : {}),
+    ...(supportsParam(metadata, 'watermark') && watermark !== undefined
+      ? { watermark }
+      : {}),
+    ...(seed !== undefined ? { seed } : {}),
+    ...(projectId !== undefined ? { projectId } : {})
+  }
+}
+
+export function normalizeVideoGenerationParams(
+  params: VideoGenerationParams
+): VideoGenerationParams {
+  const model = trimmedString(params.model)
+  if (!model) throw new Error('Video model is required.')
+
+  const prompt = trimmedString(params.prompt)
+  if (!prompt) throw new Error('Video prompt is required.')
+
+  const metadata = modelRegistry.getMetadata(model)
+  const normalized = normalizeVideoGenerationReferenceParams(
+    {
+      ...params,
+      model,
+      prompt,
+      duration:
+        finiteNumber(params.duration) ?? defaultNumber(metadata, 'duration'),
+      seconds: trimmedString(params.seconds),
+      size: trimmedString(params.size) ?? defaultString(metadata, 'size'),
+      mergeVideoAspectRatio:
+        trimmedString(params.mergeVideoAspectRatio) ??
+        trimmedString(params.ratio) ??
+        defaultString(metadata, 'aspectRatio'),
+      ratio:
+        trimmedString(params.ratio) ??
+        trimmedString(params.mergeVideoAspectRatio) ??
+        defaultString(metadata, 'aspectRatio'),
+      promptExtend:
+        booleanValue(params.promptExtend) ??
+        defaultBoolean(metadata, 'promptExtend'),
+      watermark:
+        booleanValue(params.watermark) ?? defaultBoolean(metadata, 'watermark'),
+      projectId:
+        typeof params.projectId === 'string'
+          ? trimmedString(params.projectId)
+          : params.projectId === null
+            ? null
+            : undefined
+    },
+    { metadata }
+  )
+
+  return compactGenerationRecord(
+    normalized as unknown as Record<string, unknown>
+  ) as VideoGenerationParams
+}
+
+export type ConfiguredVideoGenerationPayload = {
+  params: VideoGenerationParams
+  basePayload: VideoGatewayPayload
+  payload: Record<string, unknown>
+  config: GenerationGatewayConfig
+}
+
+export function buildConfiguredVideoGenerationPayload(
+  params: VideoGenerationParams,
+  metadata?: Record<string, unknown> | null
+): ConfiguredVideoGenerationPayload {
+  const normalized = normalizeVideoGenerationParams(params)
+  const basePayload = modelRegistry.buildVideoPayload(normalized)
+  const configured = buildConfiguredGenerationPayload(basePayload, metadata)
+
+  return {
+    params: normalized,
+    basePayload,
+    payload: configured.payload,
+    config: configured.config
+  }
+}
+
+export type ConfiguredImageGenerationPayload = {
+  params: ImageGenerationParams
+  basePayload: ImageGatewayPayload
+  payload: Record<string, unknown>
+  config: GenerationGatewayConfig
+}
+
+/**
+ * Build the final image gateway payload from raw frontend params.
+ *
+ * Order is intentionally fixed:
+ * raw frontend params -> normalized model params -> contract model defaults /
+ * provider payload builder -> admin metadata.gateway.generation overrides.
+ */
+export function buildConfiguredImageGenerationPayload(
+  params: ImageGenerationParams,
+  metadata?: Record<string, unknown> | null
+): ConfiguredImageGenerationPayload {
+  const normalized = normalizeImageGenerationParams(params)
+  const basePayload = modelRegistry.buildImagePayload(normalized)
+  const configured = buildConfiguredGenerationPayload(basePayload, metadata)
+
+  return {
+    params: normalized,
+    basePayload,
+    payload: configured.payload,
+    config: configured.config
+  }
+}
 
 export const CANVAS_VIDEO_GENERATION_MODEL_IDS = [
   'wan2.6-i2v',

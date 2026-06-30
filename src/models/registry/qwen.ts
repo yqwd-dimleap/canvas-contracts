@@ -39,7 +39,8 @@ export const qwenImageModel: ModelRegistration = {
       imageToVideo: false,
       multipleImages: false,
       videoEdit: false,
-      videoMerge: false
+      videoMerge: false,
+      maxReferenceImages: 3
     },
     supportedParams: {
       size: true,
@@ -57,6 +58,7 @@ export const qwenImageModel: ModelRegistration = {
     defaults: {
       size: QWEN_IMAGE_DEFAULT_SIZE, // Qwen 默认 2048*2048
       quality: 'auto',
+      imageCount: 1,
       promptExtend: true,
       watermark: false
     }
@@ -134,7 +136,10 @@ export const nanoBanana2Model: ModelRegistration = {
     },
     defaults: {
       size: '1024x1024',
-      quality: 'auto'
+      quality: 'auto',
+      background: 'auto',
+      outputFormat: 'png',
+      imageCount: 1
     }
   },
   buildImagePayload: (params: ImageGenerationParams): ImageGatewayPayload => {

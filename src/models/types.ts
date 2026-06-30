@@ -80,6 +80,14 @@ export interface ModelMetadata {
     size?: string
     /** 默认质量 */
     quality?: string
+    /** 默认背景 */
+    background?: string
+    /** 默认输出格式 */
+    outputFormat?: string
+    /** 默认输出压缩率 */
+    outputCompression?: number
+    /** 默认生成数量 */
+    imageCount?: number
     /** 默认宽高比 */
     aspectRatio?: string
     /** 默认提示词扩展 */

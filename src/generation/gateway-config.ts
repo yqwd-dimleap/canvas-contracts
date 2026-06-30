@@ -239,6 +239,55 @@ export function applyGenerationGatewayConfig(
   })
 }
 
+export function compactGenerationRecord(
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(payload)) {
+    const compacted = compactValue(value)
+    if (compacted !== undefined) next[key] = compacted
+  }
+  return next
+}
+
+function compactValue(value: unknown): unknown {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : undefined
+  }
+  if (Array.isArray(value)) {
+    const compacted = value
+      .map((item) => compactValue(item))
+      .filter((item) => item !== undefined)
+    return compacted.length > 0 ? compacted : undefined
+  }
+  const valueRecord = optionalRecord(value)
+  if (valueRecord) {
+    const compacted = compactGenerationRecord(valueRecord)
+    return Object.keys(compacted).length > 0 ? compacted : undefined
+  }
+  return value
+}
+
+export type ConfiguredGenerationPayload = {
+  payload: Record<string, unknown>
+  config: GenerationGatewayConfig
+}
+
+export function buildConfiguredGenerationPayload(
+  basePayload: Record<string, unknown>,
+  metadata?: Record<string, unknown> | null
+): ConfiguredGenerationPayload {
+  const config = readGenerationGatewayConfig(metadata)
+  return {
+    payload: compactGenerationRecord(
+      applyGenerationGatewayConfig(basePayload, config)
+    ),
+    config
+  }
+}
+
 export function buildGatewayChatPayloadPreview(config: {
   parameters: Record<string, unknown>
   omitParameters: string[]

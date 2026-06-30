@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { isConfiguredVideoGenerationModel } from '../src/agent/model-category.js'
 import { applyGenerationGatewayConfig } from '../src/generation/gateway-config.js'
-import { modelRegistry } from '../src/models/registry.js'
+import {
+  buildConfiguredVideoGenerationPayload,
+  modelRegistry
+} from '../src/models/registry.js'
 import type {
   VideoGatewayPayload,
   VideoGenerationParams
@@ -36,6 +39,50 @@ describe('video model payloads', () => {
     expect(
       isConfiguredVideoGenerationModel('doubao-seedance-2-0-fast-260128')
     ).toBe(true)
+  })
+
+  test('configured video payload applies shared defaults and admin generation config', () => {
+    const configured = buildConfiguredVideoGenerationPayload(
+      {
+        model: 'wan2.7-t2v',
+        prompt: 'generate a short video'
+      },
+      {
+        gateway: {
+          generation: {
+            parameters: {
+              projectId: 'must-not-leak',
+              provider_option: 'enabled'
+            },
+            omitParameters: ['model']
+          }
+        }
+      }
+    )
+
+    expect(configured.params).toMatchObject({
+      model: 'wan2.7-t2v',
+      prompt: 'generate a short video',
+      duration: 10,
+      size: '720P',
+      mergeVideoAspectRatio: '16:9',
+      ratio: '16:9',
+      promptExtend: true,
+      watermark: true
+    })
+    expect(configured.payload).toMatchObject({
+      input: { prompt: 'generate a short video' },
+      parameters: {
+        resolution: '720P',
+        ratio: '16:9',
+        duration: 10,
+        prompt_extend: true,
+        watermark: true
+      },
+      provider_option: 'enabled'
+    })
+    expect(configured.payload).toHaveProperty('model', 'wan2.7-t2v')
+    expect(configured.payload).not.toHaveProperty('projectId')
   })
 
   test('wan2.6-i2v sends first-frame URL as input.img_url', () => {
