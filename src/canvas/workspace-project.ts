@@ -5,7 +5,6 @@ import {
 } from '../storage/workspace-assets.js'
 import { canvasDocumentSchema } from './document.js'
 import { projectCanvasEdgeSchema } from './edge.js'
-import { canvasMediaEntrySchema } from './media.js'
 import { canvasResourceSchema } from './resources.js'
 import { projectCanvasFlowNodeSchema } from './workflow.js'
 
@@ -90,24 +89,9 @@ const looseCanvasEdgeSchema = z.record(z.string(), z.unknown()).and(
   })
 )
 
-export const workspaceProjectCanvasPayloadSchema = z.object({
-  schemaVersion: z.literal(1).default(1),
-  assets: z.array(canvasMediaEntrySchema).default([]),
-  workflowNodes: z
-    .array(projectCanvasFlowNodeSchema.or(looseWorkflowNodeSchema))
-    .default([]),
-  edges: z.array(projectCanvasEdgeSchema.or(looseCanvasEdgeSchema)).default([]),
-  canvasDocuments: z.array(canvasDocumentSchema).default([]),
-  conversations: z.array(z.unknown()).default([]),
-  activeConversationId: z.string().nullable().default(null),
-  agentProfileId: z.string().nullable().default(null),
-  orphanResources: z.array(canvasResourceSchema).default([]),
-  updatedAt: z.number().optional()
-})
-
-export const legacyWorkspaceProjectCanvasPayloadSchema = z
+export const workspaceProjectCanvasPayloadSchema = z
   .object({
-    mediaEntries: z.array(canvasMediaEntrySchema).default([]),
+    schemaVersion: z.literal(1).default(1),
     nodes: z
       .array(projectCanvasFlowNodeSchema.or(looseWorkflowNodeSchema))
       .default([]),
@@ -116,29 +100,15 @@ export const legacyWorkspaceProjectCanvasPayloadSchema = z
       .default([]),
     canvasDocuments: z.array(canvasDocumentSchema).default([]),
     conversations: z.array(z.unknown()).default([]),
-    activeConversationId: z.string().nullable().optional(),
-    agentMessages: z.array(z.unknown()).optional(),
-    agentProfileId: z.string().nullable().optional(),
-    orphanResources: z.array(canvasResourceSchema).optional(),
+    activeConversationId: z.string().nullable().default(null),
+    agentProfileId: z.string().nullable().default(null),
+    orphanResources: z.array(canvasResourceSchema).default([]),
     updatedAt: z.number().optional()
   })
-  .transform((legacy) => ({
-    schemaVersion: 1 as const,
-    assets: legacy.mediaEntries,
-    workflowNodes: legacy.nodes,
-    edges: legacy.edges,
-    canvasDocuments: legacy.canvasDocuments,
-    conversations: legacy.conversations,
-    activeConversationId: legacy.activeConversationId ?? null,
-    agentProfileId: legacy.agentProfileId ?? null,
-    orphanResources: legacy.orphanResources ?? [],
-    updatedAt: legacy.updatedAt
-  }))
+  .strict()
 
-export const workspaceProjectResourcesSchema = z.union([
-  workspaceProjectCanvasPayloadSchema,
-  legacyWorkspaceProjectCanvasPayloadSchema
-])
+export const workspaceProjectResourcesSchema =
+  workspaceProjectCanvasPayloadSchema
 
 export const workspaceProjectAssetSchema = z.object({
   id: z.string().min(1),

@@ -6,7 +6,7 @@ import {
   imageTransportModeSchema,
   urlImageSourceSchema
 } from './generation.js'
-import { canvasMediaEntrySchema, xyPositionSchema } from './media.js'
+import { xyPositionSchema } from './media.js'
 import { type CanvasResource, canvasResourceSchema } from './resources.js'
 
 /**
@@ -360,13 +360,6 @@ export const projectCanvasFlowNodeSchema = z.discriminatedUnion('type', [
   })
 ])
 
-export const persistedProjectCanvasSchema = z.object({
-  mediaEntries: z.array(canvasMediaEntrySchema),
-  nodes: z.array(projectCanvasFlowNodeSchema),
-  edges: z.array(z.record(z.string(), z.unknown())),
-  canvasDocuments: z.array(canvasDocumentSchema).default([])
-})
-
 export type ProjectCanvasNodeType = z.infer<typeof projectCanvasNodeTypeSchema>
 export type NormalResourceNodeData = z.infer<
   typeof normalResourceNodeDataSchema
@@ -400,6 +393,3 @@ export type CanvasCompositionNodeData = z.infer<
   typeof canvasCompositionNodeDataSchema
 >
 export type ProjectCanvasFlowNode = z.infer<typeof projectCanvasFlowNodeSchema>
-export type PersistedProjectCanvas = z.infer<
-  typeof persistedProjectCanvasSchema
->

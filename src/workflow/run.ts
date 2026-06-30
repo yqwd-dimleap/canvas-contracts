@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { canvasOperationSchema } from '../canvas/operations.js'
+import { agentSuggestionSchema } from '../events/canvas-events.js'
 import { canvasIntentKindSchema, canvasPlanActionSchema } from './plan.js'
 
 export const agentRunStatusSchema = z.enum([
@@ -46,6 +48,8 @@ export const agentRunEventNameSchema = z.enum([
   'generation.queued',
   'generation.completed',
   'generation.failed',
+  'canvas.operation',
+  'agent.suggestions',
   'review.completed',
   'repair.suggested',
   'action.requires_confirmation',
@@ -111,8 +115,10 @@ export const agentExecutionMediaSchema = z
     type: z.enum(['image', 'video']),
     url: z.string().min(1),
     assetId: z.string().nullable().optional(),
+    mimeType: z.string().min(1).optional(),
     prompt: z.string().optional(),
-    status: z.string().optional()
+    status: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
   })
   .catchall(z.unknown())
 
@@ -337,6 +343,20 @@ export const agentRunEventSchema = z.union([
     data: z.record(z.string(), z.unknown())
   }),
   agentRunEventBaseSchema.extend({
+    event: z.literal('canvas.operation'),
+    data: z.object({
+      operation: canvasOperationSchema,
+      transient: z.boolean().default(false),
+      sequence: z.number().int().nonnegative().optional()
+    })
+  }),
+  agentRunEventBaseSchema.extend({
+    event: z.literal('agent.suggestions'),
+    data: z.object({
+      suggestions: z.array(agentSuggestionSchema).min(1).max(5)
+    })
+  }),
+  agentRunEventBaseSchema.extend({
     event: z.literal('review.completed'),
     data: agentExecutionCritiqueSchema
   }),
@@ -383,6 +403,7 @@ export type AgentExecutionRepairPlan = z.infer<
 >
 export type AgentRunStep = z.infer<typeof agentRunStepSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
+export type { AgentSuggestion } from '../events/canvas-events.js'
 export type AgentRunEvent = z.infer<typeof agentRunEventSchema>
 export type AgentMessageStreamEvent = z.infer<
   typeof agentMessageStreamEventSchema

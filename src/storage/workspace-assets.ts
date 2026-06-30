@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import type { CanvasMediaEntry } from '../canvas/media.js'
+import type {
+  CanvasResource,
+  CanvasResourceStorage,
+  CanvasResourceType
+} from '../canvas/resources.js'
 
 export const workspaceAssetTypeSchema = z.enum([
   'image',
@@ -199,6 +205,25 @@ export type WorkspaceAssetMediaContext =
   | 'download'
   | 'responsive'
 
+export type WorkspaceAssetLike = {
+  id?: unknown
+  type?: unknown
+  name?: unknown
+  mimeType?: unknown
+  size?: unknown
+  url?: unknown
+  metadata?: Record<string, unknown> | null
+}
+
+export const CANVAS_ASSET_RESOURCE_ARRAY_KEYS = [
+  'inputResources',
+  'outputResources',
+  'manualResources',
+  'cellResources'
+] as const
+
+const CANVAS_RESOURCE_TYPES = ['image', 'video', 'audio', 'text'] as const
+
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -213,6 +238,33 @@ function stringValue(value: unknown): string | null {
 function numberValue(value: unknown): number | undefined {
   const n = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+function finiteNumberValue(value: unknown): number | undefined {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+function canvasResourceTypeValue(value: unknown): CanvasResourceType {
+  return CANVAS_RESOURCE_TYPES.includes(value as CanvasResourceType)
+    ? (value as CanvasResourceType)
+    : 'image'
+}
+
+function mediaAssetTypeValue(value: unknown): 'image' | 'video' | null {
+  if (value === 'image' || value === 'video') return value
+  return null
+}
+
+function assetMetadataValue(
+  asset: WorkspaceAssetLike
+): Record<string, unknown> {
+  return recordValue(asset.metadata) ?? {}
+}
+
+function assetSizeValue(asset: WorkspaceAssetLike): number | undefined {
+  const n = finiteNumberValue(asset.size)
+  return typeof n === 'number' && n >= 0 ? n : undefined
 }
 
 export function workspaceAssetFromUnknown(row: unknown): WorkspaceAsset {
@@ -260,6 +312,292 @@ export function workspaceAssetStorageFromMetadata(
     ...(viewPath ? { viewPath } : {}),
     ...(publicUrl ? { publicUrl } : {})
   }
+}
+
+export function workspaceAssetLookupFromAssets<T extends WorkspaceAssetLike>(
+  assets: readonly T[] | null | undefined
+): Map<string, T> {
+  const lookup = new Map<string, T>()
+  for (const asset of assets ?? []) {
+    const id = stringValue(asset.id)
+    if (id) lookup.set(id, asset)
+  }
+  return lookup
+}
+
+export function workspaceAssetReferenceId(value: unknown): string | null {
+  if (typeof value === 'string') return stringValue(value)
+  const record = recordValue(value)
+  if (!record) return null
+  return stringValue(record.assetId) ?? stringValue(record.id)
+}
+
+export function workspaceAssetForReference<T extends WorkspaceAssetLike>(
+  reference: unknown,
+  lookup: ReadonlyMap<string, T>
+): T | undefined {
+  const id = workspaceAssetReferenceId(reference)
+  return id ? lookup.get(id) : undefined
+}
+
+export function workspaceAssetMediaType(
+  asset: WorkspaceAssetLike | null | undefined,
+  fallback?: unknown
+): 'image' | 'video' | null {
+  return mediaAssetTypeValue(asset?.type) ?? mediaAssetTypeValue(fallback)
+}
+
+export function workspaceAssetDimension(
+  asset: WorkspaceAssetLike,
+  key: 'width' | 'height'
+): number | undefined {
+  const media = workspaceAssetMediaFromMetadata(assetMetadataValue(asset))
+  return (
+    numberValue(media?.original?.[key]) ??
+    numberValue(assetMetadataValue(asset)[key])
+  )
+}
+
+export function workspaceAssetRuntimeUrl(
+  asset: WorkspaceAssetLike,
+  context: WorkspaceAssetMediaContext = 'canvas',
+  containerWidth?: number
+): string | null {
+  const type = workspaceAssetMediaType(asset)
+  if (type !== 'image' && type !== 'video') return stringValue(asset.url)
+  return (
+    workspaceAssetMediaForContext(
+      {
+        type,
+        url: stringValue(asset.url),
+        metadata: assetMetadataValue(asset)
+      },
+      context,
+      containerWidth
+    ) ??
+    stringValue(
+      workspaceAssetMediaFromMetadata(assetMetadataValue(asset))?.original.url
+    ) ??
+    stringValue(asset.url)
+  )
+}
+
+export function workspaceAssetCanvasStorage(
+  asset: WorkspaceAssetLike
+): CanvasResourceStorage | undefined {
+  return (
+    workspaceAssetStorageFromMetadata(assetMetadataValue(asset)) ?? undefined
+  )
+}
+
+export function workspaceAssetToCanvasResource(
+  asset: WorkspaceAssetLike,
+  input: {
+    id?: string | null
+    createdBy: string
+    createdAt?: number
+    context?: WorkspaceAssetMediaContext
+  }
+): CanvasResource | null {
+  const type = workspaceAssetMediaType(asset)
+  const assetId = stringValue(asset.id)
+  if (!assetId || !type) return null
+  const url = workspaceAssetRuntimeUrl(asset, input.context ?? 'canvas')
+  if (!url) return null
+  const media = workspaceAssetMediaFromMetadata(assetMetadataValue(asset))
+  const metadata = {
+    ...(workspaceAssetDimension(asset, 'width')
+      ? { width: workspaceAssetDimension(asset, 'width') }
+      : {}),
+    ...(workspaceAssetDimension(asset, 'height')
+      ? { height: workspaceAssetDimension(asset, 'height') }
+      : {}),
+    ...(media ? { media } : {})
+  }
+  const storage = workspaceAssetCanvasStorage(asset)
+  const size = assetSizeValue(asset)
+  return {
+    id: stringValue(input.id) ?? assetId,
+    type,
+    url,
+    assetId,
+    ...(stringValue(asset.name) ? { name: stringValue(asset.name)! } : {}),
+    ...(stringValue(asset.mimeType)
+      ? { mimeType: stringValue(asset.mimeType)! }
+      : {}),
+    ...(typeof size === 'number' ? { size } : {}),
+    ...(storage ? { storage } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+    createdAt: input.createdAt ?? Date.now(),
+    createdBy: stringValue(input.createdBy) ?? 'unknown'
+  }
+}
+
+export function workspaceAssetToCanvasMediaEntry(
+  asset: WorkspaceAssetLike,
+  input?: {
+    id?: string | null
+    position?: CanvasMediaEntry['position']
+    context?: WorkspaceAssetMediaContext
+  }
+): CanvasMediaEntry | null {
+  const type = workspaceAssetMediaType(asset)
+  const assetId = stringValue(asset.id)
+  if (!assetId || !type) return null
+  const url = workspaceAssetRuntimeUrl(asset, input?.context ?? 'canvas')
+  if (!url) return null
+  const media = workspaceAssetMediaFromMetadata(assetMetadataValue(asset))
+  return {
+    id: stringValue(input?.id) ?? assetId,
+    type,
+    url,
+    assetId,
+    width: workspaceAssetDimension(asset, 'width') ?? null,
+    height: workspaceAssetDimension(asset, 'height') ?? null,
+    storage: workspaceAssetCanvasStorage(asset),
+    mediaMetadata: media,
+    position: input?.position ?? null
+  }
+}
+
+export function resolveCanvasResourceAssetReference<T>(
+  resource: T,
+  lookup: ReadonlyMap<string, WorkspaceAssetLike>,
+  input?: { context?: WorkspaceAssetMediaContext }
+): T {
+  const record = recordValue(resource)
+  if (!record) return resource
+  const asset = workspaceAssetForReference(record, lookup)
+  const type = workspaceAssetMediaType(asset, record.type)
+  if (!asset || !type) return resource
+  const url = workspaceAssetRuntimeUrl(asset, input?.context ?? 'canvas')
+  if (!url) return resource
+  const media = workspaceAssetMediaFromMetadata(assetMetadataValue(asset))
+  const metadata = {
+    ...(recordValue(record.metadata) ?? {}),
+    ...(workspaceAssetDimension(asset, 'width')
+      ? { width: workspaceAssetDimension(asset, 'width') }
+      : {}),
+    ...(workspaceAssetDimension(asset, 'height')
+      ? { height: workspaceAssetDimension(asset, 'height') }
+      : {}),
+    ...(media ? { media } : {})
+  }
+  const storage = workspaceAssetCanvasStorage(asset)
+  const size = assetSizeValue(asset)
+  return {
+    ...record,
+    type,
+    url,
+    assetId: stringValue(asset.id),
+    ...(stringValue(asset.name) ? { name: stringValue(asset.name)! } : {}),
+    ...(stringValue(asset.mimeType)
+      ? { mimeType: stringValue(asset.mimeType)! }
+      : {}),
+    ...(typeof size === 'number' ? { size } : {}),
+    ...(storage ? { storage } : {}),
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {})
+  } as T
+}
+
+export function resolveCanvasMediaEntryAssetReference<T>(
+  entry: T,
+  lookup: ReadonlyMap<string, WorkspaceAssetLike>,
+  input?: { context?: WorkspaceAssetMediaContext }
+): T {
+  const record = recordValue(entry)
+  if (!record) return entry
+  const asset = workspaceAssetForReference(record, lookup)
+  const mediaEntry = asset
+    ? workspaceAssetToCanvasMediaEntry(asset, {
+        id: stringValue(record.id),
+        position: (record.position ?? null) as CanvasMediaEntry['position'],
+        context: input?.context ?? 'canvas'
+      })
+    : null
+  if (!mediaEntry) return entry
+  return {
+    ...record,
+    ...mediaEntry,
+    width: numberValue(record.width) ?? mediaEntry.width,
+    height: numberValue(record.height) ?? mediaEntry.height
+  } as T
+}
+
+export function resolveCanvasNodeAssetReferences<T>(
+  node: T,
+  lookup: ReadonlyMap<string, WorkspaceAssetLike>,
+  input?: { context?: WorkspaceAssetMediaContext }
+): T {
+  const nodeRecord = recordValue(node)
+  const data = recordValue(nodeRecord?.data)
+  if (!nodeRecord || !data) return node
+
+  let changed = false
+  const nextData: Record<string, unknown> = { ...data }
+  for (const key of CANVAS_ASSET_RESOURCE_ARRAY_KEYS) {
+    if (!Array.isArray(nextData[key])) continue
+    nextData[key] = nextData[key].map((resource) =>
+      resolveCanvasResourceAssetReference(resource, lookup, input)
+    )
+    changed = true
+  }
+  return changed ? ({ ...nodeRecord, data: nextData } as T) : node
+}
+
+export function resolveCanvasDocumentAssetReferences<T>(
+  document: T,
+  lookup: ReadonlyMap<string, WorkspaceAssetLike>,
+  input?: { context?: WorkspaceAssetMediaContext }
+): T {
+  const record = recordValue(document)
+  if (!record || !record.outputResource) return document
+  return {
+    ...record,
+    outputResource: resolveCanvasResourceAssetReference(
+      record.outputResource,
+      lookup,
+      input
+    )
+  } as T
+}
+
+export function compactCanvasResourceAssetReference<T>(resource: T): T {
+  const record = recordValue(resource)
+  if (!record) return resource
+  const assetId = stringValue(record.assetId)
+  if (!assetId) return resource
+  return {
+    id: assetId,
+    type: canvasResourceTypeValue(record.type),
+    assetId,
+    createdAt: finiteNumberValue(record.createdAt) ?? 0,
+    createdBy: stringValue(record.createdBy) ?? 'unknown'
+  } as T
+}
+
+export function compactCanvasNodeAssetReferences<T>(node: T): T {
+  const nodeRecord = recordValue(node)
+  const data = recordValue(nodeRecord?.data)
+  if (!nodeRecord || !data) return node
+
+  let changed = false
+  const nextData: Record<string, unknown> = { ...data }
+  for (const key of CANVAS_ASSET_RESOURCE_ARRAY_KEYS) {
+    if (!Array.isArray(nextData[key])) continue
+    nextData[key] = nextData[key].map(compactCanvasResourceAssetReference)
+    changed = true
+  }
+  return changed ? ({ ...nodeRecord, data: nextData } as T) : node
+}
+
+export function compactCanvasDocumentAssetReferences<T>(document: T): T {
+  const record = recordValue(document)
+  if (!record || !record.outputResource) return document
+  return {
+    ...record,
+    outputResource: compactCanvasResourceAssetReference(record.outputResource)
+  } as T
 }
 
 export function workspaceAssetMediaSources(

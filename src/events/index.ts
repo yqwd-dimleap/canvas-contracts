@@ -1,3 +1,4 @@
+export * from './canvas-events.js'
 export * from './envelope.js'
 export * from './events.js'
 export * from './notifications.js'
