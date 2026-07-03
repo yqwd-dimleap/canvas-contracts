@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { canvasResourceStorageSchema } from '../canvas/resources.js'
+import { workspaceAssetMediaMetadataSchema } from '../storage/workspace-assets.js'
 
 export * from './gateway-config.js'
 
@@ -34,8 +36,12 @@ export const generationTaskResultSchema = z.object({
   // Lightweight derivatives surfaced before/while the full asset uploads.
   posterUrl: z.string().optional(),
   previewUrl: z.string().optional(),
+  assetId: z.string().optional(),
+  storage: canvasResourceStorageSchema.nullable().optional(),
+  mediaMetadata: workspaceAssetMediaMetadataSchema.nullable().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
+  duration: z.number().optional(),
   durationMs: z.number().optional(),
   errorInfo: z.string().optional()
 })
@@ -43,7 +49,9 @@ export const generationTaskResultSchema = z.object({
 export const generationTaskSchema = z.object({
   id: z.string().min(1),
   type: generationTaskTypeSchema,
+  /** Upstream/provider task id. `id` remains the canonical Canvas task id. */
   taskId: z.string().optional(),
+  providerTaskId: z.string().optional(),
   nodeId: z.string().optional(),
   projectId: z.string().optional(),
   userId: z.string().min(1),
@@ -64,6 +72,7 @@ export const createGenerationTaskRequestSchema = z.object({
 
 export const updateGenerationTaskRequestSchema = z.object({
   taskId: z.string().optional(),
+  providerTaskId: z.string().optional(),
   status: generationTaskStatusSchema.optional(),
   progress: z.number().optional(),
   result: generationTaskResultSchema.optional()
@@ -71,6 +80,13 @@ export const updateGenerationTaskRequestSchema = z.object({
 
 export const listGenerationTasksResponseSchema = z.object({
   tasks: z.array(generationTaskSchema)
+})
+
+export const listGenerationTasksQuerySchema = z.object({
+  projectId: z.string().optional(),
+  includeTerminal: z.boolean().optional(),
+  updatedAfter: z.string().optional(),
+  limit: z.number().int().positive().max(200).optional()
 })
 
 export const updateGenerationTaskResponseSchema = z.object({
@@ -93,6 +109,9 @@ export type UpdateGenerationTaskRequest = z.infer<
 >
 export type ListGenerationTasksResponse = z.infer<
   typeof listGenerationTasksResponseSchema
+>
+export type ListGenerationTasksQuery = z.infer<
+  typeof listGenerationTasksQuerySchema
 >
 export type UpdateGenerationTaskResponse = z.infer<
   typeof updateGenerationTaskResponseSchema

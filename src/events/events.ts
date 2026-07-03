@@ -12,7 +12,7 @@ import { eventEnvelopeBaseSchema } from './envelope.js'
  * 每个变体复用 {@link eventEnvelopeBaseSchema} 信封 + 自己的 `data` 形状。
  *
  * 扩展约定：新增事件 = 往该 union 追加一个 `eventType: z.literal(...)` 变体，
- * 命名遵循 `domain.action`（与 workflow/run.ts 的 SSE 事件名对齐）。
+ * 命名遵循 `domain.action`（与 workflow/run.ts 的运行时事件名对齐）。
  */
 
 export const generationCompletedEventSchema = eventEnvelopeBaseSchema.extend({

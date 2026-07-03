@@ -22,6 +22,10 @@
       "types": "./dist/agent/index.d.ts",
       "import": "./dist/agent/index.js"
     },
+    "./artifacts": {
+      "types": "./dist/artifacts/index.d.ts",
+      "import": "./dist/artifacts/index.js"
+    },
     "./api": {
       "types": "./dist/api/index.d.ts",
       "import": "./dist/api/index.js"
@@ -61,6 +65,10 @@
     "./team": {
       "types": "./dist/team/index.d.ts",
       "import": "./dist/team/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
     },
     "./workflow": {
       "types": "./dist/workflow/index.d.ts",

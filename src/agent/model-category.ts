@@ -16,10 +16,7 @@ import {
   modelReasoningEffortSchema
 } from './profiles.js'
 
-/**
- * 网关模型列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。
- * 保留 `ModelCategoryId` 别名以兼容历史调用方命名。
- */
+/** 网关模型列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。 */
 export type ModelCategoryId = ModelCategory
 
 /** 分组展示时的稳定顺序（即枚举声明顺序）。 */

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { canvasDocumentSchema } from './document.js'
 import {
   base64ImageSourceSchema,
   canvasNodeGenerationConfigSchema,

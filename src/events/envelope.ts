@@ -8,7 +8,7 @@ import { z } from 'zod'
  * 再按 {@link canvasEventSchema} 的 `eventType` 携带各自的 `data`。
  *
  * - 信封流经 HTTP body（JSON），时间戳用 ISO 8601 字符串（与 workflow/run.ts 的
- *   SSE 事件保持一致），而非 Mongo 层的 epoch 毫秒。
+ *   运行时事件保持一致），而非 Mongo 层的 epoch 毫秒。
  * - `eventId` 是投递与去重的幂等键，发送方生成，接收方据此防重放。
  */
 
@@ -18,7 +18,7 @@ export const eventSourceSchema = z.enum(['canvas-agent', 'canvas-frontend'])
 export const eventEnvelopeBaseSchema = z.object({
   /** 幂等键：发送方生成的唯一 id（建议 uuid）。接收方据此去重。 */
   eventId: z.string().min(1),
-  /** 点分事件类型，如 `generation.completed`、`agent.run.failed`。 */
+  /** 点分 webhook 事件类型，如 `generation.completed`、`billing.updated`。 */
   eventType: z.string().min(1),
   /** 事件实际发生时间（ISO 8601）。 */
   occurredAt: z.string().min(1),

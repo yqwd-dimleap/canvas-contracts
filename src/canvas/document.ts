@@ -47,6 +47,24 @@ export const canvasDocumentLayerBaseSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 })
 
+export const canvasDocumentAiAnnotationSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['object', 'region', 'mask', 'prompt', 'generation']),
+  layerId: z.string().nullable().optional(),
+  label: z.string().default(''),
+  prompt: z.string().default(''),
+  bounds: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+      width: z.number().nonnegative(),
+      height: z.number().nonnegative()
+    })
+    .optional(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+  createdAt: z.number()
+})
+
 export const canvasRasterLayerSchema = canvasDocumentLayerBaseSchema.extend({
   type: z.literal('raster'),
   sourceUrl: z.string(),
@@ -120,7 +138,7 @@ export const canvasDocumentSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().nullable().optional(),
   title: z.string().optional(),
-  kind: z.enum(['imageEdit', 'composition']).default('imageEdit'),
+  kind: z.enum(['imageEdit', 'composition', 'freeform']).default('imageEdit'),
   version: z.literal(1).default(1),
   width: z.number().positive(),
   height: z.number().positive(),
@@ -131,6 +149,7 @@ export const canvasDocumentSchema = z.object({
   previewUrl: z.string().nullable().optional(),
   outputResource: canvasResourceSchema.nullable().optional(),
   selectedLayerIds: z.array(z.string()).default([]),
+  aiAnnotations: z.array(canvasDocumentAiAnnotationSchema).default([]),
   layers: z.array(canvasDocumentLayerSchema),
   createdAt: z.number(),
   updatedAt: z.number()
@@ -150,4 +169,7 @@ export type CanvasGroupLayer = z.infer<typeof canvasGroupLayerSchema>
 export type CanvasMaskLayer = z.infer<typeof canvasMaskLayerSchema>
 export type CanvasAdjustmentLayer = z.infer<typeof canvasAdjustmentLayerSchema>
 export type CanvasDocumentLayer = z.infer<typeof canvasDocumentLayerSchema>
+export type CanvasDocumentAiAnnotation = z.infer<
+  typeof canvasDocumentAiAnnotationSchema
+>
 export type CanvasDocument = z.infer<typeof canvasDocumentSchema>

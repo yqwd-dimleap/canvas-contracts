@@ -296,7 +296,7 @@ function normalizeImageUrls(
 }
 
 function supportsImageParam(metadata: ModelMetadata | undefined): boolean {
-  if (!metadata || metadata.category !== 'image') return true
+  if (metadata?.category !== 'image') return true
   return Boolean(
     metadata.capabilities.imageEdit ||
       metadata.capabilities.multipleImages ||
@@ -308,7 +308,7 @@ function supportsParam(
   metadata: ModelMetadata | undefined,
   key: keyof NonNullable<ModelMetadata['supportedParams']>
 ): boolean {
-  if (!metadata || metadata.category !== 'image') return true
+  if (metadata?.category !== 'image') return true
   return metadata.supportedParams?.[key] === true
 }
 

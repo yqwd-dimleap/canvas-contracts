@@ -926,7 +926,7 @@ export function resolveCanvasDocumentAssetReferences<T>(
   input?: { context?: WorkspaceAssetMediaContext }
 ): T {
   const record = recordValue(document)
-  if (!record || !record.outputResource) return document
+  if (!record?.outputResource) return document
   return {
     ...record,
     outputResource: resolveCanvasResourceAssetReference(
@@ -968,7 +968,7 @@ export function compactCanvasNodeAssetReferences<T>(node: T): T {
 
 export function compactCanvasDocumentAssetReferences<T>(document: T): T {
   const record = recordValue(document)
-  if (!record || !record.outputResource) return document
+  if (!record?.outputResource) return document
   return {
     ...record,
     outputResource: compactCanvasResourceAssetReference(record.outputResource)

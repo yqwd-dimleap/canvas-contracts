@@ -5,7 +5,7 @@ import { z } from 'zod'
  *
  * 这些操作是可序列化的原子变更，用于：
  * - Frontend 本地状态更新（不依赖 React Flow）
- * - Agent SSE 流式更新画布
+ * - Agent runtime 流式更新画布
  * - Undo/Redo 操作历史
  * - 多人协作同步（未来）
  *

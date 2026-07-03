@@ -1,7 +1,6 @@
 import { z } from 'zod'
-import { agentProfileSummarySchema } from '../agent/profiles.js'
 import { agentSkillIdSchema } from '../agent/skills.js'
-import { apiSuccessResponseSchema } from '../api/response.js'
+import { canvasAgentCapabilityManifestSchema } from '../canvas/capabilities.js'
 import {
   canvasContextSchema,
   canvasSelectionSchema
@@ -124,56 +123,30 @@ export const canvasAgentBaseRequestSchema = z.object({
   /** 思考档位，透传为网关 reasoning_effort 并参与计费规则匹配。 */
   reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   canvas: canvasContextSchema,
-  selection: canvasSelectionSchema
+  selection: canvasSelectionSchema,
+  /**
+   * 当前前端真正开放给 Agent 的画布能力清单。
+   * Agent 必须基于该清单规划动作，不能使用未启用/隐藏的节点、工作流或工具。
+   */
+  capabilities: canvasAgentCapabilityManifestSchema.optional()
 })
 
 /**
  * Canvas Plan Request
  * 工作流规划请求（基础 + 用户意图）
  */
-export const canvasPlanRequestSchema = canvasAgentBaseRequestSchema.extend({
-  intent: z.string().min(1)
-})
-
-export const canvasRunRequestSchema = canvasPlanRequestSchema.extend({
-  conversation: z
-    .array(canvasAgentConversationMessageSchema)
-    .max(24)
-    .optional(),
-  /** 选中的技能：注入到规划/对话系统提示，引导 agent 行为侧重。 */
-  skillId: agentSkillIdSchema.optional()
-})
-
-export const canvasExecuteRequestSchema = z.object({
-  projectId: z.string().min(1).optional(),
-  actions: z.array(canvasPlanActionSchema).min(1)
-})
-
-/**
- * Canvas Plan Response
- * 工作流规划结果（摘要、执行模式、动作列表）
- */
-export const canvasPlanResponseSchema = apiSuccessResponseSchema(
-  z.object({
-    profile: agentProfileSummarySchema,
-    projectId: z.string().nullable(),
-    summary: z.string(),
-    executionMode: z.enum(['manualConfirm', 'autoExecute']),
-    intentKind: canvasIntentKindSchema.optional(),
-    resolvedIntent: z.string().min(1).optional(),
-    intentResolutionReasoning: z.string().min(1).optional(),
-    assistantMessage: z.string().min(1).optional(),
-    thinking: z.array(z.string().min(1)).optional(),
-    context: z.object({
-      nodeCount: z.number(),
-      edgeCount: z.number(),
-      resourceCount: z.number(),
-      selectedNodeIds: z.array(z.string())
-    }),
-    actions: z.array(canvasPlanActionSchema),
-    questions: z.array(z.string())
+export const canvasRunRequestSchema = canvasAgentBaseRequestSchema
+  .extend({
+    intent: z.string().min(1)
   })
-)
+  .extend({
+    conversation: z
+      .array(canvasAgentConversationMessageSchema)
+      .max(24)
+      .optional(),
+    /** 选中的技能：注入到规划/对话系统提示，引导 agent 行为侧重。 */
+    skillId: agentSkillIdSchema.optional()
+  })
 
 export type CanvasPlanAction = z.infer<typeof canvasPlanActionSchema>
 export type CanvasActionStatus = z.infer<typeof canvasActionStatusSchema>
@@ -187,7 +160,4 @@ export type CanvasAgentConversationMessage = z.infer<
 export type CanvasAgentBaseRequest = z.infer<
   typeof canvasAgentBaseRequestSchema
 >
-export type CanvasPlanRequest = z.infer<typeof canvasPlanRequestSchema>
 export type CanvasRunRequest = z.infer<typeof canvasRunRequestSchema>
-export type CanvasExecuteRequest = z.infer<typeof canvasExecuteRequestSchema>
-export type CanvasPlanResponse = z.infer<typeof canvasPlanResponseSchema>

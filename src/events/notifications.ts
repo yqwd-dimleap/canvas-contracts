@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { generationTaskTypeSchema } from '../generation/index.js'
 import { canvasEventTypeSchema } from './events.js'
 
 /**
@@ -38,6 +39,7 @@ export const userNotificationSchema = z.object({
   eventType: canvasEventTypeSchema,
   title: z.string(),
   body: z.string().default(''),
+  mediaType: generationTaskTypeSchema.optional(),
   thumbnailUrl: z.string().optional(),
   link: userNotificationLinkSchema.optional(),
   /** 源事件 eventId，作为 (userId,eventId) 幂等键。 */

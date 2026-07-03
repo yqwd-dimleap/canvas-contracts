@@ -27,7 +27,9 @@ export const imageGenerationParamsSchema = z
     /** Qwen: 随机数种子 [0, 2147483647] */
     seed: z.number().optional(),
     /** Frontend project id; used by agent-side asset registration only. */
-    projectId: z.string().min(1).max(128).nullable().optional()
+    projectId: z.string().min(1).max(128).nullable().optional(),
+    /** Frontend canvas image node id; used to route async generation events. */
+    canvasImageNodeId: z.string().min(1).max(128).optional()
   })
   .loose()
 
@@ -65,6 +67,8 @@ export const videoGenerationParamsSchema = z
     imgUrl: z.string().optional(),
     /** 多张参考图 URL（r2v） */
     mergeReferenceImageUrls: z.array(z.string()).optional(),
+    /** Frontend canvas video node id; used to route async generation events. */
+    canvasVideoNodeId: z.string().optional(),
     /** 图片 / 视频等参考媒体（r2v） */
     referenceMedia: z.array(videoReferenceMediaSchema).optional(),
     /** 视频片段 URL（合并） */

@@ -42,9 +42,9 @@ Use semver.
 Backend request validation:
 
 ```ts
-import { canvasPlanRequestSchema } from "@yqwd-dimleap/canvas-contracts/agent"
+import { canvasRunRequestSchema } from "@yqwd-dimleap/canvas-contracts/workflow"
 
-const parsed = canvasPlanRequestSchema.safeParse(body)
+const parsed = canvasRunRequestSchema.safeParse(body)
 ```
 
 Frontend response validation:
@@ -70,7 +70,7 @@ src/
   auth/         auth/session and user contracts
   billing/      billing and credit schemas
   canvas/       resource and canvas context contracts
-  events/       agent SSE / runtime event contracts
+  events/       agent runtime event contracts
   generation/   image/video generation contracts
   models/       model catalog and registry contracts
   rag/          RAG search request/response contracts

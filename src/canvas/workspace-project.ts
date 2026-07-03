@@ -3,6 +3,7 @@ import {
   workspaceAssetMetadataSchema,
   workspaceAssetTypeSchema
 } from '../storage/workspace-assets.js'
+import { canvas2dWorkspaceViewSchema } from './canvas2d.js'
 import { canvasDocumentSchema } from './document.js'
 import { projectCanvasEdgeSchema } from './edge.js'
 import { canvasResourceSchema } from './resources.js'
@@ -103,6 +104,7 @@ export const workspaceProjectCanvasPayloadSchema = z
     activeConversationId: z.string().nullable().default(null),
     agentProfileId: z.string().nullable().default(null),
     orphanResources: z.array(canvasResourceSchema).default([]),
+    canvas2d: canvas2dWorkspaceViewSchema.optional(),
     updatedAt: z.number().optional()
   })
   .strict()
