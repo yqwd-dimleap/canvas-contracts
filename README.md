@@ -87,15 +87,24 @@ Use the automated release script (see `scripts/README.md` for full details):
 
 ```sh
 ./scripts/release.sh
-# or, to also edit CHANGELOG.md:
+./scripts/release.sh publish
+
+# If GitHub Actions publishing failed after the tag was pushed:
+./scripts/release.sh retry-publish
+
+# To also edit CHANGELOG.md while preparing the release:
 ./scripts/release.sh --with-changelog
 ```
 
 The script checks the working tree is clean and on `main`, prompts for the bump
 type (patch/minor/major), updates `package.json`, runs `bun run check`
-(lint + typecheck + build), commits, creates an annotated `v*` tag, and pushes —
-which triggers the `Publish` GitHub Action. The Action publishes only on `v*`
-tags; normal pushes and pull requests only run CI checks.
+(lint + typecheck + build), commits, and creates an annotated `v*` tag locally.
+Publishing is a separate explicit step: `./scripts/release.sh publish` pushes
+the prepared commit and tag, which triggers the `Publish` GitHub Action. If that
+Action fails, use `./scripts/release.sh retry-publish`; it reuses the current
+`package.json` version and existing tag instead of bumping to the next patch.
+The Action publishes only on `v*` tags; normal pushes and pull requests only run
+CI checks.
 
 To release manually instead, bump `version` in `package.json`, run
 `bun run check`, commit to `main`, then `git tag vX.Y.Z && git push origin vX.Y.Z`.

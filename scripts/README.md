@@ -4,6 +4,10 @@
 
 自动化发布脚本，用于规范版本发布流程。
 
+脚本把“准备 release”和“触发 publish”拆成两个显式阶段。这样 GitHub
+Actions 发布失败后，可以针对同一个 `package.json` 版本和同一个 tag 重试，
+不会因为再次执行脚本而误 bump 到下一个 patch 版本。
+
 ### 功能
 
 - ✅ 自动检查工作目录状态（未提交的文件会阻止发布）
@@ -12,57 +16,66 @@
 - ✅ 自动更新 `package.json` 版本号
 - ✅ 默认跳过文档更新，需要时可用 `--with-changelog` 打开 `CHANGELOG.md`
 - ✅ 运行完整检查（lint + typecheck + build）
-- ✅ 创建版本提交和 annotated tag
-- ✅ 推送到远程仓库触发 GitHub Actions 发布
+- ✅ 创建本地版本提交和 annotated tag
+- ✅ 用显式 `publish` 命令推送远程并触发 GitHub Actions 发布
+- ✅ 用显式 `retry-publish` 命令复用当前版本/tag 重试失败的发布
 
 ### 使用方法
 
 ```bash
-# 在项目根目录运行
+# 准备 release：bump 版本、检查、创建本地 commit 和 tag
 ./scripts/release.sh
 
 # 需要同步维护发布说明时
 ./scripts/release.sh --with-changelog
+
+# 触发发布：推送已准备好的 release commit 和 tag
+./scripts/release.sh publish
+
+# 发布 Action 失败后的重试：不 bump 版本，不创建新 commit
+./scripts/release.sh retry-publish
 ```
 
 ### 发布流程
 
-1. **检查环境**
+1. **准备 release**
    - 确保在 git 仓库中
    - 检查是否在 `main` 分支
    - 检查工作目录是否干净
    - 拉取最新代码
-
-2. **选择版本类型**
    - `patch` (0.6.0 → 0.6.1): bug 修复、文档更新、非功能性改动
    - `minor` (0.6.0 → 0.7.0): 新功能、向后兼容的改动
    - `major` (0.6.0 → 1.0.0): 破坏性变更
-
-3. **查看变更历史**
    - 显示自上次 tag 以来的所有 commits
    - 帮助你确认版本类型是否正确
-
-4. **更新文件**
    - 自动更新 `package.json` 中的版本号
    - 默认不更新 `CHANGELOG.md`
    - 传入 `--with-changelog` 时会打开编辑器并提示添加日期和变更内容
-
-5. **运行检查**
    - 执行 `bun run check`（lint + typecheck + build）
    - 如果失败会自动回滚 `package.json` 的修改
-
-6. **创建 commit 和 tag**
    - 提交格式：`chore(release): vX.Y.Z`
    - 创建 annotated tag：`vX.Y.Z`
 
-7. **推送并发布**
+2. **触发发布**
+   - 运行 `./scripts/release.sh publish`
    - 推送 commit 到 `origin/main`
    - 推送 tag 触发 GitHub Actions
    - GitHub Actions 自动发布到 GitHub Packages
 
+3. **发布失败后重试**
+   - 修复 GitHub Actions、registry token、权限或网络问题
+   - 运行 `./scripts/release.sh retry-publish`
+   - 脚本会确认当前 `package.json` 版本对应的本地 tag 指向当前 HEAD
+   - 如果远端 tag 已存在且也指向当前 HEAD，脚本会删除并重新推送同一个远端 tag 以重新触发 Actions
+   - 整个过程不会修改 `package.json`，也不会 bump 到下一个版本
+
+如果当前 `package.json` 版本对应的 `vX.Y.Z` tag 已经指向当前 HEAD，
+再次运行默认的 `./scripts/release.sh` 会直接提示使用 `publish` 或
+`retry-publish`，不会进入版本选择。
+
 ### 如果中途想取消
 
-在最后推送前取消（选择 N），可以手动撤销：
+`./scripts/release.sh` 默认只会准备本地 release，不会推送远端。如果准备后想撤销：
 
 ```bash
 # 删除本地 tag
@@ -116,6 +129,15 @@ bun run check
 # 修复后重新运行发布脚本
 ./scripts/release.sh
 ```
+
+**问题：发布 Action 失败，重新运行默认脚本会想 bump 到下一个版本**
+```bash
+# 不要重新选择 patch/minor/major
+./scripts/release.sh retry-publish
+```
+
+脚本会复用当前 `package.json` 中的版本，例如 `2.0.0` 对应 `v2.0.0`，
+并重新触发同一个 tag 的发布流程。
 
 **问题：推送失败**
 ```bash
