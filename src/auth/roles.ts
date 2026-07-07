@@ -45,22 +45,12 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions[] = [
   },
   {
     role: 'viewer',
-    permissions: [
-      'canvas:read',
-      'generation:read',
-      'agent-profiles:read',
-      'model-providers:read'
-    ],
+    permissions: ['canvas:read', 'generation:read', 'model-providers:read'],
     description: 'Read-only access to resources'
   },
   {
     role: 'editor',
-    permissions: [
-      'canvas:write',
-      'generation:write',
-      'agent-profiles:write',
-      'model-providers:read'
-    ],
+    permissions: ['canvas:write', 'generation:write', 'model-providers:read'],
     description: 'Can create and edit content'
   },
   {

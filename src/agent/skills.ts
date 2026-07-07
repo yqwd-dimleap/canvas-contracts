@@ -1,12 +1,10 @@
 import { z } from 'zod'
-import { agentProfileTaskSchema } from './profiles.js'
 
 /**
  * Agent Skills
  *
  * 用户可在对话面板工具栏选择的「技能」。技能不是一个独立的后端 agent，
  * 而是一段注入到 canvas 规划/对话系统提示里的行为修饰（systemPromptAddon），
- * 可选地声明一个更契合的 profile task 作为语义提示。
  *
  * 单一真相源：前端工具栏与后端注入都从 AGENT_SKILLS 读取。
  */
@@ -21,9 +19,7 @@ export const agentSkillSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
   /** 拼接到规划/对话系统提示末尾，引导 agent 的行为侧重。 */
-  systemPromptAddon: z.string().min(1),
-  /** 语义提示：该技能更契合的 profile task（本期仅作提示，不强制切换 profile）。 */
-  preferredTask: agentProfileTaskSchema.optional()
+  systemPromptAddon: z.string().min(1)
 })
 
 export type AgentSkillId = z.infer<typeof agentSkillIdSchema>
@@ -48,8 +44,7 @@ export const AGENT_SKILLS: readonly AgentSkill[] = [
       'Act as a prompt engineer.',
       'Refine the user intent into precise, production-ready generation prompts.',
       'Make subject, style, lighting, camera and detail cues explicit and unambiguous.'
-    ].join(' '),
-    preferredTask: 'prompt-director'
+    ].join(' ')
   },
   {
     id: 'critique-repair',
@@ -59,8 +54,7 @@ export const AGENT_SKILLS: readonly AgentSkill[] = [
       'Act as a critical reviewer.',
       'Inspect existing canvas results, identify concrete weaknesses, and propose actionable repairs.',
       'Be specific about what to change and why.'
-    ].join(' '),
-    preferredTask: 'critic'
+    ].join(' ')
   }
 ] as const
 

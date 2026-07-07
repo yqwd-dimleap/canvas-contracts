@@ -144,7 +144,7 @@ export function userFacingCanvasAgentErrorMessage(
   const message = textFromUnknown(value)
   if (!message || isInternalCanvasAgentErrorMessage(message)) {
     return isZh(options?.locale)
-      ? '这次智能体运行没有完成。我已保留画布上可用的更新，请稍后重试或换一种描述。'
+      ? '这次处理没有完成。我已保留可用更新，请稍后重试或换一种描述。'
       : 'This agent run did not complete. Available canvas updates were kept; try again later or rephrase the request.'
   }
   return message
@@ -173,6 +173,13 @@ export function nodeIdsFromOperation(operation: CanvasOperation): string[] {
       return operation.payload.nodeIds ?? []
     case 'edge.delete':
     case 'selection.clear':
+    case 'document.create':
+    case 'element.add':
+    case 'element.patch':
+    case 'element.delete':
+    case 'element.reorder':
+    case 'element.select':
+    case 'viewport.focus':
       return []
     case 'batch':
       return operation.payload.operations.flatMap(nodeIdsFromOperation)
@@ -303,23 +310,23 @@ function activityFromRuntimeEvent(event: SequencedSystemEvent) {
   const runtimeEvent = event.event
   if (runtimeEvent.type === 'agent.thinking') return runtimeEvent.thought
   if (runtimeEvent.type === 'run.started') {
-    return '正在读取画布和可用能力...'
+    return '正在确认已有内容...'
   }
   if (runtimeEvent.type === 'token.delta') return '正在生成回复...'
   if (runtimeEvent.type === 'token.complete') {
-    return '回复已生成，继续处理画布结果...'
+    return '回复已生成，正在整理结果...'
   }
   if (runtimeEvent.type === 'tool.start') {
     return `正在执行 ${runtimeEvent.toolName}`
   }
   if (runtimeEvent.type === 'tool.progress') {
-    return runtimeEvent.message || runtimeEvent.stage || '工具正在处理...'
+    return runtimeEvent.message || runtimeEvent.stage || '正在处理...'
   }
-  if (runtimeEvent.type === 'tool.result') return '工具已返回结果。'
+  if (runtimeEvent.type === 'tool.result') return '处理结果已返回。'
   if (runtimeEvent.type === 'tool.error') {
-    return '某个工具没有完成，正在调整后续步骤。'
+    return '有一步没有完成，正在调整后续步骤。'
   }
-  if (runtimeEvent.type === 'canvas.operation') return '正在更新画布...'
+  if (runtimeEvent.type === 'canvas.operation') return '正在应用结果...'
   if (runtimeEvent.type === 'artifact.create') return '正在准备结果...'
   if (runtimeEvent.type === 'artifact.update') return '正在更新结果...'
   if (runtimeEvent.type === 'artifact.complete') return '结果已准备好。'
@@ -328,7 +335,7 @@ function activityFromRuntimeEvent(event: SequencedSystemEvent) {
     return userFacingCanvasAgentErrorMessage(runtimeEvent.error.message)
   }
   if (runtimeEvent.type === 'run.cancelled') {
-    return runtimeEvent.reason ?? '已停止本次智能体运行。'
+    return runtimeEvent.reason ?? '已停止本次处理。'
   }
   if (runtimeEvent.type === 'system.error') {
     return userFacingCanvasAgentErrorMessage(runtimeEvent.error.message)
@@ -338,11 +345,11 @@ function activityFromRuntimeEvent(event: SequencedSystemEvent) {
 
 function canvasLabelFromRuntimeEvent(event: SequencedSystemEvent) {
   const runtimeEvent = event.event
-  if (runtimeEvent.type === 'canvas.operation') return '画布已更新'
+  if (runtimeEvent.type === 'canvas.operation') return '内容已更新'
   if (runtimeEvent.type === 'artifact.complete') return '结果已完成'
   if (runtimeEvent.type === 'artifact.update') return '结果已更新'
   if (runtimeEvent.type === 'artifact.create') return '结果已创建'
-  return '画布事件'
+  return '内容事件'
 }
 
 function canvasEventFromRuntimeEvent(

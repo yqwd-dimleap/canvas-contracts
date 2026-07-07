@@ -1,15 +1,6 @@
 import { z } from 'zod'
 import { timestampSchema } from '../shared/timestamp.js'
 
-export const agentProfileTaskSchema = z.enum([
-  'chat',
-  'canvas-plan',
-  'prompt-director',
-  'video-director',
-  'critic',
-  'repair'
-])
-
 export const agentModelProviderSchema = z.enum([
   'openai',
   'gateway',
@@ -145,29 +136,6 @@ export const modelProviderSchema = z.object({
   updatedAt: timestampSchema
 })
 
-export const agentModelProfileSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  task: agentProfileTaskSchema,
-  provider: agentModelProviderSchema.default('gateway'),
-  model: z.string().min(1),
-  fallbackModels: z.array(z.string()).default([]),
-  temperature: z.number().min(0).max(2).default(0.2),
-  maxTokens: z.number().int().positive().optional(),
-  enabled: z.boolean().default(true),
-  description: z.string().optional(),
-  createdAt: timestampSchema,
-  updatedAt: timestampSchema
-})
-
-export const agentProfileSummarySchema = agentModelProfileSchema.pick({
-  id: true,
-  task: true,
-  model: true,
-  temperature: true
-})
-
-export type AgentProfileTask = z.infer<typeof agentProfileTaskSchema>
 export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
 export type ModelCategory = z.infer<typeof modelCategorySchema>
 export type ModelReasoningEffort = z.infer<typeof modelReasoningEffortSchema>
@@ -179,7 +147,5 @@ export type ModelPricingRates = z.infer<typeof modelPricingRatesSchema>
 export type ModelPricingRuleMatch = z.infer<typeof modelPricingRuleMatchSchema>
 export type ModelPricingRule = z.infer<typeof modelPricingRuleSchema>
 export type ModelPricingConfig = z.infer<typeof modelPricingConfigSchema>
-export type AgentModelProfile = z.infer<typeof agentModelProfileSchema>
-export type AgentProfileSummary = z.infer<typeof agentProfileSummarySchema>
 export type ModelProviderModel = z.infer<typeof modelProviderModelSchema>
 export type ModelProvider = z.infer<typeof modelProviderSchema>

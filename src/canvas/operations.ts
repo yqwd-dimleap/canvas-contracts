@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  canvasDocumentElementSchema,
+  canvasDocumentSchema
+} from './document.js'
 
 /**
  * Canvas Operations - 渲染层无关的画布操作定义
@@ -192,6 +196,74 @@ export const agentGenerationProgressOperationSchema = z.object({
   })
 })
 
+// ========== Canvas2D Document / Element 操作 ==========
+
+export const documentCreateOperationSchema = z.object({
+  type: z.literal('document.create'),
+  payload: z.object({
+    document: canvasDocumentSchema
+  })
+})
+
+export const elementAddOperationSchema = z.object({
+  type: z.literal('element.add'),
+  payload: z.object({
+    documentId: z.string().min(1),
+    element: canvasDocumentElementSchema
+  })
+})
+
+export const elementPatchOperationSchema = z.object({
+  type: z.literal('element.patch'),
+  payload: z.object({
+    documentId: z.string().min(1),
+    elementId: z.string().min(1),
+    patch: z.record(z.string(), z.unknown()).default({})
+  })
+})
+
+export const elementDeleteOperationSchema = z.object({
+  type: z.literal('element.delete'),
+  payload: z.object({
+    documentId: z.string().min(1),
+    elementId: z.string().min(1)
+  })
+})
+
+export const elementReorderOperationSchema = z.object({
+  type: z.literal('element.reorder'),
+  payload: z.object({
+    documentId: z.string().min(1),
+    elementId: z.string().min(1),
+    zIndex: z.number().int().nonnegative()
+  })
+})
+
+export const elementSelectOperationSchema = z.object({
+  type: z.literal('element.select'),
+  payload: z.object({
+    documentId: z.string().min(1),
+    elementIds: z.array(z.string().min(1)).default([])
+  })
+})
+
+export const viewportFocusOperationSchema = z.object({
+  type: z.literal('viewport.focus'),
+  payload: z.object({
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1).optional(),
+    bounds: z
+      .object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number().nonnegative(),
+        height: z.number().nonnegative()
+      })
+      .optional(),
+    zoom: z.number().positive().optional()
+  })
+})
+
 // ========== 操作联合类型（不含批量） ==========
 
 const canvasOperationBaseSchema = z.discriminatedUnion('type', [
@@ -211,7 +283,14 @@ const canvasOperationBaseSchema = z.discriminatedUnion('type', [
   visualClearHighlightOperationSchema,
   visualFocusOperationSchema,
   agentNodeStatusOperationSchema,
-  agentGenerationProgressOperationSchema
+  agentGenerationProgressOperationSchema,
+  documentCreateOperationSchema,
+  elementAddOperationSchema,
+  elementPatchOperationSchema,
+  elementDeleteOperationSchema,
+  elementReorderOperationSchema,
+  elementSelectOperationSchema,
+  viewportFocusOperationSchema
 ])
 
 // ========== 批量操作（支持递归） ==========

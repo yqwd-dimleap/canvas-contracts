@@ -13,20 +13,12 @@ export const canvas2dInteractionToolSchema = z.enum([
   'ellipse'
 ])
 
-export const canvas2dLayerMenuActionSchema = z.enum([
+export const canvas2dElementMenuActionSchema = z.enum([
   'duplicate',
   'delete',
   'download',
   'bringForward',
   'sendBackward',
-  'setCover'
-])
-export const canvas2dNodeMenuActionSchema = z.enum([
-  'inspect',
-  'duplicate',
-  'delete',
-  'download',
-  'openDocument',
   'setCover'
 ])
 
@@ -48,7 +40,7 @@ export const canvas2dWorkspaceViewSchema = z.object({
   renderer: canvas2dRendererSchema.default('pixi'),
   viewport: canvas2dViewportSchema.optional(),
   activeDocumentId: z.string().nullable().default(null),
-  selectedLayerIds: z.array(z.string()).default([]),
+  selectedElementIds: z.array(z.string()).default([]),
   tool: canvas2dInteractionToolSchema.default('pointer'),
   renderPolicy: canvas2dRenderPolicySchema.optional()
 })
@@ -73,11 +65,8 @@ export type Canvas2dViewMode = z.infer<typeof canvas2dViewModeSchema>
 export type Canvas2dInteractionTool = z.infer<
   typeof canvas2dInteractionToolSchema
 >
-export type Canvas2dLayerMenuAction = z.infer<
-  typeof canvas2dLayerMenuActionSchema
->
-export type Canvas2dNodeMenuAction = z.infer<
-  typeof canvas2dNodeMenuActionSchema
+export type Canvas2dElementMenuAction = z.infer<
+  typeof canvas2dElementMenuActionSchema
 >
 export type Canvas2dViewport = z.infer<typeof canvas2dViewportSchema>
 export type Canvas2dRenderPolicy = z.infer<typeof canvas2dRenderPolicySchema>

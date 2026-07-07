@@ -7,7 +7,6 @@ import { z } from 'zod'
 export const resourceSchema = z.enum([
   'canvas',
   'generation',
-  'agent-profiles',
   'model-providers',
   'users',
   'billing',

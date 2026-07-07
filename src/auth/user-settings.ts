@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   modelCategorySchema,
   modelPricingConfigSchema
-} from '../agent/profiles.js'
+} from '../agent/model-provider.js'
 import { projectCanvasNodeTypeSchema } from '../canvas/workflow.js'
 import { timestampSchema } from '../shared/timestamp.js'
 

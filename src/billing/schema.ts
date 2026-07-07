@@ -32,12 +32,9 @@ export type UserBilling = z.infer<typeof userBillingSchema>
 export const usageEventTypeSchema = z.enum([
   'chat.completion',
   'agent.chat',
-  'canvas.plan',
   'canvas.run',
   'prompt.improve',
   'prompt.script_split',
-  'result.review',
-  'node.repair',
   'image.generation',
   'image.edit',
   'video.generation',
@@ -70,12 +67,9 @@ export const GENERATION_ALLOWED_STATUSES = ['active', 'trialing'] as const
 /** 可配置的非模型固定操作。模型调用由 model_providers.models[].pricing 控制。 */
 export const creditOperationIdSchema = z.enum([
   'agent.chat',
-  'canvas.plan',
   'canvas.run',
   'prompt.improve',
-  'prompt.script_split',
-  'result.review',
-  'node.repair'
+  'prompt.script_split'
 ])
 
 export type CreditOperationId = z.infer<typeof creditOperationIdSchema>

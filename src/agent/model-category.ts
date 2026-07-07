@@ -14,7 +14,7 @@ import {
   type ModelCategory,
   type ModelReasoningEffort,
   modelReasoningEffortSchema
-} from './profiles.js'
+} from './model-provider.js'
 
 /** 网关模型列表的归类桶。收敛到 {@link ModelCategory}（单一真相源）。 */
 export type ModelCategoryId = ModelCategory

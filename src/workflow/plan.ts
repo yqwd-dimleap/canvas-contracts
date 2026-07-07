@@ -1,10 +1,15 @@
 import { z } from 'zod'
 import { agentSkillIdSchema } from '../agent/skills.js'
+import { canvas2dViewportSchema } from '../canvas/canvas2d.js'
 import { canvasAgentCapabilityManifestSchema } from '../canvas/capabilities.js'
 import {
   canvasContextSchema,
   canvasSelectionSchema
 } from '../canvas/context.js'
+import {
+  canvasDocumentElementSchema,
+  canvasDocumentSchema
+} from '../canvas/document.js'
 
 /**
  * Canvas Action Ref
@@ -52,11 +57,54 @@ export const canvasIntentKindSchema = z.enum([
   'storyboard'
 ])
 
+export const canvasAgentCommandKindSchema = z.enum([
+  'generate_image',
+  'generate_video',
+  'edit_selection',
+  'inspect',
+  'storyboard',
+  'tool_preference'
+])
+
+export const canvasAgentCommandSourceSchema = z.enum([
+  'composer_button',
+  'slash',
+  'mention',
+  'suggestion',
+  'context_action',
+  'home_action'
+])
+
+export const canvasAgentCommandSchema = z.object({
+  kind: canvasAgentCommandKindSchema,
+  source: canvasAgentCommandSourceSchema.optional(),
+  label: z.string().trim().min(1).max(80).optional(),
+  targetNodeIds: z.array(z.string().min(1)).max(64).optional(),
+  targetDocumentId: z.string().min(1).optional(),
+  targetElementIds: z.array(z.string().min(1)).max(64).optional(),
+  attachmentIds: z.array(z.string().min(1)).max(24).optional(),
+  preferredToolNames: z.array(z.string().min(1)).max(16).optional(),
+  modelPreference: z
+    .object({
+      nodeType: z.string().min(1).optional(),
+      modelId: z.string().min(1).optional()
+    })
+    .optional(),
+  params: z.record(z.string(), z.unknown()).optional()
+})
+
 export const canvasAgentConversationMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'error']),
   title: z.string().trim().optional(),
   content: z.string().trim().min(1),
   createdAt: z.number().optional()
+})
+
+export const canvas2dAgentContextSchema = z.object({
+  documents: z.array(canvasDocumentSchema).default([]),
+  activeDocumentId: z.string().nullable().default(null),
+  selectedElementIds: z.array(z.string().min(1)).default([]),
+  viewport: canvas2dViewportSchema.optional()
 })
 
 const canvasActionProtocolFields = {
@@ -104,6 +152,58 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
     type: z.literal('deleteNode'),
     ...canvasActionProtocolFields,
     nodeId: z.string().min(1)
+  }),
+  z.object({
+    type: z.literal('document.create'),
+    ...canvasActionProtocolFields,
+    document: canvasDocumentSchema
+  }),
+  z.object({
+    type: z.literal('element.add'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    element: canvasDocumentElementSchema
+  }),
+  z.object({
+    type: z.literal('element.patch'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    elementId: z.string().min(1),
+    patch: z.record(z.string(), z.unknown()).default({})
+  }),
+  z.object({
+    type: z.literal('element.delete'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    elementId: z.string().min(1)
+  }),
+  z.object({
+    type: z.literal('element.reorder'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    elementId: z.string().min(1),
+    zIndex: z.number().int().nonnegative()
+  }),
+  z.object({
+    type: z.literal('element.select'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    elementIds: z.array(z.string().min(1)).default([])
+  }),
+  z.object({
+    type: z.literal('viewport.focus'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1).optional(),
+    bounds: z
+      .object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number().nonnegative(),
+        height: z.number().nonnegative()
+      })
+      .optional(),
+    zoom: z.number().positive().optional()
   })
 ])
 
@@ -113,10 +213,9 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
  */
 export const canvasAgentBaseRequestSchema = z.object({
   projectId: z.string().nullable().optional(),
-  profileId: z.string().nullable().optional(),
   /** Client-selected i18n locale used for user-facing generated text. */
   locale: z.string().trim().min(2).max(16).optional(),
-  /** 智能推荐的模型ID（优先于 profileId） */
+  /** Optional generation model preference for downstream media nodes. */
   modelId: z.string().optional(),
   /** 是否开启思考模式（向后兼容；未传 reasoningEffort 时映射为 medium）。 */
   thinkingEnabled: z.boolean().optional(),
@@ -124,6 +223,12 @@ export const canvasAgentBaseRequestSchema = z.object({
   reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   canvas: canvasContextSchema,
   selection: canvasSelectionSchema,
+  /**
+   * Canvas2D/Pixi-backed scene context. This is renderer-agnostic document and
+   * layer state; Pixi display objects, textures, DOM coordinates, and runtime
+   * containers must never be serialized here.
+   */
+  canvas2d: canvas2dAgentContextSchema.optional(),
   /**
    * 当前前端真正开放给 Agent 的画布能力清单。
    * Agent 必须基于该清单规划动作，不能使用未启用/隐藏的节点、工作流或工具。
@@ -137,7 +242,13 @@ export const canvasAgentBaseRequestSchema = z.object({
  */
 export const canvasRunRequestSchema = canvasAgentBaseRequestSchema
   .extend({
-    intent: z.string().min(1)
+    intent: z.string().min(1),
+    /**
+     * UI-originated structured command. This constrains intent resolution without
+     * replacing the natural language intent, so older clients can keep sending
+     * only intent while newer surfaces avoid encoding button clicks as text.
+     */
+    command: canvasAgentCommandSchema.optional()
   })
   .extend({
     conversation: z
@@ -154,9 +265,17 @@ export type CanvasActionError = z.infer<typeof canvasActionErrorSchema>
 export type CanvasActionCost = z.infer<typeof canvasActionCostSchema>
 export type CanvasActionRef = z.infer<typeof canvasActionRefSchema>
 export type CanvasIntentKind = z.infer<typeof canvasIntentKindSchema>
+export type CanvasAgentCommandKind = z.infer<
+  typeof canvasAgentCommandKindSchema
+>
+export type CanvasAgentCommandSource = z.infer<
+  typeof canvasAgentCommandSourceSchema
+>
+export type CanvasAgentCommand = z.infer<typeof canvasAgentCommandSchema>
 export type CanvasAgentConversationMessage = z.infer<
   typeof canvasAgentConversationMessageSchema
 >
+export type Canvas2dAgentContext = z.infer<typeof canvas2dAgentContextSchema>
 export type CanvasAgentBaseRequest = z.infer<
   typeof canvasAgentBaseRequestSchema
 >

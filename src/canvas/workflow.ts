@@ -127,9 +127,7 @@ export const canvasImageEditNodeDataSchema =
   canvasCreativeNodeBaseDataSchema.extend({
     documentId: z.string().optional(),
     sourceNodeId: z.string().optional(),
-    sourceResourceId: z.string().nullable().optional(),
-    sourceUrl: z.string().optional(),
-    previewUrl: z.string().nullable().optional(),
+    assetId: z.string().nullable().optional(),
     errorMessage: z.string().optional(),
     operations: z
       .array(
@@ -145,22 +143,21 @@ export const canvasImageEditNodeDataSchema =
 export const canvasMockupNodeDataSchema =
   canvasCreativeNodeBaseDataSchema.extend({
     sourceNodeId: z.string().optional(),
-    sourceUrl: z.string().optional(),
+    assetId: z.string().nullable().optional(),
     device: z.string().optional()
   })
 
 export const canvasVectorNodeDataSchema =
   canvasCreativeNodeBaseDataSchema.extend({
     sourceNodeId: z.string().optional(),
-    sourceUrl: z.string().optional(),
+    assetId: z.string().nullable().optional(),
     svg: z.string().optional()
   })
 
 export const canvasMaskNodeDataSchema = canvasCreativeNodeBaseDataSchema.extend(
   {
     sourceNodeId: z.string().optional(),
-    sourceUrl: z.string().optional(),
-    maskUrl: z.string().optional()
+    assetId: z.string().nullable().optional()
   }
 )
 
@@ -177,7 +174,6 @@ export const normalResourceNodeDataSchema = z.object({
 export const aiPromptNodeDataSchema = z.object({
   title: z.string().optional(),
   prompt: z.string(),
-  enrichModel: z.string().optional(),
   errorMessage: z.string().optional(),
   parentWriteNodeId: z.string().optional(),
   ...resourceArrays

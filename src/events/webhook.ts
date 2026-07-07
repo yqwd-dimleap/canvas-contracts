@@ -33,7 +33,7 @@ export const webhookDeliveryStatusSchema = z.enum([
 /** Webhook 端点配置：投递目标地址 + 订阅过滤 + 签名密钥。 */
 export const webhookEndpointSchema = z.object({
   id: z.string().min(1),
-  /** 目标地址。内部回调可用相对路径（如 /api/webhooks/agent），外部用绝对 URL。 */
+  /** 目标地址。外部 webhook 使用绝对 URL；内部端点需配置真实可访问地址。 */
   url: z.string().min(1),
   /** 订阅的事件类型；空数组表示订阅全部。 */
   eventTypes: z.array(canvasEventTypeSchema).default([]),

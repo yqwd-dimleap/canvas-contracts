@@ -35,10 +35,10 @@ export const GENERATION_GATEWAY_RESERVED_PAYLOAD_KEYS = [
 ] as const
 
 export const CHAT_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW = {
-  model: '<agent profile model>',
+  model: '<agent runtime model>',
   messages: '<system/user/assistant messages>',
-  temperature: '<agent profile temperature>',
-  max_tokens: '<agent profile maxTokens, when configured>',
+  temperature: '<agent runtime temperature>',
+  max_tokens: '<agent runtime maxTokens, when configured>',
   reasoning_effort: '<thinking mode, when enabled>',
   stream: '<true for streaming requests>',
   stream_options: {

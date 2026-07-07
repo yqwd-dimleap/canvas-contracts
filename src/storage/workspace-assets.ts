@@ -226,37 +226,12 @@ export type CanvasMediaResourceKind = Extract<
   'image' | 'video'
 >
 
-export type CreateCanvasMediaResourceInput = {
-  id?: string | null
-  type: CanvasMediaResourceKind
-  url: string
-  createdBy: string
+export type CreateCanvasAssetResourceReferenceInput = {
   assetId?: string | null
-  width?: number | null
-  height?: number | null
-  duration?: number | null
-  name?: string | null
-  mimeType?: string | null
-  size?: number | null
-  storage?: CanvasResourceStorage | null
-  mediaMetadata?: WorkspaceAssetMediaMetadata | null
+  type: CanvasMediaResourceKind
+  createdBy: string
   createdAt?: number
 }
-
-export type CreateCanvasImageOutputResourceInput = {
-  nodeId: string
-  url: string
-  assetId?: string | null
-  width?: number | null
-  height?: number | null
-  storage?: CanvasResourceStorage | null
-  mediaMetadata?: WorkspaceAssetMediaMetadata | null
-}
-
-export type CreateCanvasVideoOutputResourceInput =
-  CreateCanvasImageOutputResourceInput & {
-    duration?: number | null
-  }
 
 export type CanvasMediaOutputResource = {
   resource: CanvasResource
@@ -269,6 +244,12 @@ export type CanvasMediaOutputResource = {
 
 export type CanvasImageOutputResource = CanvasMediaOutputResource
 export type CanvasVideoOutputResource = CanvasMediaOutputResource
+export type ReadCanvasMediaOutputResourceInput = {
+  assets?:
+    | readonly WorkspaceAssetLike[]
+    | ReadonlyMap<string, WorkspaceAssetLike>
+  context?: WorkspaceAssetMediaContext
+}
 
 export type CanvasMediaFromWorkspaceAsset = Pick<
   CanvasMediaEntry,
@@ -332,21 +313,6 @@ function assetSizeValue(asset: WorkspaceAssetLike): number | undefined {
 function positiveNumberValue(value: unknown): number | null {
   const n = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(n) && n > 0 ? n : null
-}
-
-function cleanCanvasResourceStorage(
-  storage: CanvasResourceStorage | null | undefined
-): CanvasResourceStorage | undefined {
-  if (!storage) return undefined
-  const key = stringValue(storage.key)
-  const viewPath = stringValue(storage.viewPath)
-  const publicUrl = stringValue(storage.publicUrl)
-  if (!key && !viewPath && !publicUrl) return undefined
-  return {
-    ...(key ? { key } : {}),
-    ...(viewPath ? { viewPath } : {}),
-    ...(publicUrl ? { publicUrl } : {})
-  }
 }
 
 function canvasResourceMetadataNumber(
@@ -458,22 +424,27 @@ export function workspaceAssetRuntimeUrl(
   context: WorkspaceAssetMediaContext = 'canvas',
   containerWidth?: number
 ): string | null {
+  const metadata = assetMetadataValue(asset)
+  const storage = workspaceAssetStorageFromMetadata(metadata)
+  const storageUrl =
+    stringValue(storage?.publicUrl) ?? stringValue(storage?.viewPath)
   const type = workspaceAssetMediaType(asset)
-  if (type !== 'image' && type !== 'video') return stringValue(asset.url)
+  if (type !== 'image' && type !== 'video') {
+    return stringValue(asset.url) ?? storageUrl
+  }
   return (
     workspaceAssetMediaForContext(
       {
         type,
         url: stringValue(asset.url),
-        metadata: assetMetadataValue(asset)
+        metadata
       },
       context,
       containerWidth
     ) ??
-    stringValue(
-      workspaceAssetMediaFromMetadata(assetMetadataValue(asset))?.original.url
-    ) ??
-    stringValue(asset.url)
+    stringValue(workspaceAssetMediaFromMetadata(metadata)?.original.url) ??
+    stringValue(asset.url) ??
+    storageUrl
   )
 }
 
@@ -574,80 +545,20 @@ export function canvasMediaFromWorkspaceAsset(
   }
 }
 
-export function createCanvasMediaResource(
-  input: CreateCanvasMediaResourceInput
-): CanvasResource {
-  const url = stringValue(input.url) ?? ''
+export function createCanvasAssetResourceReference(
+  input: CreateCanvasAssetResourceReferenceInput
+): CanvasResource | null {
   const assetId = stringValue(input.assetId)
-  const width = positiveNumberValue(input.width)
-  const height = positiveNumberValue(input.height)
-  const duration = positiveNumberValue(input.duration)
-  const storage = cleanCanvasResourceStorage(input.storage)
-  const media = input.mediaMetadata ?? null
-  const metadata = {
-    ...(width ? { width } : {}),
-    ...(height ? { height } : {}),
-    ...(duration ? { duration } : {}),
-    ...(media ? { media } : {})
-  }
-
+  if (!assetId) return null
   return {
-    id:
-      stringValue(input.id) ??
-      assetId ??
-      `${input.type}-${input.createdBy}-${Date.now()}`,
+    id: assetId,
     type: input.type,
-    url,
-    assetId: assetId ?? null,
-    ...(stringValue(input.name) ? { name: stringValue(input.name)! } : {}),
-    ...(stringValue(input.mimeType)
-      ? { mimeType: stringValue(input.mimeType)! }
-      : {}),
-    ...(positiveNumberValue(input.size)
-      ? { size: positiveNumberValue(input.size)! }
-      : {}),
-    ...(storage ? { storage } : {}),
-    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+    url: '',
+    assetId,
     createdAt: input.createdAt ?? Date.now(),
-    createdBy: input.createdBy
+    createdBy: stringValue(input.createdBy) ?? 'unknown'
   }
 }
-
-export function createCanvasVideoOutputResource(
-  input: CreateCanvasVideoOutputResourceInput
-): CanvasResource {
-  return createCanvasMediaResource({
-    id: input.assetId ?? `generated-video-${input.nodeId}-${Date.now()}`,
-    type: 'video',
-    url: input.url,
-    assetId: input.assetId,
-    width: input.width,
-    height: input.height,
-    duration: input.duration,
-    storage: input.storage,
-    mediaMetadata: input.mediaMetadata,
-    createdBy: input.nodeId
-  })
-}
-
-export function createCanvasImageOutputResource(
-  input: CreateCanvasImageOutputResourceInput
-): CanvasResource {
-  return createCanvasMediaResource({
-    id: input.assetId ?? `generated-image-${input.nodeId}-${Date.now()}`,
-    type: 'image',
-    url: input.url,
-    assetId: input.assetId,
-    width: input.width,
-    height: input.height,
-    storage: input.storage,
-    mediaMetadata: input.mediaMetadata,
-    createdBy: input.nodeId
-  })
-}
-
-export const createImageOutputResource = createCanvasImageOutputResource
-export const createVideoOutputResource = createCanvasVideoOutputResource
 
 export function canvasMediaResourceUrl(
   resource: WorkspaceMediaResourceLike | null | undefined,
@@ -694,7 +605,7 @@ export const canvasResourcePlayableUrl = canvasMediaResourcePlayableUrl
 export const canvasResourcePreviewUrl = canvasMediaResourcePreviewUrl
 export const canvasResourceThumbnailUrl = canvasMediaResourceThumbnailUrl
 
-export function firstCanvasMediaResource(
+function firstCanvasMediaOutputResource(
   resources: CanvasResource[] | undefined,
   type: CanvasMediaResourceKind,
   createdBy?: string
@@ -703,20 +614,56 @@ export function firstCanvasMediaResource(
     resources?.find(
       (resource) =>
         resource.type === type &&
-        (!createdBy || resource.createdBy === createdBy) &&
-        Boolean(
-          canvasMediaResourceModelUrl(resource) ?? stringValue(resource.url)
-        )
+        (!createdBy || resource.createdBy === createdBy)
     ) ??
-    resources?.find(
-      (resource) =>
-        resource.type === type &&
-        Boolean(
-          canvasMediaResourceModelUrl(resource) ?? stringValue(resource.url)
-        )
-    ) ??
+    resources?.find((resource) => resource.type === type) ??
     null
   )
+}
+
+function workspaceAssetLookupFromInput(
+  input: ReadCanvasMediaOutputResourceInput | undefined
+): ReadonlyMap<string, WorkspaceAssetLike> | null {
+  const assets = input?.assets
+  if (!assets) return null
+  if (
+    typeof (assets as ReadonlyMap<string, WorkspaceAssetLike>).get ===
+    'function'
+  ) {
+    return assets as ReadonlyMap<string, WorkspaceAssetLike>
+  }
+  const lookup = workspaceAssetLookupFromAssets(
+    assets as readonly WorkspaceAssetLike[]
+  )
+  return lookup.size > 0 ? lookup : null
+}
+
+function resolveCanvasMediaOutputResources(
+  resources: CanvasResource[] | undefined,
+  input: ReadCanvasMediaOutputResourceInput | undefined
+): CanvasResource[] | undefined {
+  const lookup = workspaceAssetLookupFromInput(input)
+  if (!lookup) return resources
+  return resources?.map((resource) =>
+    resolveCanvasResourceAssetReference(resource, lookup, {
+      context: input?.context ?? 'canvas'
+    })
+  )
+}
+
+function canvasMediaOutputResourceUrl(
+  resource: CanvasResource,
+  type: CanvasMediaResourceKind,
+  input: ReadCanvasMediaOutputResourceInput | undefined
+): string | null {
+  const lookup = workspaceAssetLookupFromInput(input)
+  const asset = lookup ? workspaceAssetForReference(resource, lookup) : null
+  if (asset && workspaceAssetMediaType(asset, resource.type) === type) {
+    return workspaceAssetRuntimeUrl(asset, input?.context ?? 'canvas')
+  }
+  return type === 'video'
+    ? canvasMediaResourcePlayableUrl(resource)
+    : canvasMediaResourceModelUrl(resource)
 }
 
 export function canvasMediaResourceMetadata(
@@ -785,12 +732,18 @@ export const isAnimatedImageResource = isAnimatedCanvasImageResource
 
 export function readCanvasImageOutputResource(
   resources: CanvasResource[] | undefined,
-  nodeId: string
+  nodeId: string,
+  input?: ReadCanvasMediaOutputResourceInput
 ): CanvasImageOutputResource | null {
-  const output = firstCanvasMediaResource(resources, 'image', nodeId)
+  const resolvedResources = resolveCanvasMediaOutputResources(resources, input)
+  const output = firstCanvasMediaOutputResource(
+    resolvedResources,
+    'image',
+    nodeId
+  )
   if (!output) return null
 
-  const url = canvasMediaResourceModelUrl(output)
+  const url = canvasMediaOutputResourceUrl(output, 'image', input)
   if (!url) return null
 
   return {
@@ -805,12 +758,18 @@ export function readCanvasImageOutputResource(
 
 export function readCanvasVideoOutputResource(
   resources: CanvasResource[] | undefined,
-  nodeId: string
+  nodeId: string,
+  input?: ReadCanvasMediaOutputResourceInput
 ): CanvasVideoOutputResource | null {
-  const output = firstCanvasMediaResource(resources, 'video', nodeId)
+  const resolvedResources = resolveCanvasMediaOutputResources(resources, input)
+  const output = firstCanvasMediaOutputResource(
+    resolvedResources,
+    'video',
+    nodeId
+  )
   if (!output) return null
 
-  const url = canvasMediaResourcePlayableUrl(output)
+  const url = canvasMediaOutputResourceUrl(output, 'video', input)
   if (!url) return null
 
   return {
@@ -825,9 +784,15 @@ export function readCanvasVideoOutputResource(
 
 export function readCanvasVideoPosterUrl(
   resources: CanvasResource[] | undefined,
-  nodeId: string
+  nodeId: string,
+  input?: ReadCanvasMediaOutputResourceInput
 ): string | null {
-  const resource = firstCanvasMediaResource(resources, 'video', nodeId)
+  const resolvedResources = resolveCanvasMediaOutputResources(resources, input)
+  const resource = firstCanvasMediaOutputResource(
+    resolvedResources,
+    'video',
+    nodeId
+  )
   return canvasMediaResourceThumbnailUrl(resource)
 }
 
@@ -926,14 +891,99 @@ export function resolveCanvasDocumentAssetReferences<T>(
   input?: { context?: WorkspaceAssetMediaContext }
 ): T {
   const record = recordValue(document)
-  if (!record?.outputResource) return document
-  return {
-    ...record,
-    outputResource: resolveCanvasResourceAssetReference(
+  if (!record) return document
+
+  let changed = false
+  const nextRecord: Record<string, unknown> = { ...record }
+
+  if (Array.isArray(record.elements)) {
+    const elements = record.elements.map((element) => {
+      const resolved = resolveCanvasDocumentElementAssetReference(
+        element,
+        lookup,
+        input
+      )
+      if (resolved !== element) changed = true
+      return resolved
+    })
+    if (changed) nextRecord.elements = elements
+  }
+
+  if (record.outputResource) {
+    nextRecord.outputResource = resolveCanvasResourceAssetReference(
       record.outputResource,
       lookup,
       input
     )
+    changed = true
+  }
+
+  return changed ? (nextRecord as T) : document
+}
+
+function resolveCanvasDocumentElementAssetReference<T>(
+  element: T,
+  lookup: ReadonlyMap<string, WorkspaceAssetLike>,
+  _input?: { context?: WorkspaceAssetMediaContext }
+): T {
+  const cleaned = stripCanvasDocumentElementMediaMetadata(element)
+  const record = recordValue(cleaned)
+  if (!record) return element
+  const elementType = record.type
+  if (elementType !== 'raster' && elementType !== 'mask') return cleaned
+
+  const asset = workspaceAssetForReference(record, lookup)
+  const type = workspaceAssetMediaType(asset, record.type)
+  const assetId = stringValue(asset?.id)
+  if (!asset || !type || !assetId) return cleaned
+  if (
+    record.assetId === assetId &&
+    (elementType !== 'raster' || record.mediaType === type)
+  ) {
+    return cleaned
+  }
+
+  return {
+    ...record,
+    assetId,
+    ...(elementType === 'raster' ? { mediaType: type } : {})
+  } as T
+}
+
+function stripCanvasDocumentElementMediaMetadata<T>(element: T): T {
+  const record = recordValue(element)
+  if (!record) return element
+  const elementType = record.type
+  if (elementType !== 'raster' && elementType !== 'mask') return element
+  const metadata = recordValue(record.metadata)
+  if (!metadata || !Object.hasOwn(metadata, 'media')) {
+    return element
+  }
+
+  const { media: _media, ...restMetadata } = metadata
+  const next: Record<string, unknown> = { ...record }
+  if (Object.keys(restMetadata).length > 0) {
+    next.metadata = restMetadata
+  } else {
+    delete next.metadata
+  }
+  return next as T
+}
+
+function compactCanvasDocumentElementAssetReference<T>(element: T): T {
+  const cleaned = stripCanvasDocumentElementMediaMetadata(element)
+  const record = recordValue(cleaned)
+  if (!record) return element
+  const elementType = record.type
+  if (elementType !== 'raster' && elementType !== 'mask') return cleaned
+  const assetId = stringValue(record.assetId)
+  if (!assetId) return cleaned
+  return {
+    ...record,
+    ...(elementType === 'raster'
+      ? { mediaType: mediaAssetTypeValue(record.mediaType) ?? 'image' }
+      : {}),
+    assetId
   } as T
 }
 
@@ -968,11 +1018,25 @@ export function compactCanvasNodeAssetReferences<T>(node: T): T {
 
 export function compactCanvasDocumentAssetReferences<T>(document: T): T {
   const record = recordValue(document)
-  if (!record?.outputResource) return document
-  return {
-    ...record,
-    outputResource: compactCanvasResourceAssetReference(record.outputResource)
-  } as T
+  if (!record) return document
+
+  let changed = false
+  const nextRecord: Record<string, unknown> = { ...record }
+  if (Array.isArray(record.elements)) {
+    const elements = record.elements.map((element) => {
+      const compacted = compactCanvasDocumentElementAssetReference(element)
+      if (compacted !== element) changed = true
+      return compacted
+    })
+    if (changed) nextRecord.elements = elements
+  }
+  if (record.outputResource) {
+    nextRecord.outputResource = compactCanvasResourceAssetReference(
+      record.outputResource
+    )
+    changed = true
+  }
+  return changed ? (nextRecord as T) : document
 }
 
 export function workspaceAssetMediaSources(

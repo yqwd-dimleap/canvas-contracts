@@ -5,9 +5,7 @@ import {
 } from '../storage/workspace-assets.js'
 import { canvas2dWorkspaceViewSchema } from './canvas2d.js'
 import { canvasDocumentSchema } from './document.js'
-import { projectCanvasEdgeSchema } from './edge.js'
 import { canvasResourceSchema } from './resources.js'
-import { projectCanvasFlowNodeSchema } from './workflow.js'
 
 export const workspaceProjectSummaryMediaSourceSchema = z.enum([
   'cover',
@@ -72,42 +70,46 @@ export const recentWorkspaceProjectSchema = z.object({
   updatedAt: z.number()
 })
 
-const looseWorkflowNodeSchema = z.record(z.string(), z.unknown()).and(
-  z.object({
-    id: z.string().min(1).optional(),
-    type: z.string().optional(),
-    position: z.unknown().optional(),
-    data: z.unknown().optional()
-  })
-)
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
 
-const looseCanvasEdgeSchema = z.record(z.string(), z.unknown()).and(
-  z.object({
-    id: z.string().min(1).optional(),
-    source: z.string().optional(),
-    target: z.string().optional(),
-    data: z.unknown().optional()
-  })
-)
+function normalizeWorkspaceProjectCanvasPayloadInput(value: unknown) {
+  const record = recordValue(value)
+  if (!record) return value
 
-export const workspaceProjectCanvasPayloadSchema = z
+  const { nodes: _nodes, edges: _edges, canvasDocuments, ...rest } = record
+  const canvasDocument =
+    recordValue(record.canvasDocument) ??
+    (Array.isArray(canvasDocuments)
+      ? (canvasDocuments.find((item) => recordValue(item)) ?? null)
+      : null)
+
+  return {
+    ...rest,
+    schemaVersion: 2,
+    canvasDocument
+  }
+}
+
+export const workspaceProjectCanvasPayloadV2Schema = z
   .object({
-    schemaVersion: z.literal(1).default(1),
-    nodes: z
-      .array(projectCanvasFlowNodeSchema.or(looseWorkflowNodeSchema))
-      .default([]),
-    edges: z
-      .array(projectCanvasEdgeSchema.or(looseCanvasEdgeSchema))
-      .default([]),
-    canvasDocuments: z.array(canvasDocumentSchema).default([]),
+    schemaVersion: z.literal(2).default(2),
+    canvasDocument: canvasDocumentSchema.nullable().default(null),
     conversations: z.array(z.unknown()).default([]),
     activeConversationId: z.string().nullable().default(null),
-    agentProfileId: z.string().nullable().default(null),
     orphanResources: z.array(canvasResourceSchema).default([]),
     canvas2d: canvas2dWorkspaceViewSchema.optional(),
     updatedAt: z.number().optional()
   })
   .strict()
+
+export const workspaceProjectCanvasPayloadSchema = z.preprocess(
+  normalizeWorkspaceProjectCanvasPayloadInput,
+  workspaceProjectCanvasPayloadV2Schema
+)
 
 export const workspaceProjectResourcesSchema =
   workspaceProjectCanvasPayloadSchema
@@ -156,7 +158,7 @@ export const workspaceProjectImageDefaultsSchema = z
   .default({})
 
 export const workspaceProjectDocumentSchema =
-  workspaceProjectCanvasPayloadSchema.extend({
+  workspaceProjectCanvasPayloadV2Schema.extend({
     id: z.string().min(1),
     userId: z.string().optional(),
     title: z.string(),

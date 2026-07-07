@@ -128,7 +128,6 @@ export const agentRunSchema = z.object({
   runId: z.string().min(1),
   traceId: z.string().min(1).optional(),
   projectId: z.string().nullable(),
-  profileId: z.string().optional(),
   intent: z.string().min(1),
   status: agentRunStatusSchema,
   strategy: agentRunStrategySchema,

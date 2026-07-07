@@ -8,7 +8,7 @@
  */
 
 import type { ProjectCanvasNodeType } from '../canvas/workflow.js'
-import type { ModelCategory } from './profiles.js'
+import type { ModelCategory } from './model-provider.js'
 
 export interface NodeTypeModelPreference {
   /** 节点类型 */

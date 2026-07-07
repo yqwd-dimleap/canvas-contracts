@@ -1,8 +1,6 @@
 import { z } from 'zod'
-import {
-  agentModelProfileSchema,
-  modelProviderSchema
-} from '../agent/profiles.js'
+import { modelProviderSchema } from '../agent/model-provider.js'
+import { agentRuntimeConfigViewSchema } from '../agent/runtime-config.js'
 
 /**
  * Admin - Models List Response
@@ -26,14 +24,6 @@ export const modelsResponseSchema = z.object({
  */
 export const modelProvidersResponseSchema = z.object({
   providers: z.array(modelProviderSchema)
-})
-
-/**
- * Admin - Agent Profiles List Response
- * 管理后台：Agent 配置列表
- */
-export const agentProfilesResponseSchema = z.object({
-  profiles: z.array(agentModelProfileSchema)
 })
 
 /**
@@ -92,9 +82,19 @@ export const gatewayModelsResponseSchema = z.object({
   success: z.boolean().optional()
 })
 
+/**
+ * Admin - Agent Runtime Config Response
+ * 管理后台：单一 Agent 运行模型配置
+ */
+export const agentRuntimeConfigResponseSchema = z.object({
+  config: agentRuntimeConfigViewSchema
+})
+
 export type ModelsResponse = z.infer<typeof modelsResponseSchema>
 export type ModelProvidersResponse = z.infer<
   typeof modelProvidersResponseSchema
 >
-export type AgentProfilesResponse = z.infer<typeof agentProfilesResponseSchema>
 export type GatewayModelsResponse = z.infer<typeof gatewayModelsResponseSchema>
+export type AgentRuntimeConfigResponse = z.infer<
+  typeof agentRuntimeConfigResponseSchema
+>
