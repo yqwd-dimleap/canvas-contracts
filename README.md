@@ -1,48 +1,40 @@
 # Canvas Contracts
 
-Shared TypeScript and Zod contracts for Deep CX canvas frontend and agent services.
+Shared TypeScript and Zod contracts for Canvas frontend and agent services.
 
-This package is intentionally an independent repository/package. Frontend and backend should depend on a versioned release instead of importing source from each other.
+This package is an independent repository/package. Frontend and backend should depend on a versioned release from the registry, not import source from each other.
 
-## Technology Choice
+## Technology
 
-- TypeScript for static types.
-- Zod as the single runtime schema source.
-- ESM package exports.
-- No framework dependency.
-- No database or UI dependency.
+- TypeScript for static types
+- Zod as runtime schema source
+- ESM subpath exports
+- No framework, database, or UI dependency
 
 ## Install
 
-```sh
+```bash
 bun add @yqwd-dimleap/canvas-contracts
 ```
 
-During local development, use a registry package, a git tag, or `bun link`.
+In the parent `canvas-dev` workspace, use `link-contracts.sh` for local integration. Do not change consumer `package.json` to `link:` or workspace references.
 
 ## Scripts
 
-```sh
+```bash
 bun install
 bun run typecheck
 bun run build
+bun run test
 bun run check
 ```
-
-## Versioning
-
-Use semver.
-
-- Patch: docs, comments, non-behavioral type refinements.
-- Minor: additive and backward-compatible fields, routes, or schemas.
-- Major: removed fields, renamed fields, changed requiredness, or changed semantics.
 
 ## Usage
 
 Backend request validation:
 
 ```ts
-import { canvasRunRequestSchema } from "@yqwd-dimleap/canvas-contracts/workflow"
+import { canvasRunRequestSchema } from '@yqwd-dimleap/canvas-contracts/agent'
 
 const parsed = canvasRunRequestSchema.safeParse(body)
 ```
@@ -50,61 +42,61 @@ const parsed = canvasRunRequestSchema.safeParse(body)
 Frontend response validation:
 
 ```ts
-import { listAgentProfilesResponseSchema } from "@yqwd-dimleap/canvas-contracts/agent"
+import { agentRuntimeConfigViewSchema } from '@yqwd-dimleap/canvas-contracts/agent'
 
 const json = await res.json()
-const parsed = listAgentProfilesResponseSchema.parse(json)
+const parsed = agentRuntimeConfigViewSchema.parse(json.data)
+```
+
+Runtime constants:
+
+```ts
+import { CANVAS_AGENT_LANGGRAPH_ROUTE_PREFIX } from '@yqwd-dimleap/canvas-contracts/agent'
+import { CANVAS_AGENT_TOOL_NAMES } from '@yqwd-dimleap/canvas-contracts/canvas'
 ```
 
 ## Package Layout
 
-Each domain is a separate subpath export (e.g.
-`@yqwd-dimleap/canvas-contracts/agent`). Importers should pull from the specific
-domain, not the package root.
+Each domain has a dedicated subpath export. Importers should prefer specific subpaths over the package root.
 
 ```txt
 src/
-  admin/       admin console responses
-  agent/       agent profile, model-preference, and route contracts
-  api/          shared API response envelopes
-  auth/         auth/session and user contracts
-  billing/      billing and credit schemas
-  canvas/       resource and canvas context contracts
-  events/       agent runtime event contracts
-  generation/   image/video generation contracts
-  models/       model catalog and registry contracts
-  rag/          RAG search request/response contracts
-  storage/      storage/asset contracts
-  team/         team membership schemas
-  workflow/     workflow and storyboard contracts
-  shared/       internal-only helpers (not re-exported)
+  admin/       admin console response contracts
+  agent/       Canvas Agent run/action, LangGraph runtime, model/node contracts
+  api/         shared API response envelopes
+  artifacts/   artifact contracts
+  auth/        auth/session/permission/user contracts
+  billing/     billing and credit schemas
+  canvas/      Canvas context, graph nodes, Canvas2D, operations, capabilities
+  events/      SystemEvent, CanvasEvent, webhook, notification, Redis helpers
+  generation/  image/video generation request contracts
+  models/      model registry and endpoint contracts
+  rag/         RAG search request/response contracts
+  storage/     workspace asset and imgproxy contracts
+  team/        team membership schemas
+  shared/      internal helpers, not exported as a subpath
+  utils/       shared utility helpers
 ```
+
+## Versioning
+
+Use semver:
+
+- Patch: docs, comments, non-behavioral type refinements.
+- Minor: additive and backward-compatible fields, routes, or schemas.
+- Major: removed fields, renamed fields, changed requiredness, or changed semantics.
+
+Any API-shape change must be checked against both `canvas-frontend` and `canvas-agent`.
 
 ## Release
 
-This package is published to GitHub Packages as a private organization package.
-Use the automated release script (see `scripts/README.md` for full details):
+This package publishes to GitHub Packages. Use the release script:
 
-```sh
+```bash
 ./scripts/release.sh
 ./scripts/release.sh publish
-
-# If GitHub Actions publishing failed after the tag was pushed:
 ./scripts/release.sh retry-publish
-
-# To also edit CHANGELOG.md while preparing the release:
 ./scripts/release.sh --with-changelog
 ```
 
-The script checks the working tree is clean and on `main`, prompts for the bump
-type (patch/minor/major), updates `package.json`, runs `bun run check`
-(lint + typecheck + build), commits, and creates an annotated `v*` tag locally.
-Publishing is a separate explicit step: `./scripts/release.sh publish` pushes
-the prepared commit and tag, which triggers the `Publish` GitHub Action. If that
-Action fails, use `./scripts/release.sh retry-publish`; it reuses the current
-`package.json` version and existing tag instead of bumping to the next patch.
-The Action publishes only on `v*` tags; normal pushes and pull requests only run
-CI checks.
-
-To release manually instead, bump `version` in `package.json`, run
-`bun run check`, commit to `main`, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+The script prepares a local version commit and tag, runs `bun run check`, and leaves publishing as an explicit step. See `scripts/README.md` for details.

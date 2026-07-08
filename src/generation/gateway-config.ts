@@ -7,7 +7,7 @@ export type ChatGatewayConfig = GatewayPayloadConfig
 
 export type GenerationGatewayConfig = GatewayPayloadConfig & {
   endpoint?: string
-  payloadType?: string
+  payloadProfile?: string
 }
 
 export const CHAT_GATEWAY_RESERVED_PAYLOAD_KEYS = [
@@ -185,13 +185,18 @@ export function readGenerationGatewayConfig(
     typeof generation.endpoint === 'string' && generation.endpoint.trim()
       ? generation.endpoint.trim()
       : undefined
-  const payloadType =
-    typeof generation.payloadType === 'string' && generation.payloadType.trim()
-      ? generation.payloadType.trim()
-      : undefined
+  const legacyPayloadType =
+    typeof generation.payloadType === 'string' ? generation.payloadType : ''
+  const payloadProfileSource =
+    typeof generation.payloadProfile === 'string'
+      ? generation.payloadProfile
+      : legacyPayloadType
+  const payloadProfile = payloadProfileSource.trim()
+    ? payloadProfileSource.trim()
+    : undefined
   return {
     ...(endpoint ? { endpoint } : {}),
-    ...(payloadType ? { payloadType } : {}),
+    ...(payloadProfile ? { payloadProfile } : {}),
     parameters: cleanParameters(
       record(generation.parameters),
       GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
@@ -379,7 +384,7 @@ export function mergeGenerationGatewayConfig(
   metadata: Record<string, unknown> | null | undefined,
   config: {
     endpoint?: string
-    payloadType?: string
+    payloadProfile?: string
     parameters?: Record<string, unknown>
     omitParameters?: string[]
   }
@@ -392,10 +397,11 @@ export function mergeGenerationGatewayConfig(
     if (endpoint) generation.endpoint = endpoint
     else delete generation.endpoint
   }
-  if (config.payloadType !== undefined) {
-    const payloadType = config.payloadType.trim()
-    if (payloadType) generation.payloadType = payloadType
-    else delete generation.payloadType
+  if (config.payloadProfile !== undefined) {
+    const payloadProfile = config.payloadProfile.trim()
+    if (payloadProfile) generation.payloadProfile = payloadProfile
+    else delete generation.payloadProfile
+    delete generation.payloadType
   }
   if (config.parameters) {
     generation.parameters = cleanParameters(

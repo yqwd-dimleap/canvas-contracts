@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { projectCanvasNodeTypeSchema } from '../canvas/workflow.js'
+import { projectCanvasNodeTypeSchema } from '../canvas/graph.js'
 import { timestampSchema } from '../shared/timestamp.js'
 
 /**

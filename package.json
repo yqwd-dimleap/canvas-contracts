@@ -69,10 +69,6 @@
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "import": "./dist/utils/index.js"
-    },
-    "./workflow": {
-      "types": "./dist/workflow/index.d.ts",
-      "import": "./dist/workflow/index.js"
     }
   },
   "scripts": {
@@ -97,7 +93,6 @@
     "typescript": "^5.9.3"
   },
   "publishConfig": {
-    "access": "restricted",
     "registry": "https://npm.pkg.github.com"
   },
   "repository": {

@@ -51,7 +51,7 @@ export const CANVAS2D_MAX_ZOOM = 6
 export const CANVAS2D_DEFAULT_VIEWPORT = {
   x: 96,
   y: 96,
-  zoom: 0.85
+  zoom: 1
 } as const
 
 export const CANVAS2D_DEFAULT_RENDER_POLICY = {

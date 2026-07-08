@@ -11,6 +11,7 @@ export const canvasAgentActionTypeSchema = z.enum([
   'element.delete',
   'element.reorder',
   'element.select',
+  'element.generate',
   'viewport.focus'
 ])
 
@@ -40,7 +41,7 @@ export const canvasAgentActionCapabilitySchema = z
   })
   .strict()
 
-export const canvasAgentWorkflowCapabilitySchema = z
+export const canvasAgentRecipeCapabilitySchema = z
   .object({
     id: z.string().min(1),
     title: z.string().min(1),
@@ -107,13 +108,13 @@ export const canvasAgentToolCapabilitySchema = z
 export const canvasAgentCapabilityManifestSchema = z
   .object({
     version: z
-      .literal('canvas-agent-capabilities.v2')
-      .default('canvas-agent-capabilities.v2'),
+      .literal('canvas-agent-capabilities.v3')
+      .default('canvas-agent-capabilities.v3'),
     generatedAt: z.string().min(1).optional(),
     source: z.enum(['frontend', 'server', 'test']).default('frontend'),
     actions: z.array(canvasAgentActionCapabilitySchema).default([]),
     nodes: z.array(canvasAgentNodeCapabilitySchema).default([]),
-    workflows: z.array(canvasAgentWorkflowCapabilitySchema).default([]),
+    recipes: z.array(canvasAgentRecipeCapabilitySchema).default([]),
     tools: z.array(canvasAgentToolCapabilitySchema).default([]),
     disabledReasonById: z.record(z.string(), z.string()).default({}),
     metadata: z.record(z.string(), z.unknown()).default({})
@@ -131,6 +132,7 @@ export const DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES = [
   { action: 'element.delete', enabled: true },
   { action: 'element.reorder', enabled: true },
   { action: 'element.select', enabled: true },
+  { action: 'element.generate', enabled: true },
   { action: 'viewport.focus', enabled: true }
 ] as const
 
@@ -161,7 +163,7 @@ export const DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES = [
   }
 ] as const
 
-export const DEFAULT_CANVAS_AGENT_WORKFLOW_CAPABILITIES = [
+export const DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES = [
   {
     id: 'prompt-to-image',
     title: 'Prompt to image',
@@ -209,6 +211,7 @@ export const DEFAULT_CANVAS_AGENT_WORKFLOW_CAPABILITIES = [
       'element.delete',
       'element.reorder',
       'element.select',
+      'element.generate',
       'viewport.focus'
     ],
     metadata: {
@@ -225,7 +228,7 @@ export const CANVAS_AGENT_TOOL_NAMES = {
   inspectCanvas2dScene: 'canvas2d.inspect_scene',
   inspectCanvas2dElements: 'canvas2d.inspect_elements',
   inspectCanvas2dSelection: 'canvas2d.inspect_selection',
-  searchWorkflows: 'rag_search_workflows',
+  searchCanvasRecipes: 'rag_search_canvas_recipes',
   searchPromptTemplates: 'rag_search_prompt_templates',
   executeActions: 'canvas.execute_actions'
 } as const
@@ -370,9 +373,9 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     }
   },
   {
-    name: CANVAS_AGENT_TOOL_NAMES.searchWorkflows,
-    title: 'Reference workflow patterns',
-    description: 'Search similar workflow structures and action patterns.',
+    name: CANVAS_AGENT_TOOL_NAMES.searchCanvasRecipes,
+    title: 'Reference canvas recipes',
+    description: 'Search similar Canvas action recipes and patterns.',
     category: 'memory',
     runtime: 'langchain',
     permission: 'reference',
@@ -428,6 +431,7 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
       'element.delete',
       'element.reorder',
       'element.select',
+      'element.generate',
       'viewport.focus'
     ],
     nodeTypes: DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES.map(
@@ -446,7 +450,7 @@ export function createDefaultCanvasAgentCapabilityManifest() {
     generatedAt: new Date().toISOString(),
     actions: DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES,
     nodes: DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES,
-    workflows: DEFAULT_CANVAS_AGENT_WORKFLOW_CAPABILITIES,
+    recipes: DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES,
     tools: DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES
   })
 }
@@ -466,8 +470,8 @@ export function enabledCanvasAgentCapabilities(
       .filter((item) => item.enabled && item.visible)
       .map((item) => item.nodeType)
   )
-  const enabledWorkflowIds = new Set(
-    normalized.workflows
+  const enabledRecipeIds = new Set(
+    normalized.recipes
       .filter((item) => item.enabled && item.visible)
       .map((item) => item.id)
   )
@@ -477,7 +481,7 @@ export function enabledCanvasAgentCapabilities(
     manifest: normalized,
     enabledActions,
     enabledNodeTypes,
-    enabledWorkflowIds,
+    enabledRecipeIds,
     enabledTools,
     enabledToolNames
   }
@@ -554,8 +558,8 @@ export type CanvasAgentNodeCapability = z.infer<
 export type CanvasAgentActionCapability = z.infer<
   typeof canvasAgentActionCapabilitySchema
 >
-export type CanvasAgentWorkflowCapability = z.infer<
-  typeof canvasAgentWorkflowCapabilitySchema
+export type CanvasAgentRecipeCapability = z.infer<
+  typeof canvasAgentRecipeCapabilitySchema
 >
 export type CanvasAgentToolCapability = z.infer<
   typeof canvasAgentToolCapabilitySchema

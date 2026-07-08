@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../api/response.js'
-import { canvasAgentBaseRequestSchema } from './plan.js'
+import { canvasAgentBaseRequestSchema } from './canvas-run.js'
 
 /**
  * Improve Prompt Request

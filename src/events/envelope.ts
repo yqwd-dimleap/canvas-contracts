@@ -7,7 +7,7 @@ import { z } from 'zod'
  * （webhook 出站、agent→frontend 内部回调、frontend→agent 接收）都包成这一信封，
  * 再按 {@link canvasEventSchema} 的 `eventType` 携带各自的 `data`。
  *
- * - 信封流经 HTTP body（JSON），时间戳用 ISO 8601 字符串（与 workflow/run.ts 的
+ * - 信封流经 HTTP body（JSON），时间戳用 ISO 8601 字符串（与 agent/canvas-run-state.ts 的
  *   运行时事件保持一致），而非 Mongo 层的 epoch 毫秒。
  * - `eventId` 是投递与去重的幂等键，发送方生成，接收方据此防重放。
  */

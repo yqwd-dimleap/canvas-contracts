@@ -105,7 +105,10 @@ export const canvasVectorElementSchema = canvasDocumentElementBaseSchema.extend(
 export const canvasPathPointSchema = z.object({
   x: z.number(),
   y: z.number(),
-  pressure: z.number().min(0).max(1).optional()
+  pressure: z.number().min(0).max(1).optional(),
+  width: z.number().positive().optional(),
+  velocity: z.number().nonnegative().optional(),
+  t: z.number().optional()
 })
 
 export const canvasPathElementSchema = canvasDocumentElementBaseSchema.extend({

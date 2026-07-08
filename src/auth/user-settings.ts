@@ -3,7 +3,7 @@ import {
   modelCategorySchema,
   modelPricingConfigSchema
 } from '../agent/model-provider.js'
-import { projectCanvasNodeTypeSchema } from '../canvas/workflow.js'
+import { projectCanvasNodeTypeSchema } from '../canvas/graph.js'
 import { timestampSchema } from '../shared/timestamp.js'
 
 export const userNotificationSettingsSchema = z.object({

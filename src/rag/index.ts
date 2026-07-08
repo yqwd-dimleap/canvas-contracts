@@ -1,23 +1,23 @@
 import { z } from 'zod'
+import { canvasAgentActionSchema } from '../agent/canvas-run.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
-import { canvasPlanActionSchema } from '../workflow/plan.js'
 
 // ============================================================================
-// Workflow Feedback
+// Canvas Recipe Feedback
 // ============================================================================
 
-export const workflowFeedbackRequestSchema = z.object({
-  workflowId: z.string().min(1),
+export const canvasRecipeFeedbackRequestSchema = z.object({
+  recipeId: z.string().min(1),
   intent: z.string().min(1),
   intentKind: z.enum(['image', 'video', 'storyboard']),
-  actions: z.array(canvasPlanActionSchema),
+  actions: z.array(canvasAgentActionSchema),
   userRating: z.number().int().min(1).max(5),
   adjustmentCount: z.number().int().min(0),
   projectId: z.string().optional(),
   userId: z.string().optional()
 })
 
-export const workflowFeedbackResponseSchema = apiSuccessResponseSchema(
+export const canvasRecipeFeedbackResponseSchema = apiSuccessResponseSchema(
   z.object({
     message: z.string(),
     indexed: z.boolean()
@@ -25,28 +25,28 @@ export const workflowFeedbackResponseSchema = apiSuccessResponseSchema(
 )
 
 // ============================================================================
-// RAG Search - Workflows
+// RAG Search - Canvas Recipes
 // ============================================================================
 
-export const ragSearchWorkflowsRequestSchema = z.object({
+export const ragSearchCanvasRecipesRequestSchema = z.object({
   query: z.string().min(1),
   intentKind: z.enum(['image', 'video', 'storyboard']).optional(),
   topK: z.number().int().min(1).max(20).default(5),
   minScore: z.number().min(0).max(1).default(0.7)
 })
 
-export const ragWorkflowResultSchema = z.object({
+export const ragCanvasRecipeResultSchema = z.object({
   id: z.string(),
   intent: z.string(),
   intentKind: z.string(),
-  actions: z.array(canvasPlanActionSchema),
+  actions: z.array(canvasAgentActionSchema),
   successScore: z.number(),
   score: z.number()
 })
 
-export const ragSearchWorkflowsResponseSchema = apiSuccessResponseSchema(
+export const ragSearchCanvasRecipesResponseSchema = apiSuccessResponseSchema(
   z.object({
-    results: z.array(ragWorkflowResultSchema),
+    results: z.array(ragCanvasRecipeResultSchema),
     query: z.string(),
     totalResults: z.number()
   })
@@ -84,18 +84,18 @@ export const ragSearchPromptsResponseSchema = apiSuccessResponseSchema(
 // Types
 // ============================================================================
 
-export type WorkflowFeedbackRequest = z.infer<
-  typeof workflowFeedbackRequestSchema
+export type CanvasRecipeFeedbackRequest = z.infer<
+  typeof canvasRecipeFeedbackRequestSchema
 >
-export type WorkflowFeedbackResponse = z.infer<
-  typeof workflowFeedbackResponseSchema
+export type CanvasRecipeFeedbackResponse = z.infer<
+  typeof canvasRecipeFeedbackResponseSchema
 >
-export type RagSearchWorkflowsRequest = z.infer<
-  typeof ragSearchWorkflowsRequestSchema
+export type RagSearchCanvasRecipesRequest = z.infer<
+  typeof ragSearchCanvasRecipesRequestSchema
 >
-export type RagWorkflowResult = z.infer<typeof ragWorkflowResultSchema>
-export type RagSearchWorkflowsResponse = z.infer<
-  typeof ragSearchWorkflowsResponseSchema
+export type RagCanvasRecipeResult = z.infer<typeof ragCanvasRecipeResultSchema>
+export type RagSearchCanvasRecipesResponse = z.infer<
+  typeof ragSearchCanvasRecipesResponseSchema
 >
 export type RagSearchPromptsRequest = z.infer<
   typeof ragSearchPromptsRequestSchema

@@ -175,13 +175,19 @@ export const visualFocusOperationSchema = z.object({
 
 // ========== Agent 状态操作 ==========
 
+export const agentRuntimeStatusSchema = z.enum([
+  'planning',
+  'creating',
+  'generating',
+  'complete',
+  'error'
+])
+
 export const agentNodeStatusOperationSchema = z.object({
   type: z.literal('agent.nodeStatus'),
   payload: z.object({
     nodeId: z.string().min(1),
-    status: z
-      .enum(['planning', 'creating', 'generating', 'complete', 'error'])
-      .nullable(),
+    status: agentRuntimeStatusSchema.nullable(),
     detail: z.string().optional()
   })
 })
@@ -193,6 +199,47 @@ export const agentGenerationProgressOperationSchema = z.object({
     progress: z.number().min(0).max(100), // 0-100
     previewUrl: z.string().optional(),
     message: z.string().optional()
+  })
+})
+
+// ========== Canvas2D 运行态操作 ==========
+
+export const elementStatusOperationSchema = z.object({
+  type: z.literal('element.status'),
+  payload: z.object({
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1),
+    status: agentRuntimeStatusSchema.nullable(),
+    detail: z.string().optional()
+  })
+})
+
+export const elementGenerationProgressOperationSchema = z.object({
+  type: z.literal('element.generationProgress'),
+  payload: z.object({
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1),
+    progress: z.number().min(0).max(100),
+    previewUrl: z.string().optional(),
+    message: z.string().optional()
+  })
+})
+
+export const elementHighlightOperationSchema = z.object({
+  type: z.literal('element.highlight'),
+  payload: z.object({
+    documentId: z.string().min(1).optional(),
+    elementIds: z.array(z.string().min(1)),
+    duration: z.number().optional(),
+    style: z.enum(['primary', 'success', 'warning', 'error']).optional()
+  })
+})
+
+export const elementClearHighlightOperationSchema = z.object({
+  type: z.literal('element.clearHighlight'),
+  payload: z.object({
+    documentId: z.string().min(1).optional(),
+    elementIds: z.array(z.string().min(1)).optional()
   })
 })
 
@@ -284,6 +331,10 @@ const canvasOperationBaseSchema = z.discriminatedUnion('type', [
   visualFocusOperationSchema,
   agentNodeStatusOperationSchema,
   agentGenerationProgressOperationSchema,
+  elementStatusOperationSchema,
+  elementGenerationProgressOperationSchema,
+  elementHighlightOperationSchema,
+  elementClearHighlightOperationSchema,
   documentCreateOperationSchema,
   elementAddOperationSchema,
   elementPatchOperationSchema,
@@ -341,6 +392,7 @@ export type OperationMetadata = z.infer<typeof operationMetadataSchema>
 export type CanvasOperationRecord = z.infer<typeof canvasOperationRecordSchema>
 
 // 各个操作的具体类型
+export type AgentRuntimeStatus = z.infer<typeof agentRuntimeStatusSchema>
 export type NodeAddOperation = z.infer<typeof nodeAddOperationSchema>
 export type NodeUpdateOperation = z.infer<typeof nodeUpdateOperationSchema>
 export type NodeUpdateBatchOperation = z.infer<
@@ -371,5 +423,17 @@ export type AgentNodeStatusOperation = z.infer<
 >
 export type AgentGenerationProgressOperation = z.infer<
   typeof agentGenerationProgressOperationSchema
+>
+export type ElementStatusOperation = z.infer<
+  typeof elementStatusOperationSchema
+>
+export type ElementGenerationProgressOperation = z.infer<
+  typeof elementGenerationProgressOperationSchema
+>
+export type ElementHighlightOperation = z.infer<
+  typeof elementHighlightOperationSchema
+>
+export type ElementClearHighlightOperation = z.infer<
+  typeof elementClearHighlightOperationSchema
 >
 export type BatchOperation = z.infer<typeof batchOperationSchema>

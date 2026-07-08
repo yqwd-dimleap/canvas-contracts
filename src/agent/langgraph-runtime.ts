@@ -179,6 +179,10 @@ export function nodeIdsFromOperation(operation: CanvasOperation): string[] {
     case 'element.delete':
     case 'element.reorder':
     case 'element.select':
+    case 'element.status':
+    case 'element.generationProgress':
+    case 'element.highlight':
+    case 'element.clearHighlight':
     case 'viewport.focus':
       return []
     case 'batch':

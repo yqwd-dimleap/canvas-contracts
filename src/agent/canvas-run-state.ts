@@ -1,5 +1,8 @@
 import { z } from 'zod'
-import { canvasIntentKindSchema, canvasPlanActionSchema } from './plan.js'
+import {
+  canvasAgentActionSchema,
+  canvasIntentKindSchema
+} from './canvas-run.js'
 
 export const agentRunStatusSchema = z.enum([
   'queued',
@@ -134,7 +137,7 @@ export const agentRunSchema = z.object({
   startedAt: z.string().min(1),
   completedAt: z.string().min(1).optional(),
   summary: z.string().optional(),
-  actions: z.array(canvasPlanActionSchema).default([]),
+  actions: z.array(canvasAgentActionSchema).default([]),
   steps: z.array(agentRunStepSchema).default([]),
   toolCalls: z.array(agentToolCallSchema).default([]),
   trace: agentTraceSchema.optional()

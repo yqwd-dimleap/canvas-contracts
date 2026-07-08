@@ -15,30 +15,37 @@ const requiredExports = [
   './admin',
   './agent',
   './api',
+  './artifacts',
   './auth',
   './billing',
   './canvas',
+  './events',
   './generation',
   './models',
   './rag',
   './storage',
-  './workflow'
+  './team',
+  './utils'
 ]
 
 const requiredFiles = [
   'package/package.json',
+  'package/dist/agent/index.js',
+  'package/dist/agent/index.d.ts',
+  'package/dist/agent/canvas-run.js',
+  'package/dist/agent/canvas-run.d.ts',
   'package/dist/admin/index.js',
   'package/dist/admin/index.d.ts',
   'package/dist/billing/index.js',
   'package/dist/billing/index.d.ts',
+  'package/dist/canvas/index.js',
+  'package/dist/canvas/index.d.ts',
+  'package/dist/canvas/graph.js',
+  'package/dist/canvas/graph.d.ts',
   'package/dist/models/index.js',
   'package/dist/models/index.d.ts',
   'package/dist/storage/index.js',
-  'package/dist/storage/index.d.ts',
-  'package/dist/workflow/index.js',
-  'package/dist/workflow/index.d.ts',
-  'package/dist/workflow/run.js',
-  'package/dist/workflow/run.d.ts'
+  'package/dist/storage/index.d.ts'
 ]
 
 function run(command, args) {

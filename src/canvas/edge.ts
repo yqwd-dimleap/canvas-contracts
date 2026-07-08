@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { edgeDependencyTypeSchema, resourceFilterSchema } from './resources.js'
 
 /**
- * Project canvas edge schema - represents connections between nodes in the workflow graph.
+ * Project canvas edge schema - represents connections between graph nodes.
  * Edges control data flow, dependencies, and resource passing between nodes.
  */
 

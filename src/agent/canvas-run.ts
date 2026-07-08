@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { agentSkillIdSchema } from '../agent/skills.js'
 import { canvas2dViewportSchema } from '../canvas/canvas2d.js'
 import { canvasAgentCapabilityManifestSchema } from '../canvas/capabilities.js'
 import {
@@ -10,6 +9,7 @@ import {
   canvasDocumentElementSchema,
   canvasDocumentSchema
 } from '../canvas/document.js'
+import { agentSkillIdSchema } from './skills.js'
 
 /**
  * Canvas Action Ref
@@ -122,10 +122,10 @@ const canvasActionProtocolFields = {
 } as const
 
 /**
- * Canvas Plan Action
- * 画布操作的原子动作（创建节点、更新数据、创建边）
+ * Canvas Agent Action
+ * Renderer-agnostic atomic action emitted by the Canvas Agent runtime.
  */
-export const canvasPlanActionSchema = z.discriminatedUnion('type', [
+export const canvasAgentActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('createNode'),
     ...canvasActionProtocolFields,
@@ -191,6 +191,22 @@ export const canvasPlanActionSchema = z.discriminatedUnion('type', [
     elementIds: z.array(z.string().min(1)).default([])
   }),
   z.object({
+    type: z.literal('element.generate'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    elementId: z.string().min(1).optional(),
+    mediaType: z.enum(['image', 'video']).default('image'),
+    prompt: z.string().trim().min(1),
+    name: z.string().trim().min(1).optional(),
+    x: z.number().optional(),
+    y: z.number().optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional(),
+    referenceImageUrls: z.array(z.string().min(1)).default([]),
+    sourceVideoUrl: z.string().min(1).optional(),
+    data: z.record(z.string(), z.unknown()).default({})
+  }),
+  z.object({
     type: z.literal('viewport.focus'),
     ...canvasActionProtocolFields,
     documentId: z.string().min(1).optional(),
@@ -231,14 +247,14 @@ export const canvasAgentBaseRequestSchema = z.object({
   canvas2d: canvas2dAgentContextSchema.optional(),
   /**
    * 当前前端真正开放给 Agent 的画布能力清单。
-   * Agent 必须基于该清单规划动作，不能使用未启用/隐藏的节点、工作流或工具。
+   * Agent 必须基于该清单输出动作，不能使用未启用/隐藏的节点、配方或工具。
    */
   capabilities: canvasAgentCapabilityManifestSchema.optional()
 })
 
 /**
- * Canvas Plan Request
- * 工作流规划请求（基础 + 用户意图）
+ * Canvas Agent Run Request
+ * Agent 运行请求（基础上下文 + 用户意图）
  */
 export const canvasRunRequestSchema = canvasAgentBaseRequestSchema
   .extend({
@@ -255,11 +271,11 @@ export const canvasRunRequestSchema = canvasAgentBaseRequestSchema
       .array(canvasAgentConversationMessageSchema)
       .max(24)
       .optional(),
-    /** 选中的技能：注入到规划/对话系统提示，引导 agent 行为侧重。 */
+    /** 选中的技能：注入到运行/对话系统提示，引导 agent 行为侧重。 */
     skillId: agentSkillIdSchema.optional()
   })
 
-export type CanvasPlanAction = z.infer<typeof canvasPlanActionSchema>
+export type CanvasAgentAction = z.infer<typeof canvasAgentActionSchema>
 export type CanvasActionStatus = z.infer<typeof canvasActionStatusSchema>
 export type CanvasActionError = z.infer<typeof canvasActionErrorSchema>
 export type CanvasActionCost = z.infer<typeof canvasActionCostSchema>

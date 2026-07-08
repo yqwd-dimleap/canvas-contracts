@@ -10,7 +10,7 @@ import { type CanvasResource, canvasResourceSchema } from './resources.js'
 
 /**
  * Resource arrays shared across all node data types.
- * These track input/output/manual resources for workflow execution.
+ * These track input/output/manual resources for canvas agent execution.
  */
 const resourceArrays = {
   inputResources: z.array(canvasResourceSchema).optional(),

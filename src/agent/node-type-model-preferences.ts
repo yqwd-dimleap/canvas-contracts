@@ -7,7 +7,7 @@
  * - video 节点优先用 Wan 2.7 I2V；纯文生视频优先 Wan T2V
  */
 
-import type { ProjectCanvasNodeType } from '../canvas/workflow.js'
+import type { ProjectCanvasNodeType } from '../canvas/graph.js'
 import type { ModelCategory } from './model-provider.js'
 
 export interface NodeTypeModelPreference {
