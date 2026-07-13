@@ -20,7 +20,9 @@ export const generationCompletedEventSchema = eventEnvelopeBaseSchema.extend({
   data: z.object({
     taskId: z.string().min(1),
     providerTaskId: z.string().optional(),
-    nodeId: z.string().optional(),
+    documentId: z.string().optional(),
+    elementId: z.string().optional(),
+    actionId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
     result: generationTaskResultSchema
@@ -32,7 +34,9 @@ export const generationFailedEventSchema = eventEnvelopeBaseSchema.extend({
   data: z.object({
     taskId: z.string().min(1),
     providerTaskId: z.string().optional(),
-    nodeId: z.string().optional(),
+    documentId: z.string().optional(),
+    elementId: z.string().optional(),
+    actionId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
     message: z.string().min(1),
@@ -45,7 +49,9 @@ export const generationProgressEventSchema = eventEnvelopeBaseSchema.extend({
   data: z.object({
     taskId: z.string().min(1),
     providerTaskId: z.string().optional(),
-    nodeId: z.string().optional(),
+    documentId: z.string().optional(),
+    elementId: z.string().optional(),
+    actionId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
     status: z.enum(['pending', 'polling', 'completed', 'failed']),

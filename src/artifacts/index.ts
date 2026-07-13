@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { canvasOperationSchema } from '../canvas/operations.js'
+import { canvasOperationSchema } from '../canvas/core/operations.js'
 
 export const artifactStatusSchema = z.enum([
   'created',
@@ -12,7 +12,6 @@ export const artifactStatusSchema = z.enum([
 export const artifactTypeSchema = z.enum([
   'text',
   'markdown',
-  'canvas-node',
   'canvas-operation',
   'image',
   'video',
@@ -40,15 +39,6 @@ export const textArtifactSchema = artifactBaseSchema.extend({
   })
 })
 
-export const canvasNodeArtifactSchema = artifactBaseSchema.extend({
-  type: z.literal('canvas-node'),
-  content: z.object({
-    nodeId: z.string().min(1),
-    nodeType: z.string().min(1),
-    operation: canvasOperationSchema.optional()
-  })
-})
-
 export const canvasOperationArtifactSchema = artifactBaseSchema.extend({
   type: z.literal('canvas-operation'),
   content: z.object({
@@ -63,7 +53,8 @@ export const mediaArtifactSchema = artifactBaseSchema.extend({
     assetId: z.string().nullable().optional(),
     mimeType: z.string().min(1).optional(),
     prompt: z.string().optional(),
-    nodeId: z.string().min(1).optional()
+    elementId: z.string().min(1).optional(),
+    actionId: z.string().min(1).optional()
   })
 })
 
@@ -74,7 +65,6 @@ export const genericArtifactSchema = artifactBaseSchema.extend({
 
 export const artifactSchema = z.discriminatedUnion('type', [
   textArtifactSchema,
-  canvasNodeArtifactSchema,
   canvasOperationArtifactSchema,
   mediaArtifactSchema,
   genericArtifactSchema
@@ -91,7 +81,6 @@ export type ArtifactStatus = z.infer<typeof artifactStatusSchema>
 export type ArtifactType = z.infer<typeof artifactTypeSchema>
 export type Artifact = z.infer<typeof artifactSchema>
 export type TextArtifact = z.infer<typeof textArtifactSchema>
-export type CanvasNodeArtifact = z.infer<typeof canvasNodeArtifactSchema>
 export type CanvasOperationArtifact = z.infer<
   typeof canvasOperationArtifactSchema
 >

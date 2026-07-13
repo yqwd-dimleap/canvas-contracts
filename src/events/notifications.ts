@@ -23,10 +23,11 @@ export const userNotificationLevelSchema = z.enum([
   'error'
 ])
 
-/** 通知的跳转目标：画布项目/节点，或一个相对路径。 */
+/** 通知的跳转目标：画布项目/文档/元素，或一个相对路径。 */
 export const userNotificationLinkSchema = z.object({
   projectId: z.string().optional(),
-  nodeId: z.string().optional(),
+  documentId: z.string().optional(),
+  elementId: z.string().optional(),
   href: z.string().optional()
 })
 

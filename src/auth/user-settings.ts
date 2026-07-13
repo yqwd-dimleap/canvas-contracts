@@ -1,9 +1,9 @@
 import { z } from 'zod'
+import { canvasGenerationUseCaseSchema } from '../agent/model-preferences.js'
 import {
   modelCategorySchema,
   modelPricingConfigSchema
 } from '../agent/model-provider.js'
-import { projectCanvasNodeTypeSchema } from '../canvas/graph.js'
 import { timestampSchema } from '../shared/timestamp.js'
 
 export const userNotificationSettingsSchema = z.object({
@@ -20,15 +20,15 @@ export const userPreferencesSchema = z.object({
   })
 })
 
-export const nodeModelPreferencesSchema = z
-  .partialRecord(projectCanvasNodeTypeSchema, z.string().min(1))
+export const generationModelPreferencesSchema = z
+  .partialRecord(canvasGenerationUseCaseSchema, z.string().min(1))
   .default({})
 
 export const userApiSettingsSchema = z.object({
   defaultModel: z.string().default('gpt-image-2'),
   defaultQuality: z.string().default('auto'),
   defaultSize: z.string().default('1024x1024'),
-  nodeModelPreferences: nodeModelPreferencesSchema
+  generationModelPreferences: generationModelPreferencesSchema
 })
 
 export const userSettingsSchema = z.object({
@@ -43,20 +43,20 @@ export const userSettingsSchema = z.object({
     defaultModel: 'gpt-image-2',
     defaultQuality: 'auto',
     defaultSize: '1024x1024',
-    nodeModelPreferences: {}
+    generationModelPreferences: {}
   }),
   metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: timestampSchema,
   updatedAt: timestampSchema
 })
 
-export const updateUserNodeModelPreferencesSchema = z.object({
-  nodeModelPreferences: z
-    .partialRecord(projectCanvasNodeTypeSchema, z.string().min(1).nullable())
+export const updateUserGenerationModelPreferencesSchema = z.object({
+  generationModelPreferences: z
+    .partialRecord(canvasGenerationUseCaseSchema, z.string().min(1).nullable())
     .default({})
 })
 
-export const userNodeModelPreferenceModelSchema = z.object({
+export const userGenerationModelPreferenceModelSchema = z.object({
   modelId: z.string().min(1),
   displayName: z.string().min(1),
   provider: z.string().min(1).optional(),
@@ -65,33 +65,33 @@ export const userNodeModelPreferenceModelSchema = z.object({
   isSystemDefault: z.boolean().default(false)
 })
 
-export const userNodeModelPreferenceRowSchema = z.object({
-  nodeType: projectCanvasNodeTypeSchema,
+export const userGenerationModelPreferenceRowSchema = z.object({
+  useCase: canvasGenerationUseCaseSchema,
   label: z.string().min(1),
   category: modelCategorySchema,
   systemDefaultModelId: z.string().min(1).nullable(),
   selectedModelId: z.string().min(1).nullable(),
   userModelId: z.string().min(1).nullable(),
-  models: z.array(userNodeModelPreferenceModelSchema).default([])
+  models: z.array(userGenerationModelPreferenceModelSchema).default([])
 })
 
-export const userNodeModelPreferencesViewSchema = z.object({
-  nodeModelPreferences: nodeModelPreferencesSchema,
-  rows: z.array(userNodeModelPreferenceRowSchema)
+export const userGenerationModelPreferencesViewSchema = z.object({
+  generationModelPreferences: generationModelPreferencesSchema,
+  rows: z.array(userGenerationModelPreferenceRowSchema)
 })
 
 export type UserPreferences = z.infer<typeof userPreferencesSchema>
 export type UserApiSettings = z.infer<typeof userApiSettingsSchema>
 export type UserSettings = z.infer<typeof userSettingsSchema>
-export type UserNodeModelPreferences = z.infer<
-  typeof nodeModelPreferencesSchema
+export type UserGenerationModelPreferences = z.infer<
+  typeof generationModelPreferencesSchema
 >
-export type UserNodeModelPreferenceModel = z.infer<
-  typeof userNodeModelPreferenceModelSchema
+export type UserGenerationModelPreferenceModel = z.infer<
+  typeof userGenerationModelPreferenceModelSchema
 >
-export type UserNodeModelPreferenceRow = z.infer<
-  typeof userNodeModelPreferenceRowSchema
+export type UserGenerationModelPreferenceRow = z.infer<
+  typeof userGenerationModelPreferenceRowSchema
 >
-export type UserNodeModelPreferencesView = z.infer<
-  typeof userNodeModelPreferencesViewSchema
+export type UserGenerationModelPreferencesView = z.infer<
+  typeof userGenerationModelPreferencesViewSchema
 >

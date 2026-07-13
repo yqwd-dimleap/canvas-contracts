@@ -1,6 +1,8 @@
 import { z } from 'zod'
-import { canvasMediaKindSchema } from './media.js'
-import { canvasResourceSchema } from './resources.js'
+import {
+  canvasMediaKindSchema,
+  canvasResourceSchema
+} from '../resources/types.js'
 
 export const canvasDocumentElementTypeSchema = z.enum([
   'raster',
@@ -165,7 +167,6 @@ export const canvasDocumentSchema = z.object({
   width: z.number().positive(),
   height: z.number().positive(),
   background: z.string().nullable().optional(),
-  sourceNodeId: z.string().nullable().optional(),
   assetId: z.string().nullable().optional(),
   outputResource: canvasResourceSchema.nullable().optional(),
   selectedElementIds: z.array(z.string()).default([]),

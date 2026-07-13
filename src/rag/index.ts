@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { canvasAgentActionSchema } from '../agent/canvas-run.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
+import { canvasAgentActionSchema } from '../canvas/agent/actions.js'
 
 // ============================================================================
 // Canvas Recipe Feedback

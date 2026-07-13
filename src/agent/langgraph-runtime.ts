@@ -1,5 +1,5 @@
 import type { Artifact } from '../artifacts/index.js'
-import type { CanvasOperation } from '../canvas/operations.js'
+import type { CanvasOperation } from '../canvas/core/operations.js'
 import type { SequencedSystemEvent, SystemEvent } from '../events/core.js'
 import {
   type CanvasAgentSuggestionChoice,
@@ -54,13 +54,14 @@ export type CanvasAgentLangGraphCanvasEvent = {
   label: string
   sequence?: number
   timestamp: string
-  nodeIds?: string[]
+  documentIds?: string[]
+  elementIds?: string[]
+  resourceIds?: string[]
   artifactId?: string
 }
 
 export type CanvasAgentLangGraphRuntime = {
   transport: 'langgraph'
-  threadId?: string
   status: CanvasAgentLangGraphRuntimeStatus
   currentActivity?: string
   startedAt?: string
@@ -79,7 +80,7 @@ export type CanvasAgentArtifactMedia = {
   assetId?: string | null
   mimeType?: string
   prompt?: string
-  nodeId?: string
+  elementId?: string
   actionId?: string
   status?: 'pending' | 'running' | 'succeeded' | 'failed'
   metadata?: Record<string, unknown> | null
@@ -150,58 +151,113 @@ export function userFacingCanvasAgentErrorMessage(
   return message
 }
 
-export function nodeIdsFromOperation(operation: CanvasOperation): string[] {
-  switch (operation.type) {
-    case 'node.add':
-    case 'node.update':
-    case 'node.updateBatch':
-    case 'node.delete':
-    case 'node.move':
-    case 'node.resize':
-    case 'visual.focus':
-    case 'agent.nodeStatus':
-    case 'agent.generationProgress':
-      return [operation.payload.nodeId]
-    case 'edge.add':
-      return [operation.payload.source, operation.payload.target]
-    case 'selection.set':
-    case 'selection.add':
-    case 'selection.remove':
-    case 'visual.highlight':
-      return operation.payload.nodeIds
-    case 'visual.clearHighlight':
-      return operation.payload.nodeIds ?? []
-    case 'edge.delete':
-    case 'selection.clear':
-    case 'document.create':
-    case 'element.add':
-    case 'element.patch':
-    case 'element.delete':
-    case 'element.reorder':
-    case 'element.select':
-    case 'element.status':
-    case 'element.generationProgress':
-    case 'element.highlight':
-    case 'element.clearHighlight':
-    case 'viewport.focus':
-      return []
-    case 'batch':
-      return operation.payload.operations.flatMap(nodeIdsFromOperation)
+type CanvasOperationTargets = {
+  documentIds: string[]
+  elementIds: string[]
+  resourceIds: string[]
+}
+
+function compactUnique(values: Array<string | undefined>): string[] {
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value)))
+  )
+}
+
+function mergeCanvasOperationTargets(
+  targets: CanvasOperationTargets[]
+): CanvasOperationTargets {
+  return {
+    documentIds: compactUnique(targets.flatMap((target) => target.documentIds)),
+    elementIds: compactUnique(targets.flatMap((target) => target.elementIds)),
+    resourceIds: compactUnique(targets.flatMap((target) => target.resourceIds))
   }
 }
 
-export function nodeIdsFromArtifact(artifact: Artifact): string[] {
-  if (artifact.type === 'canvas-node') return [artifact.content.nodeId]
+export function targetsFromOperation(
+  operation: CanvasOperation
+): CanvasOperationTargets {
+  switch (operation.type) {
+    case 'document.create':
+      return {
+        documentIds: [operation.payload.document.id],
+        elementIds: [],
+        resourceIds: []
+      }
+    case 'document.patch':
+    case 'document.delete':
+      return {
+        documentIds: [operation.payload.documentId],
+        elementIds: [],
+        resourceIds: []
+      }
+    case 'element.add':
+      return {
+        documentIds: [operation.payload.documentId],
+        elementIds: [operation.payload.element.id],
+        resourceIds: []
+      }
+    case 'element.patch':
+    case 'element.delete':
+    case 'element.reorder':
+      return {
+        documentIds: [operation.payload.documentId],
+        elementIds: [operation.payload.elementId],
+        resourceIds: []
+      }
+    case 'element.select':
+      return {
+        documentIds: [operation.payload.documentId],
+        elementIds: operation.payload.elementIds,
+        resourceIds: []
+      }
+    case 'element.status':
+    case 'element.generationProgress':
+      return {
+        documentIds: compactUnique([operation.payload.documentId]),
+        elementIds: [operation.payload.elementId],
+        resourceIds: []
+      }
+    case 'element.highlight':
+      return {
+        documentIds: compactUnique([operation.payload.documentId]),
+        elementIds: operation.payload.elementIds,
+        resourceIds: []
+      }
+    case 'element.clearHighlight':
+      return {
+        documentIds: compactUnique([operation.payload.documentId]),
+        elementIds: operation.payload.elementIds ?? [],
+        resourceIds: []
+      }
+    case 'viewport.set':
+      return { documentIds: [], elementIds: [], resourceIds: [] }
+    case 'viewport.focus':
+      return {
+        documentIds: compactUnique([operation.payload.documentId]),
+        elementIds: compactUnique([operation.payload.elementId]),
+        resourceIds: []
+      }
+    case 'batch':
+      return mergeCanvasOperationTargets(
+        operation.payload.operations.map(targetsFromOperation)
+      )
+  }
+}
+
+export function targetsFromArtifact(
+  artifact: Artifact
+): CanvasOperationTargets {
   if (artifact.type === 'canvas-operation') {
-    return nodeIdsFromOperation(artifact.content.operation)
+    return targetsFromOperation(artifact.content.operation)
   }
-  if (
-    (artifact.type === 'image' || artifact.type === 'video') &&
-    artifact.content.nodeId
-  ) {
-    return [artifact.content.nodeId]
+  if (artifact.type === 'image' || artifact.type === 'video') {
+    return {
+      documentIds: [],
+      elementIds: compactUnique([artifact.content.elementId]),
+      resourceIds: compactUnique([artifact.content.assetId ?? undefined])
+    }
   }
-  return []
+  return { documentIds: [], elementIds: [], resourceIds: [] }
 }
 
 export function isCanvasAgentArtifactEvent(
@@ -367,7 +423,7 @@ function canvasEventFromRuntimeEvent(
       label: canvasLabelFromRuntimeEvent(event),
       sequence: event.sequence,
       timestamp: eventTimestamp(event),
-      nodeIds: nodeIdsFromOperation(runtimeEvent.operation),
+      ...targetsFromOperation(runtimeEvent.operation),
       artifactId: runtimeEvent.artifactId
     }
   }
@@ -384,7 +440,7 @@ function canvasEventFromRuntimeEvent(
       label: canvasLabelFromRuntimeEvent(event),
       sequence: event.sequence,
       timestamp: eventTimestamp(event),
-      nodeIds: artifact ? nodeIdsFromArtifact(artifact) : undefined,
+      ...(artifact ? targetsFromArtifact(artifact) : {}),
       artifactId: event.event.artifactId
     }
   }
@@ -397,10 +453,8 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
 ): CanvasAgentLangGraphRuntime {
   const runtimeEvent = event.event
   const timestamp = eventTimestamp(event)
-  const runId = runtimeEvent.runId?.trim()
   let next: CanvasAgentLangGraphRuntime = {
     transport: 'langgraph',
-    threadId: runId || existing?.threadId,
     status: statusFromRuntimeEvent(event, existing?.status),
     currentActivity:
       activityFromRuntimeEvent(event) ?? existing?.currentActivity,
@@ -622,7 +676,7 @@ function mediaFromArtifact(artifact: Artifact): CanvasAgentArtifactMedia[] {
       assetId: artifact.content.assetId ?? null,
       mimeType: artifact.content.mimeType,
       prompt: artifact.content.prompt,
-      nodeId: artifact.content.nodeId,
+      elementId: artifact.content.elementId,
       actionId,
       status:
         artifact.status === 'failed'

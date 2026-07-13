@@ -2,17 +2,18 @@ import { z } from 'zod'
 import {
   workspaceAssetMetadataSchema,
   workspaceAssetTypeSchema
-} from '../storage/workspace-assets.js'
-import { canvas2dWorkspaceViewSchema } from './canvas2d.js'
-import { canvasDocumentSchema } from './document.js'
-import { canvasResourceSchema } from './resources.js'
+} from '../../storage/workspace-assets.js'
+import { canvasDocumentSchema } from '../core/document.js'
+import {
+  CANVAS2D_DEFAULT_WORKSPACE_VIEW,
+  canvas2dWorkspaceViewSchema
+} from '../view/canvas2d.js'
 
 export const workspaceProjectSummaryMediaSourceSchema = z.enum([
   'cover',
   'session',
   'run',
   'resource',
-  'node',
   'asset'
 ])
 
@@ -70,49 +71,32 @@ export const recentWorkspaceProjectSchema = z.object({
   updatedAt: z.number()
 })
 
-function recordValue(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function normalizeWorkspaceProjectCanvasPayloadInput(value: unknown) {
-  const record = recordValue(value)
-  if (!record) return value
-
-  const { nodes: _nodes, edges: _edges, canvasDocuments, ...rest } = record
-  const canvasDocument =
-    recordValue(record.canvasDocument) ??
-    (Array.isArray(canvasDocuments)
-      ? (canvasDocuments.find((item) => recordValue(item)) ?? null)
-      : null)
-
-  return {
-    ...rest,
-    schemaVersion: 2,
-    canvasDocument
-  }
-}
-
-export const workspaceProjectCanvasPayloadV2Schema = z
+/**
+ * Canvas 画布数据完整结构
+ * 存储在 MongoDB project.resources 字段
+ *
+ * schemaVersion: 2 是当前稳定版本
+ * - v1: 已废弃的图结构画布架构
+ * - v2: Canvas2D 架构（当前使用）
+ *
+ * 资产管理说明：
+ * - 所有资产通过 project.assets[] 统一管理
+ * - canvasDocument.elements[].assetId 引用 assets
+ * - 不再使用独立的 resources[] 字段
+ */
+export const workspaceProjectCanvasDataSchema = z
   .object({
     schemaVersion: z.literal(2).default(2),
     canvasDocument: canvasDocumentSchema.nullable().default(null),
     conversations: z.array(z.unknown()).default([]),
     activeConversationId: z.string().nullable().default(null),
-    orphanResources: z.array(canvasResourceSchema).default([]),
-    canvas2d: canvas2dWorkspaceViewSchema.optional(),
+    canvas2d: canvas2dWorkspaceViewSchema.default(() => ({
+      ...CANVAS2D_DEFAULT_WORKSPACE_VIEW,
+      selectedElementIds: []
+    })),
     updatedAt: z.number().optional()
   })
   .strict()
-
-export const workspaceProjectCanvasPayloadSchema = z.preprocess(
-  normalizeWorkspaceProjectCanvasPayloadInput,
-  workspaceProjectCanvasPayloadV2Schema
-)
-
-export const workspaceProjectResourcesSchema =
-  workspaceProjectCanvasPayloadSchema
 
 export const workspaceProjectAssetSchema = z.object({
   id: z.string().min(1),
@@ -128,6 +112,10 @@ export const workspaceProjectAssetSchema = z.object({
   updatedAt: z.string().or(z.number()).or(z.date())
 })
 
+/**
+ * MongoDB project document schema
+ * 项目完整存储结构
+ */
 export const workspaceProjectSchema = z.object({
   id: z.string().min(1),
   userId: z.string().optional(),
@@ -142,7 +130,8 @@ export const workspaceProjectSchema = z.object({
   createdAt: z.string().or(z.number()),
   updatedAt: z.string().or(z.number()),
   assets: z.array(workspaceProjectAssetSchema).optional(),
-  resources: workspaceProjectResourcesSchema.optional(),
+  // Canvas 画布数据
+  resources: workspaceProjectCanvasDataSchema.optional(),
   summary: workspaceProjectSummarySchema.optional(),
   publishStatus: z
     .enum(['none', 'pending_review', 'published', 'rejected'])
@@ -153,36 +142,16 @@ export const workspaceProjectSchema = z.object({
   publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
 })
 
-export const workspaceProjectImageDefaultsSchema = z
-  .record(z.string(), z.unknown())
-  .default({})
-
-export const workspaceProjectDocumentSchema =
-  workspaceProjectCanvasPayloadV2Schema.extend({
-    id: z.string().min(1),
-    userId: z.string().optional(),
-    title: z.string(),
-    status: z.string(),
-    previewImage: z.string(),
-    previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
-    runs: z.array(z.unknown()).default([]),
-    historyId: z.string().nullable(),
-    createdAt: z.number(),
-    updatedAt: z.number(),
-    defaults: workspaceProjectImageDefaultsSchema.optional(),
-    summary: workspaceProjectSummarySchema.optional()
-  })
-
-export function parseWorkspaceProjectResources(
+export function parseWorkspaceProjectCanvasData(
   value: unknown
-): WorkspaceProjectCanvasPayload {
-  return workspaceProjectResourcesSchema.parse(value)
+): WorkspaceProjectCanvasData {
+  return workspaceProjectCanvasDataSchema.parse(value)
 }
 
-export function safeParseWorkspaceProjectResources(
+export function safeParseWorkspaceProjectCanvasData(
   value: unknown
-): WorkspaceProjectCanvasPayload | null {
-  const result = workspaceProjectResourcesSchema.safeParse(value)
+): WorkspaceProjectCanvasData | null {
+  const result = workspaceProjectCanvasDataSchema.safeParse(value)
   return result.success ? result.data : null
 }
 
@@ -207,17 +176,13 @@ export type WorkspaceProjectPreviewDimensions = z.infer<
 export type RecentWorkspaceProject = z.infer<
   typeof recentWorkspaceProjectSchema
 >
-export type WorkspaceProjectCanvasPayload = z.infer<
-  typeof workspaceProjectCanvasPayloadSchema
+
+/**
+ * Canvas 画布数据类型（推荐使用）
+ */
+export type WorkspaceProjectCanvasData = z.infer<
+  typeof workspaceProjectCanvasDataSchema
 >
-export type WorkspaceProjectResources = z.infer<
-  typeof workspaceProjectResourcesSchema
->
+
 export type WorkspaceProjectAsset = z.infer<typeof workspaceProjectAssetSchema>
 export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>
-export type WorkspaceProjectImageDefaults = z.infer<
-  typeof workspaceProjectImageDefaultsSchema
->
-export type WorkspaceProjectDocument = z.infer<
-  typeof workspaceProjectDocumentSchema
->

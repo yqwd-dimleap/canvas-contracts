@@ -5,10 +5,10 @@
  * （image / video / chat / embedding / audio / other）。
  * 前后端共用本模块，避免各自维护启发式造成漂移。
  *
- * 依赖方向：agent 域 → models 域（registry），单向无循环。
+ * 依赖方向：agent 域 → models 域，仅复用 generation payload 配置判断。
  */
 
-import { modelRegistry, registerStaticModels } from '../models/registry.js'
+import { hasGenerationPayloadConfiguration } from '../models/registry.js'
 import {
   MODEL_CATEGORIES,
   type ModelCategory,
@@ -236,51 +236,34 @@ function isChatLikeModelId(lower: string): boolean {
   )
 }
 
-/**
- * 是否图片生成模型（查 registry 元数据）。
- * 注意：与 models 域的 `isImageGenerationModel` 语义相近但不同——
- * 本函数面向"网关分类"语境，保留 `Id` 后缀以区分。
- */
+/** 是否图片生成模型（按网关分类规则判断，不读取静态 registry）。 */
 export function isImageGenerationModelId(modelId: string): boolean {
-  registerStaticModels()
-  return modelRegistry.getMetadata(modelId)?.category === 'image'
+  return categorizeGatewayModel(modelId) === 'image'
 }
 
-/**
- * 是否视频生成模型（registry 元数据 + id 启发式 fallback）。
- * 比 models 域的纯 registry 版 `isVideoGenerationModel` 多一层 id 兜底。
- */
+/** 是否视频生成模型（按网关分类规则判断，不读取静态 registry）。 */
 export function isVideoGenerationModelId(modelId: string): boolean {
-  registerStaticModels()
-  return (
-    modelRegistry.getMetadata(modelId)?.category === 'video' ||
-    isVideoModelId(modelId.toLowerCase())
-  )
+  return categorizeGatewayModel(modelId) === 'video'
 }
 
 /** 是否图生视频（image-to-video）模型。 */
 export function isImageToVideoModelId(modelId: string): boolean {
-  registerStaticModels()
-  const metadata = modelRegistry.getMetadata(modelId)
   const lower = modelId.toLowerCase()
-  return Boolean(
-    metadata?.capabilities.imageToVideo ||
-      lower.includes('i2v') ||
-      lower.includes('r2v') ||
-      lower.includes('image-to-video') ||
-      lower.includes('img2vid')
+  return (
+    lower.includes('i2v') ||
+    lower.includes('r2v') ||
+    lower.includes('image-to-video') ||
+    lower.includes('img2vid')
   )
 }
 
 /** 是否视频编辑模型。 */
 export function isVideoEditModelId(modelId: string): boolean {
-  registerStaticModels()
   const lower = modelId.toLowerCase()
-  return Boolean(
-    modelRegistry.getMetadata(modelId)?.capabilities.videoEdit ||
-      lower.includes('videoedit') ||
-      lower.includes('video-edit') ||
-      lower.includes('video_edit')
+  return (
+    lower.includes('videoedit') ||
+    lower.includes('video-edit') ||
+    lower.includes('video_edit')
   )
 }
 
@@ -357,14 +340,17 @@ export function isConfiguredVideoGenerationModel(
   modelId: string,
   metadata?: Record<string, unknown> | null
 ): boolean {
-  if (!hasVideoPayloadBuilder(modelId)) return false
+  if (
+    !hasGenerationPayloadConfiguration({
+      modelId,
+      mediaType: 'video',
+      metadata
+    })
+  ) {
+    return false
+  }
   if (!hasExplicitModelCategoryMetadata(metadata)) return true
   return getConfiguredModelCategory(modelId, metadata) === 'video'
-}
-
-function hasVideoPayloadBuilder(modelId: string): boolean {
-  registerStaticModels()
-  return Boolean(modelRegistry.getModelById(modelId)?.buildVideoPayload)
 }
 
 function hasExplicitModelCategoryMetadata(

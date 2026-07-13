@@ -106,6 +106,32 @@ describe('image model payloads', () => {
     ])
   })
 
+  test('qwen image gateway payload carries reference images into content', () => {
+    const configured = buildConfiguredImageGenerationPayload({
+      model: 'qwen-image-2.0',
+      prompt: '保留主体姿态，改成更生气的表情',
+      image: ['https://example.com/original-cat.png']
+    })
+
+    expect(configured.params.image).toEqual([
+      'https://example.com/original-cat.png'
+    ])
+    expect(configured.payload).toMatchObject({
+      model: 'qwen-image-2.0',
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { image: 'https://example.com/original-cat.png' },
+              { text: '保留主体姿态，改成更生气的表情' }
+            ]
+          }
+        ]
+      }
+    })
+  })
+
   test('gpt image params keep OpenAI-compatible fields', () => {
     const params = normalizeImageGenerationParams({
       model: 'gpt-image-2',
@@ -141,6 +167,7 @@ describe('image model payloads', () => {
         quality: 'high',
         background: 'transparent',
         output_format: 'png',
+        image: ['https://example.com/reference.png'],
         projectId: 'project-1'
       },
       {
@@ -165,6 +192,7 @@ describe('image model payloads', () => {
       size: '1536x1024',
       quality: 'high',
       output_format: 'png',
+      image: ['https://example.com/reference.png'],
       provider_option: 'enabled'
     })
     expect(configured.payload).not.toHaveProperty('background')

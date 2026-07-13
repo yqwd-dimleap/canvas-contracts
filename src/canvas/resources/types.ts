@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const canvasMediaKindSchema = z.enum(['image', 'video'])
+
 export const canvasResourceTypeSchema = z.enum([
   'image',
   'video',
@@ -41,18 +43,9 @@ export const canvasResourceSchema = z.object({
   createdBy: z.string().min(1)
 })
 
-export const edgeDependencyTypeSchema = z.enum(['data', 'reference', 'wait'])
-
-export const resourceFilterSchema = z.object({
-  types: z.array(canvasResourceTypeSchema).optional(),
-  ids: z.array(z.string()).optional()
-})
-
 export type CanvasResourceType = z.infer<typeof canvasResourceTypeSchema>
 export type CanvasResourceMetadata = z.infer<
   typeof canvasResourceMetadataSchema
 >
 export type CanvasResourceStorage = z.infer<typeof canvasResourceStorageSchema>
 export type CanvasResource = z.infer<typeof canvasResourceSchema>
-export type EdgeDependencyType = z.infer<typeof edgeDependencyTypeSchema>
-export type ResourceFilter = z.infer<typeof resourceFilterSchema>

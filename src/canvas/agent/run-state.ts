@@ -1,8 +1,5 @@
 import { z } from 'zod'
-import {
-  canvasAgentActionSchema,
-  canvasIntentKindSchema
-} from './canvas-run.js'
+import { canvasAgentActionSchema, canvasIntentKindSchema } from './actions.js'
 
 export const agentRunStatusSchema = z.enum([
   'queued',
@@ -81,7 +78,8 @@ export const agentThinkingSchema = z
 export const agentExecutionMediaSchema = z
   .object({
     actionId: z.string().min(1).optional(),
-    nodeId: z.string().min(1).optional(),
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1).optional(),
     type: z.enum(['image', 'video']),
     url: z.string().min(1),
     assetId: z.string().nullable().optional(),

@@ -7,10 +7,13 @@
  */
 
 import { z } from 'zod'
+import {
+  type CanvasRuntimeEvent,
+  canvasRuntimeEventSchema
+} from '../canvas/events/operations.js'
 import { type AgentEvent, agentEventSchema } from './agent.js'
 import { type ArtifactEvent, artifactEventSchema } from './artifact.js'
 import { baseEventSchema } from './base.js'
-import { type CanvasRuntimeEvent, canvasRuntimeEventSchema } from './canvas.js'
 import { type RuntimeEvent, runtimeEventSchema } from './runtime.js'
 import { type SystemControlEvent, systemControlEventSchema } from './system.js'
 import { type ToolEvent, toolEventSchema } from './tool.js'

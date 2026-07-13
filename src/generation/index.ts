@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { canvasResourceStorageSchema } from '../canvas/resources.js'
+import { canvasResourceStorageSchema } from '../canvas/resources/types.js'
 import { workspaceAssetMediaMetadataSchema } from '../storage/workspace-assets.js'
 
 export * from './gateway-config.js'
@@ -52,7 +52,9 @@ export const generationTaskSchema = z.object({
   /** Upstream/provider task id. `id` remains the canonical Canvas task id. */
   taskId: z.string().optional(),
   providerTaskId: z.string().optional(),
-  nodeId: z.string().optional(),
+  documentId: z.string().optional(),
+  elementId: z.string().optional(),
+  actionId: z.string().optional(),
   projectId: z.string().optional(),
   userId: z.string().min(1),
   status: generationTaskStatusSchema,
@@ -65,7 +67,9 @@ export const generationTaskSchema = z.object({
 
 export const createGenerationTaskRequestSchema = z.object({
   type: generationTaskTypeSchema,
-  nodeId: z.string().optional(),
+  documentId: z.string().optional(),
+  elementId: z.string().optional(),
+  actionId: z.string().optional(),
   projectId: z.string().nullable().optional(),
   payload: z.record(z.string(), z.unknown()).optional()
 })

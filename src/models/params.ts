@@ -6,6 +6,16 @@ import { z } from 'zod'
  * 不在请求 schema 强约束（不同模型提供商接口差异大）。
  */
 
+export const canvasGenerationTargetSchema = z
+  .object({
+    source: z.enum(['canvas2d', 'agent', 'api']).default('api'),
+    documentId: z.string().min(1).max(128).optional(),
+    elementId: z.string().min(1).max(128).optional(),
+    resourceId: z.string().min(1).max(128).optional(),
+    actionId: z.string().min(1).max(128).optional()
+  })
+  .strict()
+
 /** 图片生成请求参数（原始参数） */
 export const imageGenerationParamsSchema = z
   .object({
@@ -28,8 +38,8 @@ export const imageGenerationParamsSchema = z
     seed: z.number().optional(),
     /** Frontend project id; used by agent-side asset registration only. */
     projectId: z.string().min(1).max(128).nullable().optional(),
-    /** Frontend canvas image node id; used to route async generation events. */
-    canvasImageNodeId: z.string().min(1).max(128).optional()
+    /** Renderer-agnostic Canvas2D target for persistence/events. */
+    canvasTarget: canvasGenerationTargetSchema.optional()
   })
   .loose()
 
@@ -67,8 +77,8 @@ export const videoGenerationParamsSchema = z
     imgUrl: z.string().optional(),
     /** 多张参考图 URL（r2v） */
     mergeReferenceImageUrls: z.array(z.string()).optional(),
-    /** Frontend canvas video node id; used to route async generation events. */
-    canvasVideoNodeId: z.string().optional(),
+    /** Renderer-agnostic Canvas2D target for persistence/events. */
+    canvasTarget: canvasGenerationTargetSchema.optional(),
     /** 图片 / 视频等参考媒体（r2v） */
     referenceMedia: z.array(videoReferenceMediaSchema).optional(),
     /** 视频片段 URL（合并） */

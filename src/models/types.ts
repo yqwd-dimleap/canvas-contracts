@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type {
+  canvasGenerationTargetSchema,
   imageGenerationParamsSchema,
   videoGenerationParamsSchema,
   videoReferenceMediaSchema
@@ -99,6 +100,11 @@ export interface ModelMetadata {
 
 /** 视频参考媒体 */
 export type VideoReferenceMedia = z.infer<typeof videoReferenceMediaSchema>
+
+/** Renderer-agnostic Canvas2D generation target. */
+export type CanvasGenerationTarget = z.infer<
+  typeof canvasGenerationTargetSchema
+>
 
 /** 图片生成请求参数（原始参数，前端 → agent） */
 export type ImageGenerationParams = z.infer<typeof imageGenerationParamsSchema>

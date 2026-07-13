@@ -1,15 +1,11 @@
 import { z } from 'zod'
-import { canvas2dViewportSchema } from '../canvas/canvas2d.js'
-import { canvasAgentCapabilityManifestSchema } from '../canvas/capabilities.js'
-import {
-  canvasContextSchema,
-  canvasSelectionSchema
-} from '../canvas/context.js'
+import { agentSkillIdSchema } from '../../agent/skills.js'
+import { canvasContextSchema, canvasSelectionSchema } from '../core/context.js'
 import {
   canvasDocumentElementSchema,
   canvasDocumentSchema
-} from '../canvas/document.js'
-import { agentSkillIdSchema } from './skills.js'
+} from '../core/document.js'
+import { canvasAgentCapabilityManifestSchema } from './capabilities.js'
 
 /**
  * Canvas Action Ref
@@ -42,19 +38,20 @@ export const canvasActionCostSchema = z.object({
 
 export const canvasActionRefSchema = z.object({
   ref: z.string().min(1).optional(),
-  nodeId: z.string().min(1).optional(),
+  elementId: z.string().min(1).optional(),
   actionId: z.string().min(1).optional()
 })
 
 export const canvasIntentKindSchema = z.enum([
-  'chat',
-  'question',
-  'image',
-  'image_edit',
-  'video',
-  'video_edit',
-  'script',
-  'storyboard'
+  'conversation', // 纯对话：用户在提问、讨论、寻求解释，不需要立即执行操作
+  'chat', // 简单回复：需要快速回答或确认
+  'question', // 深度问题：需要详细解释或分析
+  'image', // 图像生成
+  'image_edit', // 图像编辑
+  'video', // 视频生成
+  'video_edit', // 视频编辑
+  'script', // 脚本规划
+  'storyboard' // 故事板
 ])
 
 export const canvasAgentCommandKindSchema = z.enum([
@@ -79,14 +76,12 @@ export const canvasAgentCommandSchema = z.object({
   kind: canvasAgentCommandKindSchema,
   source: canvasAgentCommandSourceSchema.optional(),
   label: z.string().trim().min(1).max(80).optional(),
-  targetNodeIds: z.array(z.string().min(1)).max(64).optional(),
   targetDocumentId: z.string().min(1).optional(),
   targetElementIds: z.array(z.string().min(1)).max(64).optional(),
   attachmentIds: z.array(z.string().min(1)).max(24).optional(),
   preferredToolNames: z.array(z.string().min(1)).max(16).optional(),
   modelPreference: z
     .object({
-      nodeType: z.string().min(1).optional(),
       modelId: z.string().min(1).optional()
     })
     .optional(),
@@ -98,13 +93,6 @@ export const canvasAgentConversationMessageSchema = z.object({
   title: z.string().trim().optional(),
   content: z.string().trim().min(1),
   createdAt: z.number().optional()
-})
-
-export const canvas2dAgentContextSchema = z.object({
-  documents: z.array(canvasDocumentSchema).default([]),
-  activeDocumentId: z.string().nullable().default(null),
-  selectedElementIds: z.array(z.string().min(1)).default([]),
-  viewport: canvas2dViewportSchema.optional()
 })
 
 const canvasActionProtocolFields = {
@@ -127,36 +115,20 @@ const canvasActionProtocolFields = {
  */
 export const canvasAgentActionSchema = z.discriminatedUnion('type', [
   z.object({
-    type: z.literal('createNode'),
-    ...canvasActionProtocolFields,
-    nodeType: z.string().min(1),
-    data: z.record(z.string(), z.unknown()).default({})
-  }),
-  z.object({
-    type: z.literal('patchNodeData'),
-    ...canvasActionProtocolFields,
-    nodeId: z.string().min(1),
-    nodeRef: z.string().min(1).optional(),
-    data: z.record(z.string(), z.unknown()).default({})
-  }),
-  z.object({
-    type: z.literal('createEdge'),
-    ...canvasActionProtocolFields,
-    source: z.string().min(1),
-    target: z.string().min(1),
-    sourceRef: z.string().min(1).optional(),
-    targetRef: z.string().min(1).optional(),
-    data: z.record(z.string(), z.unknown()).default({})
-  }),
-  z.object({
-    type: z.literal('deleteNode'),
-    ...canvasActionProtocolFields,
-    nodeId: z.string().min(1)
-  }),
-  z.object({
     type: z.literal('document.create'),
     ...canvasActionProtocolFields,
     document: canvasDocumentSchema
+  }),
+  z.object({
+    type: z.literal('document.patch'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1),
+    patch: z.record(z.string(), z.unknown()).default({})
+  }),
+  z.object({
+    type: z.literal('document.delete'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1)
   }),
   z.object({
     type: z.literal('element.add'),
@@ -191,6 +163,38 @@ export const canvasAgentActionSchema = z.discriminatedUnion('type', [
     elementIds: z.array(z.string().min(1)).default([])
   }),
   z.object({
+    type: z.literal('element.status'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1),
+    status: z
+      .enum(['planning', 'generating', 'loading', 'complete', 'error'])
+      .nullable(),
+    detail: z.string().optional()
+  }),
+  z.object({
+    type: z.literal('element.generationProgress'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1).optional(),
+    elementId: z.string().min(1),
+    progress: z.number().min(0).max(100),
+    message: z.string().optional()
+  }),
+  z.object({
+    type: z.literal('element.highlight'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1).optional(),
+    elementIds: z.array(z.string().min(1)),
+    duration: z.number().positive().optional(),
+    style: z.enum(['primary', 'success', 'warning', 'error']).optional()
+  }),
+  z.object({
+    type: z.literal('element.clearHighlight'),
+    ...canvasActionProtocolFields,
+    documentId: z.string().min(1).optional(),
+    elementIds: z.array(z.string().min(1)).optional()
+  }),
+  z.object({
     type: z.literal('element.generate'),
     ...canvasActionProtocolFields,
     documentId: z.string().min(1),
@@ -205,6 +209,13 @@ export const canvasAgentActionSchema = z.discriminatedUnion('type', [
     referenceImageUrls: z.array(z.string().min(1)).default([]),
     sourceVideoUrl: z.string().min(1).optional(),
     data: z.record(z.string(), z.unknown()).default({})
+  }),
+  z.object({
+    type: z.literal('viewport.set'),
+    ...canvasActionProtocolFields,
+    x: z.number(),
+    y: z.number(),
+    zoom: z.number().positive()
   }),
   z.object({
     type: z.literal('viewport.focus'),
@@ -233,18 +244,10 @@ export const canvasAgentBaseRequestSchema = z.object({
   locale: z.string().trim().min(2).max(16).optional(),
   /** Optional generation model preference for downstream media nodes. */
   modelId: z.string().optional(),
-  /** 是否开启思考模式（向后兼容；未传 reasoningEffort 时映射为 medium）。 */
-  thinkingEnabled: z.boolean().optional(),
   /** 思考档位，透传为网关 reasoning_effort 并参与计费规则匹配。 */
   reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   canvas: canvasContextSchema,
   selection: canvasSelectionSchema,
-  /**
-   * Canvas2D/Pixi-backed scene context. This is renderer-agnostic document and
-   * layer state; Pixi display objects, textures, DOM coordinates, and runtime
-   * containers must never be serialized here.
-   */
-  canvas2d: canvas2dAgentContextSchema.optional(),
   /**
    * 当前前端真正开放给 Agent 的画布能力清单。
    * Agent 必须基于该清单输出动作，不能使用未启用/隐藏的节点、配方或工具。
@@ -291,7 +294,6 @@ export type CanvasAgentCommand = z.infer<typeof canvasAgentCommandSchema>
 export type CanvasAgentConversationMessage = z.infer<
   typeof canvasAgentConversationMessageSchema
 >
-export type Canvas2dAgentContext = z.infer<typeof canvas2dAgentContextSchema>
 export type CanvasAgentBaseRequest = z.infer<
   typeof canvasAgentBaseRequestSchema
 >

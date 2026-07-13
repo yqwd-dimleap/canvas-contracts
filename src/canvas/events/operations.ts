@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { canvasOperationSchema } from '../canvas/operations.js'
-import { baseEventSchema } from './base.js'
+import { baseEventSchema } from '../../events/base.js'
+import { canvasOperationSchema } from '../core/operations.js'
 
 /**
  * Renderer-agnostic Canvas operation event.

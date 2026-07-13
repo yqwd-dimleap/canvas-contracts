@@ -1,23 +1,31 @@
 import { z } from 'zod'
+import { canvasDocumentElementTypeSchema } from '../core/document.js'
 
 export const canvasAgentActionTypeSchema = z.enum([
-  'createNode',
-  'patchNodeData',
-  'createEdge',
-  'deleteNode',
   'document.create',
+  'document.patch',
+  'document.delete',
   'element.add',
   'element.patch',
   'element.delete',
   'element.reorder',
   'element.select',
+  'element.status',
+  'element.generationProgress',
+  'element.highlight',
+  'element.clearHighlight',
   'element.generate',
+  'resource.upsert',
+  'resource.delete',
+  'viewport.set',
   'viewport.focus'
 ])
 
-export const canvasAgentNodeCapabilitySchema = z
+export const canvasAgentGenerationMediaTypeSchema = z.enum(['image', 'video'])
+
+export const canvasAgentElementCapabilitySchema = z
   .object({
-    nodeType: z.string().min(1),
+    elementType: canvasDocumentElementTypeSchema,
     title: z.string().min(1),
     description: z.string().min(1).optional(),
     enabled: z.boolean().default(true),
@@ -25,9 +33,8 @@ export const canvasAgentNodeCapabilitySchema = z
     supportsCreate: z.boolean().default(true),
     supportsPatch: z.boolean().default(true),
     supportsGeneration: z.boolean().default(false),
-    mediaKind: z.enum(['text', 'image', 'video', 'data']).optional(),
     requiredFields: z.array(z.string().min(1)).default([]),
-    outputFields: z.array(z.string().min(1)).default([]),
+    editableFields: z.array(z.string().min(1)).default([]),
     metadata: z.record(z.string(), z.unknown()).default({})
   })
   .strict()
@@ -51,6 +58,7 @@ export const canvasAgentRecipeCapabilitySchema = z
     intentKinds: z
       .array(
         z.enum([
+          'conversation',
           'chat',
           'question',
           'image',
@@ -62,7 +70,7 @@ export const canvasAgentRecipeCapabilitySchema = z
         ])
       )
       .default([]),
-    nodeTypes: z.array(z.string().min(1)).default([]),
+    elementTypes: z.array(canvasDocumentElementTypeSchema).default([]),
     actionTypes: z.array(canvasAgentActionTypeSchema).default([]),
     starterIntent: z.string().min(1).optional(),
     metadata: z.record(z.string(), z.unknown()).default({})
@@ -100,7 +108,7 @@ export const canvasAgentToolCapabilitySchema = z
     interruptible: z.boolean().default(false),
     requiresConfirmation: z.boolean(),
     actionTypes: z.array(canvasAgentActionTypeSchema),
-    nodeTypes: z.array(z.string().min(1)),
+    elementTypes: z.array(canvasDocumentElementTypeSchema).default([]),
     metadata: z.record(z.string(), z.unknown()).default({})
   })
   .strict()
@@ -108,12 +116,12 @@ export const canvasAgentToolCapabilitySchema = z
 export const canvasAgentCapabilityManifestSchema = z
   .object({
     version: z
-      .literal('canvas-agent-capabilities.v3')
-      .default('canvas-agent-capabilities.v3'),
+      .literal('canvas-agent-capabilities.v4')
+      .default('canvas-agent-capabilities.v4'),
     generatedAt: z.string().min(1).optional(),
     source: z.enum(['frontend', 'server', 'test']).default('frontend'),
     actions: z.array(canvasAgentActionCapabilitySchema).default([]),
-    nodes: z.array(canvasAgentNodeCapabilitySchema).default([]),
+    elements: z.array(canvasAgentElementCapabilitySchema).default([]),
     recipes: z.array(canvasAgentRecipeCapabilitySchema).default([]),
     tools: z.array(canvasAgentToolCapabilitySchema).default([]),
     disabledReasonById: z.record(z.string(), z.string()).default({}),
@@ -122,95 +130,159 @@ export const canvasAgentCapabilityManifestSchema = z
   .strict()
 
 export const DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES = [
-  { action: 'createNode', enabled: true },
-  { action: 'patchNodeData', enabled: true },
-  { action: 'createEdge', enabled: true },
-  { action: 'deleteNode', enabled: true },
   { action: 'document.create', enabled: true },
+  { action: 'document.patch', enabled: true },
+  { action: 'document.delete', enabled: true },
   { action: 'element.add', enabled: true },
   { action: 'element.patch', enabled: true },
   { action: 'element.delete', enabled: true },
   { action: 'element.reorder', enabled: true },
   { action: 'element.select', enabled: true },
-  { action: 'element.generate', enabled: true },
+  { action: 'element.status', enabled: true },
+  { action: 'element.generationProgress', enabled: true },
+  { action: 'element.highlight', enabled: true },
+  { action: 'element.clearHighlight', enabled: true },
+  {
+    action: 'element.generate',
+    enabled: true,
+    metadata: { mediaTypes: ['image', 'video'] }
+  },
+  { action: 'resource.upsert', enabled: true },
+  { action: 'resource.delete', enabled: true },
+  { action: 'viewport.set', enabled: true },
   { action: 'viewport.focus', enabled: true }
 ] as const
 
-export const DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES = [
+export const DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES = [
   {
-    nodeType: 'canvasAiPrompt',
-    title: 'Prompt',
+    elementType: 'raster',
+    title: 'Raster media',
+    supportsGeneration: true,
+    requiredFields: ['assetId'],
+    editableFields: ['x', 'y', 'width', 'height', 'opacity', 'visible'],
+    metadata: {
+      modelRoles: ['image', 'video'],
+      generationMediaTypes: ['image', 'video']
+    }
+  },
+  {
+    elementType: 'text',
+    title: 'Text',
+    supportsGeneration: true,
+    requiredFields: ['text'],
+    editableFields: [
+      'text',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'color',
+      'align'
+    ],
+    metadata: {
+      modelRoles: ['text']
+    }
+  },
+  {
+    elementType: 'shape',
+    title: 'Shape',
+    requiredFields: ['shape'],
+    editableFields: ['shape', 'fill', 'stroke', 'strokeWidth', 'radius'],
+    metadata: {
+      modelRoles: ['image']
+    }
+  },
+  {
+    elementType: 'vector',
+    title: 'Vector',
+    requiredFields: ['svg'],
+    editableFields: ['svg', 'viewBox', 'x', 'y', 'width', 'height'],
+    metadata: {
+      modelRoles: ['image']
+    }
+  },
+  {
+    elementType: 'path',
+    title: 'Path',
+    requiredFields: ['points'],
+    editableFields: ['stroke', 'strokeWidth', 'lineCap', 'lineJoin'],
+    metadata: {
+      modelRoles: ['image']
+    }
+  },
+  {
+    elementType: 'group',
+    title: 'Group',
     supportsGeneration: false,
-    mediaKind: 'text',
-    requiredFields: ['prompt'],
-    outputFields: ['prompt', 'expandedPrompt']
+    requiredFields: ['childElementIds'],
+    editableFields: ['childElementIds', 'x', 'y', 'opacity', 'visible']
   },
   {
-    nodeType: 'canvasAiImage',
-    title: 'Image',
-    supportsGeneration: true,
-    mediaKind: 'image',
-    requiredFields: ['seedPrompt'],
-    outputFields: ['assetId']
+    elementType: 'mask',
+    title: 'Mask',
+    supportsGeneration: false,
+    requiredFields: ['targetElementId'],
+    editableFields: ['assetId', 'targetElementId', 'mode', 'opacity', 'visible']
   },
   {
-    nodeType: 'canvasAiVideo',
-    title: 'Video',
-    supportsGeneration: true,
-    mediaKind: 'video',
-    requiredFields: ['seedPrompt'],
-    outputFields: ['assetId', 'taskId']
+    elementType: 'adjustment',
+    title: 'Adjustment',
+    supportsGeneration: false,
+    requiredFields: ['adjustment', 'value'],
+    editableFields: ['adjustment', 'value', 'opacity', 'visible']
   }
 ] as const
 
 export const DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES = [
   {
-    id: 'prompt-to-image',
-    title: 'Prompt to image',
-    intentKinds: ['image'],
-    nodeTypes: ['canvasAiPrompt', 'canvasAiImage'],
-    actionTypes: ['createNode', 'createEdge']
-  },
-  {
-    id: 'direct-image',
-    title: 'Direct image',
-    intentKinds: ['image'],
-    nodeTypes: ['canvasAiImage'],
-    actionTypes: ['createNode']
-  },
-  {
-    id: 'prompt-to-video',
-    title: 'Prompt to video',
-    intentKinds: ['video'],
-    nodeTypes: ['canvasAiPrompt', 'canvasAiVideo'],
-    actionTypes: ['createNode', 'createEdge']
-  },
-  {
-    id: 'direct-video',
-    title: 'Direct video',
-    intentKinds: ['video'],
-    nodeTypes: ['canvasAiVideo'],
-    actionTypes: ['createNode']
-  },
-  {
-    id: 'image-to-video',
-    title: 'Image to video',
-    intentKinds: ['video', 'video_edit'],
-    nodeTypes: ['canvasAiVideo'],
-    actionTypes: ['createNode', 'createEdge']
-  },
-  {
-    id: 'canvas2d-composition',
-    title: 'Canvas2D composition',
-    intentKinds: ['image', 'image_edit', 'question'],
-    nodeTypes: [],
+    id: 'canvas2d-compose-image',
+    title: 'Compose image',
+    intentKinds: ['image', 'image_edit'],
+    elementTypes: ['raster', 'text', 'shape', 'vector', 'path'],
     actionTypes: [
       'document.create',
       'element.add',
       'element.patch',
-      'element.delete',
+      'element.generate',
+      'viewport.focus'
+    ],
+    metadata: {
+      surface: 'canvas2d'
+    }
+  },
+  {
+    id: 'canvas2d-edit-selection',
+    title: 'Edit selection',
+    intentKinds: ['image_edit', 'question'],
+    elementTypes: [
+      'raster',
+      'text',
+      'shape',
+      'vector',
+      'path',
+      'group',
+      'mask',
+      'adjustment'
+    ],
+    actionTypes: [
+      'element.patch',
       'element.reorder',
       'element.select',
+      'element.delete',
+      'viewport.focus'
+    ],
+    metadata: {
+      surface: 'canvas2d'
+    }
+  },
+  {
+    id: 'canvas2d-video-layout',
+    title: 'Compose video layout',
+    intentKinds: ['video', 'video_edit'],
+    elementTypes: ['raster', 'text', 'shape', 'vector', 'path'],
+    actionTypes: [
+      'document.create',
+      'element.add',
+      'element.patch',
       'element.generate',
       'viewport.focus'
     ],
@@ -221,16 +293,14 @@ export const DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES = [
 ] as const
 
 export const CANVAS_AGENT_TOOL_NAMES = {
-  inspect: 'canvas_inspect',
-  inspectGraph: 'canvas.inspect_graph',
+  inspect: 'canvas.inspect',
   inspectAssets: 'canvas.inspect_assets',
-  inspectGenerationState: 'canvas.inspect_generation_state',
   inspectCanvas2dScene: 'canvas2d.inspect_scene',
   inspectCanvas2dElements: 'canvas2d.inspect_elements',
   inspectCanvas2dSelection: 'canvas2d.inspect_selection',
-  searchCanvasRecipes: 'rag_search_canvas_recipes',
-  searchPromptTemplates: 'rag_search_prompt_templates',
-  executeActions: 'canvas.execute_actions'
+  searchCanvas2dRecipes: 'canvas2d.search_recipes',
+  searchPromptTemplates: 'prompt.search_templates',
+  executeActions: 'canvas2d.execute_actions'
 } as const
 
 export type CanvasAgentToolName =
@@ -239,27 +309,9 @@ export type CanvasAgentToolName =
 export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspect,
-    title: 'Inspect current content',
-    description: 'Read selected and existing canvas content for planning.',
-    category: 'review',
-    runtime: 'langchain',
-    permission: 'read',
-    enabled: true,
-    visible: true,
-    streaming: false,
-    interruptible: true,
-    requiresConfirmation: false,
-    actionTypes: [],
-    nodeTypes: [],
-    metadata: {
-      uiGroup: 'understand'
-    }
-  },
-  {
-    name: CANVAS_AGENT_TOOL_NAMES.inspectGraph,
-    title: 'Inspect canvas graph',
+    title: 'Inspect current canvas',
     description:
-      'Read graph relationships, upstream sources, downstream outputs, and isolated content.',
+      'Read active Canvas2D document, viewport, resources, and selection.',
     category: 'review',
     runtime: 'langchain',
     permission: 'read',
@@ -269,16 +321,17 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
-      uiGroup: 'understand'
+      uiGroup: 'understand',
+      surface: 'canvas2d'
     }
   },
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectAssets,
     title: 'Inspect assets',
     description:
-      'Read lightweight canvas resource metadata and media references for planning.',
+      'Read lightweight workspace resource metadata and media references.',
     category: 'review',
     runtime: 'langchain',
     permission: 'read',
@@ -288,35 +341,17 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
-      uiGroup: 'understand'
-    }
-  },
-  {
-    name: CANVAS_AGENT_TOOL_NAMES.inspectGenerationState,
-    title: 'Inspect generation state',
-    description:
-      'Read generation status, model settings, failures, and retry/edit readiness.',
-    category: 'generation',
-    runtime: 'langchain',
-    permission: 'read',
-    enabled: true,
-    visible: true,
-    streaming: false,
-    interruptible: true,
-    requiresConfirmation: false,
-    actionTypes: [],
-    nodeTypes: [],
-    metadata: {
-      uiGroup: 'understand'
+      uiGroup: 'understand',
+      surface: 'canvas2d'
     }
   },
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dScene,
     title: 'Inspect Canvas2D scene',
     description:
-      'Read active Canvas2D document, viewport, bounds, and element overview.',
+      'Read document bounds, viewport, element summary, and resource links.',
     category: 'review',
     runtime: 'langchain',
     permission: 'read',
@@ -326,7 +361,7 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
       uiGroup: 'understand',
       surface: 'canvas2d'
@@ -336,7 +371,7 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dElements,
     title: 'Inspect Canvas2D elements',
     description:
-      'Read Canvas2D element order, bounds, visibility, resources, and editable properties.',
+      'Read element order, bounds, visibility, resources, and editable fields.',
     category: 'review',
     runtime: 'langchain',
     permission: 'read',
@@ -346,7 +381,7 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
       uiGroup: 'understand',
       surface: 'canvas2d'
@@ -356,7 +391,7 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dSelection,
     title: 'Inspect Canvas2D selection',
     description:
-      'Read selected Canvas2D elements and the actions they can safely support.',
+      'Read selected elements and the actions they can safely support.',
     category: 'review',
     runtime: 'langchain',
     permission: 'read',
@@ -366,16 +401,16 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
       uiGroup: 'understand',
       surface: 'canvas2d'
     }
   },
   {
-    name: CANVAS_AGENT_TOOL_NAMES.searchCanvasRecipes,
-    title: 'Reference canvas recipes',
-    description: 'Search similar Canvas action recipes and patterns.',
+    name: CANVAS_AGENT_TOOL_NAMES.searchCanvas2dRecipes,
+    title: 'Reference Canvas2D recipes',
+    description: 'Search reusable Canvas2D composition and editing patterns.',
     category: 'memory',
     runtime: 'langchain',
     permission: 'reference',
@@ -385,9 +420,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
-      uiGroup: 'reference'
+      uiGroup: 'reference',
+      surface: 'canvas2d'
     }
   },
   {
@@ -403,15 +439,16 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     interruptible: true,
     requiresConfirmation: false,
     actionTypes: [],
-    nodeTypes: [],
+    elementTypes: [],
     metadata: {
       uiGroup: 'reference'
     }
   },
   {
     name: CANVAS_AGENT_TOOL_NAMES.executeActions,
-    title: 'Apply generated results',
-    description: 'Materialize planned changes through the canvas runtime.',
+    title: 'Apply Canvas2D changes',
+    description:
+      'Materialize planned document, element, resource, and viewport operations.',
     category: 'canvas',
     runtime: 'execution',
     permission: 'write',
@@ -420,26 +457,16 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     streaming: true,
     interruptible: true,
     requiresConfirmation: false,
-    actionTypes: [
-      'createNode',
-      'patchNodeData',
-      'createEdge',
-      'deleteNode',
-      'document.create',
-      'element.add',
-      'element.patch',
-      'element.delete',
-      'element.reorder',
-      'element.select',
-      'element.generate',
-      'viewport.focus'
-    ],
-    nodeTypes: DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES.map(
-      (node) => node.nodeType
+    actionTypes: DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES.map(
+      (item) => item.action
+    ),
+    elementTypes: DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES.map(
+      (element) => element.elementType
     ),
     metadata: {
       uiGroup: 'apply',
-      executionPath: 'canvas-agent'
+      executionPath: 'canvas-agent',
+      surface: 'canvas2d'
     }
   }
 ] as const
@@ -449,7 +476,7 @@ export function createDefaultCanvasAgentCapabilityManifest() {
     source: 'server',
     generatedAt: new Date().toISOString(),
     actions: DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES,
-    nodes: DEFAULT_CANVAS_AGENT_NODE_CAPABILITIES,
+    elements: DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES,
     recipes: DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES,
     tools: DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES
   })
@@ -465,10 +492,10 @@ export function enabledCanvasAgentCapabilities(
   const enabledActions = new Set(
     normalized.actions.filter((item) => item.enabled).map((item) => item.action)
   )
-  const enabledNodeTypes = new Set(
-    normalized.nodes
+  const enabledElementTypes = new Set(
+    normalized.elements
       .filter((item) => item.enabled && item.visible)
-      .map((item) => item.nodeType)
+      .map((item) => item.elementType)
   )
   const enabledRecipeIds = new Set(
     normalized.recipes
@@ -480,11 +507,41 @@ export function enabledCanvasAgentCapabilities(
   return {
     manifest: normalized,
     enabledActions,
-    enabledNodeTypes,
+    enabledElementTypes,
     enabledRecipeIds,
     enabledTools,
     enabledToolNames
   }
+}
+
+function generationMediaTypesFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+  fallbackToAll: boolean
+): CanvasAgentGenerationMediaType[] {
+  const raw = metadata?.mediaTypes
+  if (!Array.isArray(raw)) return fallbackToAll ? ['image', 'video'] : []
+  return Array.from(
+    new Set(
+      raw.filter(
+        (item): item is CanvasAgentGenerationMediaType =>
+          item === 'image' || item === 'video'
+      )
+    )
+  )
+}
+
+export function enabledCanvasAgentGenerationMediaTypes(
+  manifest?: CanvasAgentCapabilityManifest | null
+): Set<CanvasAgentGenerationMediaType> {
+  const normalized = manifest ?? createDefaultCanvasAgentCapabilityManifest()
+  const generateAction = normalized.actions.find(
+    (item) => item.action === 'element.generate'
+  )
+  if (!generateAction?.enabled) return new Set()
+
+  return new Set(
+    generationMediaTypesFromMetadata(generateAction.metadata, true)
+  )
 }
 
 function matchesFilter<T extends string>(
@@ -530,19 +587,27 @@ export function canvasAgentActionAllowed(
   manifest: CanvasAgentCapabilityManifest | undefined | null,
   action: {
     type: CanvasAgentActionType
-    nodeType?: string
+    elementType?: z.infer<typeof canvasDocumentElementTypeSchema>
+    mediaType?: CanvasAgentGenerationMediaType
   }
 ): boolean {
   const enabled = enabledCanvasAgentCapabilities(manifest)
   if (!enabled.enabledActions.has(action.type)) return false
-  if (action.type === 'createNode') {
-    if (!action.nodeType) return false
-    return enabled.enabledNodeTypes.has(action.nodeType)
+  if (action.type === 'element.add' && action.elementType) {
+    return enabled.enabledElementTypes.has(action.elementType)
+  }
+  if (action.type === 'element.generate' && action.mediaType) {
+    return enabledCanvasAgentGenerationMediaTypes(manifest).has(
+      action.mediaType
+    )
   }
   return true
 }
 
 export type CanvasAgentActionType = z.infer<typeof canvasAgentActionTypeSchema>
+export type CanvasAgentGenerationMediaType = z.infer<
+  typeof canvasAgentGenerationMediaTypeSchema
+>
 export type CanvasAgentToolRuntime = z.infer<
   typeof canvasAgentToolRuntimeSchema
 >
@@ -552,8 +617,8 @@ export type CanvasAgentToolPermission = z.infer<
 export type CanvasAgentToolCategory = z.infer<
   typeof canvasAgentToolCategorySchema
 >
-export type CanvasAgentNodeCapability = z.infer<
-  typeof canvasAgentNodeCapabilitySchema
+export type CanvasAgentElementCapability = z.infer<
+  typeof canvasAgentElementCapabilitySchema
 >
 export type CanvasAgentActionCapability = z.infer<
   typeof canvasAgentActionCapabilitySchema

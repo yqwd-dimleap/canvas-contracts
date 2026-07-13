@@ -23,7 +23,6 @@ export const canvasAgentSuggestionSchema = z.object({
   intent: z.string().trim().min(1).max(500),
   kind: canvasAgentSuggestionKindSchema.default('run'),
   priority: canvasAgentSuggestionPrioritySchema.default('normal'),
-  targetNodeIds: z.array(z.string().trim().min(1)).max(12).default([]),
   targetDocumentId: z.string().trim().min(1).optional(),
   targetElementIds: z.array(z.string().trim().min(1)).max(12).default([]),
   confidence: z.number().min(0).max(1).optional(),
@@ -97,17 +96,10 @@ export function normalizeCanvasAgentSuggestions(
       intent,
       kind: record.kind,
       priority: record.priority,
-      targetNodeIds: Array.isArray(record.targetNodeIds)
-        ? record.targetNodeIds
-        : Array.isArray(record.nodeIds)
-          ? record.nodeIds
-          : undefined,
       targetDocumentId: stringValue(record.targetDocumentId) || undefined,
       targetElementIds: Array.isArray(record.targetElementIds)
         ? record.targetElementIds
-        : Array.isArray(record.layerIds)
-          ? record.layerIds
-          : undefined,
+        : undefined,
       confidence: record.confidence,
       estimatedCost: record.estimatedCost
     })

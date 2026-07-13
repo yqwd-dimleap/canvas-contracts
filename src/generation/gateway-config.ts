@@ -208,6 +208,14 @@ export function readGenerationGatewayConfig(
   }
 }
 
+export function hasGenerationGatewayPayloadParameters(
+  metadata: Record<string, unknown> | null | undefined
+): boolean {
+  return (
+    Object.keys(readGenerationGatewayConfig(metadata).parameters).length > 0
+  )
+}
+
 export function applyGatewayPayloadConfig(
   payload: Record<string, unknown>,
   config: GatewayPayloadConfig,

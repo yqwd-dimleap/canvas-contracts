@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { CanvasDocument } from '../src/canvas/document.js'
 import type { CanvasResource } from '../src/canvas/resources.js'
-import { workspaceProjectResourcesSchema } from '../src/canvas/workspace-project.js'
+import { workspaceProjectCanvasDataSchema } from '../src/canvas/workspace/project.js'
 import {
   compactCanvasDocumentAssetReferences,
   readCanvasImageOutputResource,
@@ -16,10 +16,10 @@ describe('canvas media output resource readers', () => {
       type: 'image',
       url: 'https://assets.example.com/generated-image.png',
       createdAt: 1,
-      createdBy: 'image-node'
+      createdBy: 'element-1'
     }
 
-    expect(readCanvasImageOutputResource([resource], 'image-node')).toBeNull()
+    expect(readCanvasImageOutputResource([resource], 'element-1')).toBeNull()
   })
 
   test('image output resolves compact asset reference from project assets', () => {
@@ -29,10 +29,10 @@ describe('canvas media output resource readers', () => {
       url: '',
       assetId: 'asset-image',
       createdAt: 1,
-      createdBy: 'image-node'
+      createdBy: 'element-1'
     }
 
-    const output = readCanvasImageOutputResource([resource], 'image-node', {
+    const output = readCanvasImageOutputResource([resource], 'element-1', {
       assets: [
         {
           id: 'asset-image',
@@ -61,10 +61,10 @@ describe('canvas media output resource readers', () => {
       type: 'video',
       url: 'https://assets.example.com/generated-video.mp4',
       createdAt: 1,
-      createdBy: 'video-node'
+      createdBy: 'element-2'
     }
 
-    expect(readCanvasVideoOutputResource([resource], 'video-node')).toBeNull()
+    expect(readCanvasVideoOutputResource([resource], 'element-2')).toBeNull()
   })
 
   test('video output resolves compact asset reference from project assets', () => {
@@ -74,10 +74,10 @@ describe('canvas media output resource readers', () => {
       url: '',
       assetId: 'asset-video',
       createdAt: 1,
-      createdBy: 'video-node'
+      createdBy: 'element-2'
     }
 
-    const output = readCanvasVideoOutputResource([resource], 'video-node', {
+    const output = readCanvasVideoOutputResource([resource], 'element-2', {
       assets: [
         {
           id: 'asset-video',
@@ -107,10 +107,10 @@ describe('canvas media output resource readers', () => {
       url: '',
       assetId: 'asset-image',
       createdAt: 1,
-      createdBy: 'image-node'
+      createdBy: 'element-1'
     }
 
-    const output = readCanvasImageOutputResource([resource], 'image-node', {
+    const output = readCanvasImageOutputResource([resource], 'element-1', {
       assets: [
         {
           id: 'asset-image',
@@ -168,7 +168,7 @@ describe('canvas document asset references', () => {
     expect(resolved.elements[0]?.assetId).toBe('asset-image')
     expect(resolved.elements[0]?.metadata).toEqual({
       createdAt: 1,
-      sourceNodeId: 'node-1'
+      sourceElementId: 'element-1'
     })
   })
 
@@ -180,7 +180,7 @@ describe('canvas document asset references', () => {
     expect(compacted.elements[0]?.assetId).toBe('asset-image')
     expect(compacted.elements[0]?.metadata).toEqual({
       createdAt: 1,
-      sourceNodeId: 'node-1'
+      sourceElementId: 'element-1'
     })
   })
 
@@ -220,9 +220,22 @@ describe('canvas document asset references', () => {
 })
 
 describe('workspace project canvas resources', () => {
-  test('legacy canvasDocuments array is normalized to one canvasDocument', () => {
+  test('v2 canvas resources require the Canvas2D payload shape', () => {
     const document = canvasDocumentWithRasterMediaMetadata()
-    const parsed = workspaceProjectResourcesSchema.parse({
+    const parsed = workspaceProjectCanvasDataSchema.parse({
+      schemaVersion: 2,
+      canvasDocument: document,
+      conversations: [],
+      activeConversationId: null
+    })
+
+    expect(parsed.schemaVersion).toBe(2)
+    expect(parsed.canvasDocument?.id).toBe(document.id)
+  })
+
+  test('deprecated graph canvas resources are rejected', () => {
+    const document = canvasDocumentWithRasterMediaMetadata()
+    const result = workspaceProjectCanvasDataSchema.safeParse({
       schemaVersion: 1,
       nodes: [{ id: 'legacy-node' }],
       edges: [{ id: 'legacy-edge' }],
@@ -232,11 +245,7 @@ describe('workspace project canvas resources', () => {
       orphanResources: []
     })
 
-    expect(parsed.schemaVersion).toBe(2)
-    expect(parsed.canvasDocument?.id).toBe(document.id)
-    expect('nodes' in parsed).toBe(false)
-    expect('edges' in parsed).toBe(false)
-    expect('canvasDocuments' in parsed).toBe(false)
+    expect(result.success).toBe(false)
   })
 })
 
@@ -249,7 +258,6 @@ function canvasDocumentWithRasterMediaMetadata(): CanvasDocument {
     width: 1024,
     height: 1024,
     background: null,
-    sourceNodeId: null,
     assetId: null,
     outputResource: null,
     selectedElementIds: [],
@@ -275,7 +283,7 @@ function canvasDocumentWithRasterMediaMetadata(): CanvasDocument {
         assetId: 'asset-image',
         metadata: {
           createdAt: 1,
-          sourceNodeId: 'node-1',
+          sourceElementId: 'element-1',
           media: {
             type: 'image'
           }
