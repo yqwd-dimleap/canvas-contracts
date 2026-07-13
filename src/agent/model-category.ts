@@ -8,7 +8,8 @@
  * 依赖方向：agent 域 → models 域，仅复用 generation payload 配置判断。
  */
 
-import { hasGenerationPayloadConfiguration } from '../models/registry.js'
+import { hasGenerationPayloadConfiguration } from '../models/generation-payload.js'
+import { readGenerationPayloadConfig } from '../models/payload.js'
 import {
   MODEL_CATEGORIES,
   type ModelCategory,
@@ -147,25 +148,14 @@ function hintSuggestsVideo(hints: GatewayModelKindHints | undefined): boolean {
 function isImageModelId(lower: string): boolean {
   if (isVideoModelId(lower)) return false
   if (
-    lower.includes('gpt-image') ||
-    lower.includes('qwen-image') ||
-    lower.includes('dall-e') ||
-    lower.includes('dalle') ||
-    lower.includes('flux') ||
-    lower.includes('sdxl') ||
-    lower.includes('stable-diffusion') ||
-    lower.includes('stable_diffusion') ||
-    lower.includes('midjourney') ||
-    lower.includes('imagen') ||
-    lower.includes('playground-v') ||
-    lower.includes('cogview') ||
-    lower.includes('wanx') ||
-    lower.includes('wanxiang')
+    lower.includes('text-to-image') ||
+    lower.includes('image-generation') ||
+    lower.includes('image_generation') ||
+    lower.includes('image-generator')
   ) {
     return true
   }
   if (lower.includes('image') && !lower.includes('text-embedding')) return true
-  if (lower.includes('banana')) return true
   return false
 }
 
@@ -180,15 +170,6 @@ function isVideoModelId(lower: string): boolean {
     lower.includes('videoedit') ||
     lower.includes('video-edit') ||
     lower.includes('video_edit') ||
-    lower.includes('kling') ||
-    lower.includes('runway') ||
-    lower.includes('seedance') ||
-    lower.includes('seadance') ||
-    lower.includes('sora') ||
-    lower.includes('happyhorse') ||
-    lower.includes('wan2.5') ||
-    lower.includes('wan2.6') ||
-    lower.includes('wan2.7') ||
     /\bvideo\b/.test(lower)
   )
 }
@@ -342,7 +323,6 @@ export function isConfiguredVideoGenerationModel(
 ): boolean {
   if (
     !hasGenerationPayloadConfiguration({
-      modelId,
       mediaType: 'video',
       metadata
     })
@@ -395,6 +375,10 @@ export function getEffectiveModelCategory(
   metadata: Record<string, unknown> | null | undefined,
   extraHints?: GatewayModelKindHints
 ): ModelCategoryId {
+  const payload = readGenerationPayloadConfig(metadata)
+  if (payload?.mediaType === 'image' || payload?.mediaType === 'video') {
+    return payload.mediaType
+  }
   const raw = metadata?.[AI_MODEL_KIND_METADATA_KEY]
   if (isStoredModelKind(raw)) return raw
   const fromMeta = readGatewayHintsFromMetadata(metadata)

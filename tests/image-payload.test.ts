@@ -1,123 +1,286 @@
 import { describe, expect, test } from 'bun:test'
 import {
   buildConfiguredImageGenerationPayload,
-  modelRegistry,
   normalizeImageGenerationParams
-} from '../src/models/registry.js'
+} from '../src/models/generation-payload.js'
+import {
+  buildGenerationPayloadFromConfig,
+  createDefaultGenerationPayloadConfig,
+  mergeGenerationPayloadConfig
+} from '../src/models/payload.js'
 
-describe('image model payloads', () => {
-  test('image params apply shared model defaults from raw minimal input', () => {
+const IMAGE_MODEL_ID = 'image-model-a'
+
+describe('image generation metadata.payload', () => {
+  test('normalizes grouped image params without model-specific defaults', () => {
     const params = normalizeImageGenerationParams({
-      model: 'gpt-image-2',
-      prompt: 'generate a clean product render'
-    })
-
-    expect(params).toEqual({
-      model: 'gpt-image-2',
-      prompt: 'generate a clean product render',
-      size: '1024x1024',
-      n: 1,
-      quality: 'auto',
-      background: 'auto',
-      output_format: 'png'
-    })
-  })
-
-  test('qwen image params drop unsupported UI defaults before gateway payload build', () => {
-    const params = normalizeImageGenerationParams({
-      model: 'qwen-image-2.0',
-      prompt: '一个现代创意工作室的内部场景',
-      size: '2048x2048',
-      n: 1,
-      quality: 'auto',
-      background: 'auto',
-      output_format: 'png',
-      output_compression: 85,
-      prompt_extend: true,
-      watermark: true,
-      projectId: '6a3a2483356ab4ba58681ff8'
-    })
-
-    expect(params).toEqual({
-      model: 'qwen-image-2.0',
-      prompt: '一个现代创意工作室的内部场景',
-      size: '2048x2048',
-      n: 1,
-      prompt_extend: true,
-      watermark: true,
-      projectId: '6a3a2483356ab4ba58681ff8'
-    })
-  })
-
-  test('qwen image gateway payload uses qwen input/parameters shape', () => {
-    const params = normalizeImageGenerationParams({
-      model: 'qwen-image-2.0',
-      prompt: '生成一只暹罗猫',
-      size: '2048x2048',
-      n: 1,
-      quality: 'auto',
-      background: 'auto',
-      output_format: 'png',
-      prompt_extend: true,
-      watermark: false
-    })
-
-    const payload = modelRegistry.buildImagePayload(params)
-
-    expect(payload).not.toHaveProperty('prompt')
-    expect(payload).not.toHaveProperty('quality')
-    expect(payload).not.toHaveProperty('background')
-    expect(payload).not.toHaveProperty('output_format')
-    expect(payload).toMatchObject({
-      model: 'qwen-image-2.0',
+      model: IMAGE_MODEL_ID,
+      prompt: ' generate a clean product render ',
       input: {
-        messages: [
-          {
-            role: 'user',
-            content: [{ text: '生成一只暹罗猫' }]
-          }
-        ]
+        size: ' 1536x1024 ',
+        quality: ' high '
       },
-      parameters: {
-        size: '2048*2048',
-        n: 1,
-        prompt_extend: true,
-        watermark: false
+      controls: {
+        style: ' editorial ',
+        strength: 0.65
+      },
+      references: {
+        images: [' https://example.com/ref.png ', 'https://example.com/ref.png']
+      },
+      system: {
+        projectId: 'project-1'
+      }
+    })
+
+    expect(params).toEqual({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      input: {
+        size: '1536x1024',
+        quality: 'high'
+      },
+      controls: {
+        style: 'editorial',
+        strength: 0.65
+      },
+      references: {
+        images: ['https://example.com/ref.png']
+      },
+      system: {
+        projectId: 'project-1'
       }
     })
   })
 
-  test('qwen image params enforce the shared reference image limit', () => {
-    const params = normalizeImageGenerationParams({
-      model: 'qwen-image-2.0',
-      prompt: '基于参考图生成新风格',
-      image: [
-        'https://example.com/1.png',
-        'https://example.com/2.png',
-        'https://example.com/3.png',
-        'https://example.com/4.png'
-      ]
-    })
-
-    expect(params.image).toEqual([
-      'https://example.com/1.png',
-      'https://example.com/2.png',
-      'https://example.com/3.png'
-    ])
+  test('requires metadata.payload for image payload build', () => {
+    expect(() =>
+      buildConfiguredImageGenerationPayload({
+        model: IMAGE_MODEL_ID,
+        prompt: 'generate a clean product render'
+      })
+    ).toThrow('Generation payload is not configured')
   })
 
-  test('qwen image gateway payload carries reference images into content', () => {
-    const configured = buildConfiguredImageGenerationPayload({
-      model: 'qwen-image-2.0',
+  test('renders default image payload template from grouped context', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    const configured = buildConfiguredImageGenerationPayload(
+      {
+        model: IMAGE_MODEL_ID,
+        prompt: 'generate a clean product render',
+        input: {
+          size: '1536x1024',
+          quality: 'high'
+        },
+        references: {
+          images: ['https://example.com/reference.png']
+        },
+        system: {
+          projectId: 'project-1'
+        }
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.config).toEqual(payload)
+    expect(configured.params).toMatchObject({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      input: {
+        size: '1536x1024',
+        n: 1,
+        quality: 'high'
+      }
+    })
+    expect(configured.payload).toMatchObject({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      size: '1536x1024',
+      n: 1,
+      image: ['https://example.com/reference.png'],
+      quality: 'high',
+      background: 'auto',
+      output_format: 'png'
+    })
+    expect(configured.payload).not.toHaveProperty('projectId')
+  })
+
+  test('renders custom image controls from grouped controls', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.controls.push(
+      {
+        key: 'style',
+        label: 'Style',
+        type: 'text',
+        enabled: true,
+        required: false,
+        options: [],
+        defaultValue: 'studio'
+      },
+      {
+        key: 'strength',
+        label: 'Strength',
+        type: 'number',
+        enabled: true,
+        required: false,
+        options: [],
+        defaultValue: 0.5
+      }
+    )
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      image: '{{references.images}}',
+      style: '{{controls.style}}',
+      strength: '{{controls.strength}}'
+    }
+
+    const configured = buildConfiguredImageGenerationPayload(
+      {
+        model: IMAGE_MODEL_ID,
+        prompt: 'generate a clean product render',
+        references: {
+          images: ['https://example.com/reference.png']
+        },
+        controls: {
+          style: 'editorial',
+          strength: 0.8
+        }
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.params).toMatchObject({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      references: {
+        images: ['https://example.com/reference.png']
+      },
+      controls: {
+        style: 'editorial',
+        strength: 0.8
+      }
+    })
+    expect(configured.payload).toMatchObject({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      image: ['https://example.com/reference.png'],
+      style: 'editorial',
+      strength: 0.8
+    })
+  })
+
+  test('strips retired prompt extension and watermark fields', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.controls.push(
+      {
+        key: 'promptExtend',
+        label: 'Prompt extend',
+        type: 'boolean',
+        enabled: true,
+        required: true,
+        options: [],
+        defaultValue: true
+      },
+      {
+        key: 'watermark',
+        label: 'Watermark',
+        type: 'boolean',
+        enabled: true,
+        required: true,
+        options: [],
+        defaultValue: true
+      }
+    )
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      promptExtend: '{{controls.promptExtend}}',
+      watermark: true,
+      parameters: {
+        watermark: true,
+        style: '{{controls.style}}'
+      }
+    }
+
+    const configured = buildConfiguredImageGenerationPayload(
+      {
+        model: IMAGE_MODEL_ID,
+        prompt: 'generate a clean product render',
+        controls: {
+          promptExtend: false,
+          watermark: false,
+          style: 'editorial'
+        }
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.config.controls).not.toContainEqual(
+      expect.objectContaining({ key: 'promptExtend' })
+    )
+    expect(configured.config.controls).not.toContainEqual(
+      expect.objectContaining({ key: 'watermark' })
+    )
+    expect(configured.params.controls).toEqual({ style: 'editorial' })
+    expect(configured.payload).toEqual({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render',
+      parameters: {
+        style: 'editorial'
+      }
+    })
+  })
+
+  test('does not expose legacy params template namespace', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      size: '{{params.size}}',
+      n: '{{params.n}}'
+    }
+
+    const configured = buildConfiguredImageGenerationPayload(
+      {
+        model: IMAGE_MODEL_ID,
+        prompt: 'generate a clean product render',
+        input: {
+          size: '1536x1024',
+          n: 2
+        }
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.payload).toEqual({
+      model: IMAGE_MODEL_ID,
+      prompt: 'generate a clean product render'
+    })
+  })
+
+  test('supports provider-specific image helpers', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.request.body = {
+      model: '{{model}}',
+      input: {
+        messages: '{{helpers.qwen.inputMessages}}'
+      },
+      parameters: {
+        size: '{{input.size}}',
+        n: '{{input.n}}'
+      }
+    }
+
+    const configured = buildGenerationPayloadFromConfig(payload, {
+      model: 'provider-image-model',
       prompt: '保留主体姿态，改成更生气的表情',
-      image: ['https://example.com/original-cat.png']
+      references: {
+        images: ['https://example.com/original-cat.png']
+      }
     })
 
-    expect(configured.params.image).toEqual([
-      'https://example.com/original-cat.png'
-    ])
     expect(configured.payload).toMatchObject({
-      model: 'qwen-image-2.0',
+      model: 'provider-image-model',
       input: {
         messages: [
           {
@@ -128,74 +291,11 @@ describe('image model payloads', () => {
             ]
           }
         ]
-      }
-    })
-  })
-
-  test('gpt image params keep OpenAI-compatible fields', () => {
-    const params = normalizeImageGenerationParams({
-      model: 'gpt-image-2',
-      prompt: 'generate a clean product render',
-      size: '1536x1024',
-      n: 2,
-      quality: 'high',
-      background: 'transparent',
-      output_format: 'webp',
-      output_compression: 80,
-      image: ['https://example.com/reference.png']
-    })
-
-    expect(modelRegistry.buildImagePayload(params)).toMatchObject({
-      model: 'gpt-image-2',
-      prompt: 'generate a clean product render',
-      size: '1536x1024',
-      n: 2,
-      quality: 'high',
-      background: 'transparent',
-      output_format: 'webp',
-      output_compression: 80,
-      image: ['https://example.com/reference.png']
-    })
-  })
-
-  test('configured image payload applies admin generation config after model build', () => {
-    const configured = buildConfiguredImageGenerationPayload(
-      {
-        model: 'gpt-image-2',
-        prompt: 'generate a clean product render',
-        size: '1536x1024',
-        quality: 'high',
-        background: 'transparent',
-        output_format: 'png',
-        image: ['https://example.com/reference.png'],
-        projectId: 'project-1'
       },
-      {
-        gateway: {
-          generation: {
-            endpoint: '/v1/images/custom',
-            parameters: {
-              prompt: 'must not override dynamic prompt',
-              projectId: 'must-not-leak',
-              provider_option: 'enabled'
-            },
-            omitParameters: ['background', 'model']
-          }
-        }
+      parameters: {
+        size: '1024x1024',
+        n: 1
       }
-    )
-
-    expect(configured.config.endpoint).toBe('/v1/images/custom')
-    expect(configured.payload).toMatchObject({
-      model: 'gpt-image-2',
-      prompt: 'generate a clean product render',
-      size: '1536x1024',
-      quality: 'high',
-      output_format: 'png',
-      image: ['https://example.com/reference.png'],
-      provider_option: 'enabled'
     })
-    expect(configured.payload).not.toHaveProperty('background')
-    expect(configured.payload).not.toHaveProperty('projectId')
   })
 })

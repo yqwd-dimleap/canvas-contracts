@@ -1,8 +1,4 @@
-import type {
-  ModelMetadata,
-  VideoGenerationParams,
-  VideoReferenceMedia
-} from './types.js'
+import type { VideoGenerationParams, VideoReferenceMedia } from './types.js'
 
 const VIDEO_REFERENCE_MEDIA_TYPES = new Set<VideoReferenceMedia['type']>([
   'reference_image',
@@ -21,14 +17,15 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+function trimmedString(value: unknown): string | undefined {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return text || undefined
+}
+
 function cleanStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return Array.from(
-    new Set(
-      value
-        .map((item) => (typeof item === 'string' ? item.trim() : ''))
-        .filter(Boolean)
-    )
+    new Set(value.map((item) => trimmedString(item) ?? '').filter(Boolean))
   )
 }
 
@@ -42,16 +39,13 @@ export function cleanVideoReferenceMedia(
     const recordItem = record(item)
     if (!recordItem) continue
     const type = typeof recordItem.type === 'string' ? recordItem.type : ''
-    const url = typeof recordItem.url === 'string' ? recordItem.url.trim() : ''
+    const url = trimmedString(recordItem.url)
     if (!url) continue
     if (!VIDEO_REFERENCE_MEDIA_TYPES.has(type as VideoReferenceMedia['type'])) {
       continue
     }
-    const referenceVoice =
-      typeof recordItem.reference_voice === 'string'
-        ? recordItem.reference_voice.trim()
-        : ''
-    const key = `${type}:${url}:${referenceVoice}`
+    const referenceVoice = trimmedString(recordItem.reference_voice)
+    const key = `${type}:${url}:${referenceVoice ?? ''}`
     if (seen.has(key)) continue
     seen.add(key)
     out.push({
@@ -64,80 +58,14 @@ export function cleanVideoReferenceMedia(
   return out
 }
 
-export function modelPrefersFirstFrameReference(
-  modelId: string,
-  metadata?: Pick<ModelMetadata, 'capabilities'> | null
-): boolean {
-  const lower = modelId.toLowerCase()
-  return Boolean(
-    lower.includes('seedance') ||
-      lower.includes('seadance') ||
-      lower.includes('i2v') ||
-      lower.includes('image-to-video') ||
-      lower.includes('img2vid') ||
-      (metadata?.capabilities.imageToVideo &&
-        !metadata.capabilities.multipleImages)
-  )
-}
-
-export function inferVideoModelCapabilities(
-  modelId: string,
-  metadata?: Pick<ModelMetadata, 'capabilities'> | null
-): ModelMetadata['capabilities'] {
-  if (metadata?.capabilities) return metadata.capabilities
-
-  const lower = modelId.toLowerCase()
-  const isVideoEdit =
-    lower.includes('videoedit') ||
-    lower.includes('video-edit') ||
-    lower.includes('video_edit')
-  const isReference =
-    lower.includes('r2v') ||
-    lower.includes('reference') ||
-    lower.includes('seedance') ||
-    lower.includes('seadance')
-  const isImageToVideo = modelPrefersFirstFrameReference(modelId) || isReference
-
-  return {
-    textToMedia: !isImageToVideo && !isVideoEdit,
-    imageToVideo: isImageToVideo,
-    multipleImages: isReference,
-    videoEdit: isVideoEdit,
-    videoMerge: false,
-    ...(isReference
-      ? { maxReferenceImages: lower.includes('seedance') ? 9 : 3 }
-      : {})
-  }
-}
-
-export function promoteFirstImageReference(
-  items: readonly VideoReferenceMedia[],
-  preferFirstFrame: boolean
-): VideoReferenceMedia[] {
-  if (!preferFirstFrame) return [...items]
-  if (items.some((item) => item.type === 'first_frame')) return [...items]
-
-  let promoted = false
-  return items.map((item) => {
-    if (promoted || item.type !== 'reference_image') return { ...item }
-    promoted = true
-    return { ...item, type: 'first_frame' as const }
-  })
-}
-
 export function normalizeVideoReferenceMedia(
-  params: Pick<
-    VideoGenerationParams,
-    'model' | 'referenceMedia' | 'mergeReferenceImageUrls' | 'imgUrl'
-  >,
-  options: {
-    metadata?: Pick<ModelMetadata, 'capabilities'> | null
-  } = {}
+  params: Pick<VideoGenerationParams, 'references'>
 ): VideoReferenceMedia[] {
-  const media = cleanVideoReferenceMedia(params.referenceMedia)
-  const urls = cleanStringArray(params.mergeReferenceImageUrls)
-  const imgUrl = typeof params.imgUrl === 'string' ? params.imgUrl.trim() : ''
-  for (const url of [imgUrl, ...urls]) {
+  const references = record(params.references) ?? {}
+  const media = cleanVideoReferenceMedia(references.media)
+  const imageUrls = cleanStringArray(references.images)
+  const firstImage = trimmedString(references.firstImage)
+  for (const url of [firstImage, ...imageUrls]) {
     if (
       !url ||
       media.some(
@@ -151,31 +79,39 @@ export function normalizeVideoReferenceMedia(
     media.push({ type: 'reference_image', url })
   }
 
-  return promoteFirstImageReference(
-    media,
-    modelPrefersFirstFrameReference(params.model, options.metadata)
-  )
+  return media
 }
 
 export function normalizeVideoGenerationReferenceParams(
-  params: VideoGenerationParams,
-  options: {
-    metadata?: Pick<ModelMetadata, 'capabilities'> | null
-  } = {}
+  params: VideoGenerationParams
 ): VideoGenerationParams {
-  const media = normalizeVideoReferenceMedia(params, options)
+  const references = record(params.references) ?? {}
+  const media = normalizeVideoReferenceMedia(params)
   const imageUrls = media
     .filter(
       (item) => item.type === 'reference_image' || item.type === 'first_frame'
     )
     .map((item) => item.url)
   const firstFrame =
-    media.find((item) => item.type === 'first_frame')?.url ?? imageUrls[0]
+    media.find((item) => item.type === 'first_frame')?.url ??
+    trimmedString(references.firstImage) ??
+    imageUrls[0]
+
   return {
     ...params,
-    ...(firstFrame ? { imgUrl: firstFrame } : {}),
-    ...(imageUrls.length > 0 ? { mergeReferenceImageUrls: imageUrls } : {}),
-    ...(media.length > 0 ? { referenceMedia: media } : {}),
-    videoEditImages: undefined
+    references: {
+      ...(cleanStringArray(references.clips).length > 0
+        ? { clips: cleanStringArray(references.clips) }
+        : {}),
+      ...(trimmedString(references.sourceVideo)
+        ? { sourceVideo: trimmedString(references.sourceVideo) }
+        : {}),
+      ...(trimmedString(references.drivingAudio)
+        ? { drivingAudio: trimmedString(references.drivingAudio) }
+        : {}),
+      ...(firstFrame ? { firstImage: firstFrame } : {}),
+      ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
+      ...(media.length > 0 ? { media } : {})
+    }
   }
 }

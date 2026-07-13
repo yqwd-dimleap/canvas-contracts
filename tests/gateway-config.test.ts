@@ -1,55 +1,42 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  mergeGenerationGatewayConfig,
-  readGenerationGatewayConfig
+  buildGatewayChatPayloadPreview,
+  mergeGatewayChatConfig,
+  readGatewayChatConfig
 } from '../src/generation/gateway-config.js'
 
-describe('generation gateway config', () => {
-  test('reads payloadProfile and falls back to legacy payloadType', () => {
-    expect(
-      readGenerationGatewayConfig({
-        gateway: {
-          generation: {
-            payloadProfile: 'seedance-content-task'
-          }
-        }
-      }).payloadProfile
-    ).toBe('seedance-content-task')
+describe('chat gateway config', () => {
+  test('keeps chat parameters under metadata.gateway.chat', () => {
+    const metadata = mergeGatewayChatConfig(null, {
+      parameters: {
+        temperature: 0.2,
+        model: 'must-not-override'
+      },
+      omitParameters: ['max_tokens', 'messages']
+    })
 
-    expect(
-      readGenerationGatewayConfig({
-        gateway: {
-          generation: {
-            payloadType: 'legacy-seedance-task'
-          }
-        }
-      }).payloadProfile
-    ).toBe('legacy-seedance-task')
+    expect(readGatewayChatConfig(metadata)).toEqual({
+      parameters: { temperature: 0.2 },
+      omitParameters: ['max_tokens']
+    })
   })
 
-  test('merge writes payloadProfile and removes legacy payloadType', () => {
-    const metadata = mergeGenerationGatewayConfig(
-      {
-        gateway: {
-          generation: {
-            payloadType: 'legacy-seedance-task'
-          }
-        }
+  test('previews chat payload without reserved overrides', () => {
+    const preview = buildGatewayChatPayloadPreview({
+      parameters: {
+        temperature: 0.2,
+        stream: false
       },
-      {
-        payloadProfile: 'seedance-content-task'
-      }
-    )
-
-    expect(metadata).toMatchObject({
-      gateway: {
-        generation: {
-          payloadProfile: 'seedance-content-task'
-        }
-      }
+      omitParameters: ['max_tokens', 'messages']
     })
-    expect(
-      (metadata.gateway as Record<string, unknown>).generation
-    ).not.toHaveProperty('payloadType')
+
+    expect(preview.payload).toMatchObject({
+      model: '<agent runtime model>',
+      temperature: 0.2
+    })
+    expect(preview.payload).not.toHaveProperty('max_tokens')
+    expect(preview.payload).toHaveProperty('messages')
+    expect(preview.ignoredParameterKeys).toEqual(['stream'])
+    expect(preview.ignoredOmitKeys).toEqual(['messages'])
   })
 })

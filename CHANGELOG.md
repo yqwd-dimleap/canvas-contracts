@@ -38,18 +38,16 @@ All notable changes to this project will be documented in this file.
   `timestampSchema`（Date→epoch ms 预处理）统一收敛到内部 `shared/timestamp`，
   新增 `nullableTimestampSchema`（用于 `userBilling.renewsAt` 等可空时间戳）。
   行为等价（取最健壮的 Date+ISO 字符串 → number 归一），非破坏性。
-- **视频分辨率大小写统一（`models/registry`）**：修正 `wan` registry 中
-  `defaults.size` / payload 兜底用小写 `'720p'` 而其自身规范化 `wanResolution`
-  产出大写的内部矛盾，统一为大写 `'720P'`。其余 provider（seedance/kling/runway、
-  happyhorse）的网关 payload 大小写按各自网关 API 要求保持不变。
+- **视频分辨率大小写统一**：修正旧视频模板中分辨率默认值大小写不一致的问题，
+  统一为大写 `'720P'`。
 
 ### Stability
 
 - 导出表面：`.`、`./admin`、`./agent`、`./api`、`./auth`、`./billing`、
   `./canvas`、`./generation`、`./models`、`./rag`、`./workflow` 共 11 个子路径，
   类型与运行时 schema 均可解析。
-- 模型 id 枚举与默认模型常量（`canvas/generation`、`models/registry`）视为 v1
-  基线快照：新增模型走 minor，弃用先标注、移除走 major。
+- 模型 id 枚举与默认模型常量视为 v1 基线快照：新增模型走 minor，
+  弃用先标注、移除走 major。
 
 ## [0.5.2] - 2026-06-05
 - **删除bun.lock文件，使用bun.lockb二进制，并解决每次提交依赖变更导致的lockfile is frozen错误
@@ -125,7 +123,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **Edge schema** (`canvas/edge.ts`): Complete `ProjectCanvasEdge` type with `variant`, `dependencyType`, and `resourceFilter` support
-- **Generation config fields**: Added `videoAspectRatio`, `promptExtend`, and `watermark` to `CanvasNodeGenerationConfig`
+- **Generation config fields**: Added `videoAspectRatio` to `CanvasNodeGenerationConfig`
 - **Resource node fields**: Added `assetId` and `modelUrl` to `NormalResourceNodeData` for asset management
 
 ### Changed

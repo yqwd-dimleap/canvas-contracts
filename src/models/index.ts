@@ -1,5 +1,5 @@
+export * from './generation-payload.js'
 export * from './params.js'
-export * from './registry.js'
+export * from './payload.js'
 export * from './types.js'
-export * from './video-endpoint.js'
 export * from './video-reference.js'

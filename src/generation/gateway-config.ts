@@ -5,33 +5,11 @@ export type GatewayPayloadConfig = {
 
 export type ChatGatewayConfig = GatewayPayloadConfig
 
-export type GenerationGatewayConfig = GatewayPayloadConfig & {
-  endpoint?: string
-  payloadProfile?: string
-}
-
 export const CHAT_GATEWAY_RESERVED_PAYLOAD_KEYS = [
   'model',
   'messages',
   'stream',
   'stream_options'
-] as const
-
-export const GENERATION_GATEWAY_RESERVED_PAYLOAD_KEYS = [
-  'model',
-  'prompt',
-  'messages',
-  'content',
-  'input',
-  'image',
-  'images',
-  'imgUrl',
-  'mergeReferenceImageUrls',
-  'referenceMedia',
-  'videoEditVideoUrl',
-  'drivingAudioUrl',
-  'mergeClipUrls',
-  'projectId'
 ] as const
 
 export const CHAT_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW = {
@@ -52,28 +30,8 @@ export const CHAT_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW_JSON = JSON.stringify(
   2
 )
 
-export const GENERATION_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW = {
-  model: '<selected generation model>',
-  prompt: '<node prompt>',
-  duration: '<node duration, when configured>',
-  size: '<node resolution, when configured>',
-  imgUrl: '<first/reference image URL, when configured>',
-  mergeReferenceImageUrls: '<reference image URLs, when configured>',
-  referenceMedia: '<typed reference media, when configured>',
-  mergeVideoAspectRatio: '<node aspect ratio, when configured>',
-  watermark: '<node watermark setting, when configured>',
-  projectId: '<workspace project id, when available>'
-}
-
-export const GENERATION_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW_JSON =
-  JSON.stringify(GENERATION_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW, null, 2)
-
 const CHAT_GATEWAY_RESERVED_PAYLOAD_KEY_SET = new Set<string>(
   CHAT_GATEWAY_RESERVED_PAYLOAD_KEYS
-)
-
-const GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET = new Set<string>(
-  GENERATION_GATEWAY_RESERVED_PAYLOAD_KEYS
 )
 
 function record(value: unknown): Record<string, unknown> {
@@ -176,46 +134,6 @@ export function readGatewayChatConfig(
   }
 }
 
-export function readGenerationGatewayConfig(
-  metadata: Record<string, unknown> | null | undefined
-): GenerationGatewayConfig {
-  const gateway = record(metadata?.gateway)
-  const generation = record(gateway.generation)
-  const endpoint =
-    typeof generation.endpoint === 'string' && generation.endpoint.trim()
-      ? generation.endpoint.trim()
-      : undefined
-  const legacyPayloadType =
-    typeof generation.payloadType === 'string' ? generation.payloadType : ''
-  const payloadProfileSource =
-    typeof generation.payloadProfile === 'string'
-      ? generation.payloadProfile
-      : legacyPayloadType
-  const payloadProfile = payloadProfileSource.trim()
-    ? payloadProfileSource.trim()
-    : undefined
-  return {
-    ...(endpoint ? { endpoint } : {}),
-    ...(payloadProfile ? { payloadProfile } : {}),
-    parameters: cleanParameters(
-      record(generation.parameters),
-      GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
-    ).parameters,
-    omitParameters: cleanKeyList(
-      stringArray(generation.omitParameters),
-      GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
-    )
-  }
-}
-
-export function hasGenerationGatewayPayloadParameters(
-  metadata: Record<string, unknown> | null | undefined
-): boolean {
-  return (
-    Object.keys(readGenerationGatewayConfig(metadata).parameters).length > 0
-  )
-}
-
 export function applyGatewayPayloadConfig(
   payload: Record<string, unknown>,
   config: GatewayPayloadConfig,
@@ -243,64 +161,6 @@ export function applyChatGatewayConfig(
   })
 }
 
-export function applyGenerationGatewayConfig(
-  payload: Record<string, unknown>,
-  config: GenerationGatewayConfig
-): Record<string, unknown> {
-  return applyGatewayPayloadConfig(payload, config, {
-    reservedKeys: GENERATION_GATEWAY_RESERVED_PAYLOAD_KEYS
-  })
-}
-
-export function compactGenerationRecord(
-  payload: Record<string, unknown>
-): Record<string, unknown> {
-  const next: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(payload)) {
-    const compacted = compactValue(value)
-    if (compacted !== undefined) next[key] = compacted
-  }
-  return next
-}
-
-function compactValue(value: unknown): unknown {
-  if (value === undefined || value === null) return undefined
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed ? trimmed : undefined
-  }
-  if (Array.isArray(value)) {
-    const compacted = value
-      .map((item) => compactValue(item))
-      .filter((item) => item !== undefined)
-    return compacted.length > 0 ? compacted : undefined
-  }
-  const valueRecord = optionalRecord(value)
-  if (valueRecord) {
-    const compacted = compactGenerationRecord(valueRecord)
-    return Object.keys(compacted).length > 0 ? compacted : undefined
-  }
-  return value
-}
-
-export type ConfiguredGenerationPayload = {
-  payload: Record<string, unknown>
-  config: GenerationGatewayConfig
-}
-
-export function buildConfiguredGenerationPayload(
-  basePayload: Record<string, unknown>,
-  metadata?: Record<string, unknown> | null
-): ConfiguredGenerationPayload {
-  const config = readGenerationGatewayConfig(metadata)
-  return {
-    payload: compactGenerationRecord(
-      applyGenerationGatewayConfig(basePayload, config)
-    ),
-    config
-  }
-}
-
 export function buildGatewayChatPayloadPreview(config: {
   parameters: Record<string, unknown>
   omitParameters: string[]
@@ -318,37 +178,6 @@ export function buildGatewayChatPayloadPreview(config: {
   )
   const payload = applyChatGatewayConfig(
     cloneRecord(CHAT_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW),
-    {
-      parameters: cleaned.parameters,
-      omitParameters: config.omitParameters
-    }
-  )
-  return {
-    payload,
-    ignoredParameterKeys: cleaned.ignoredParameterKeys,
-    ignoredOmitKeys: Array.from(new Set(ignoredOmitKeys))
-  }
-}
-
-export function buildGenerationGatewayPayloadPreview(config: {
-  basePayload?: Record<string, unknown>
-  parameters: Record<string, unknown>
-  omitParameters: string[]
-}): {
-  payload: Record<string, unknown>
-  ignoredParameterKeys: string[]
-  ignoredOmitKeys: string[]
-} {
-  const cleaned = cleanParameters(
-    config.parameters,
-    GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
-  )
-  const ignoredOmitKeys = stringArray(config.omitParameters).filter((key) =>
-    GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET.has(key.trim())
-  )
-  const payload = applyGenerationGatewayConfig(
-    config.basePayload ??
-      cloneRecord(GENERATION_GATEWAY_RUNTIME_BASE_PAYLOAD_PREVIEW),
     {
       parameters: cleaned.parameters,
       omitParameters: config.omitParameters
@@ -384,46 +213,6 @@ export function mergeGatewayChatConfig(
     )
   }
   gateway.chat = chat
-  nextMetadata.gateway = gateway
-  return nextMetadata
-}
-
-export function mergeGenerationGatewayConfig(
-  metadata: Record<string, unknown> | null | undefined,
-  config: {
-    endpoint?: string
-    payloadProfile?: string
-    parameters?: Record<string, unknown>
-    omitParameters?: string[]
-  }
-): Record<string, unknown> {
-  const nextMetadata = { ...record(metadata) }
-  const gateway = { ...record(nextMetadata.gateway) }
-  const generation = { ...record(gateway.generation) }
-  if (config.endpoint !== undefined) {
-    const endpoint = config.endpoint.trim()
-    if (endpoint) generation.endpoint = endpoint
-    else delete generation.endpoint
-  }
-  if (config.payloadProfile !== undefined) {
-    const payloadProfile = config.payloadProfile.trim()
-    if (payloadProfile) generation.payloadProfile = payloadProfile
-    else delete generation.payloadProfile
-    delete generation.payloadType
-  }
-  if (config.parameters) {
-    generation.parameters = cleanParameters(
-      config.parameters,
-      GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
-    ).parameters
-  }
-  if (config.omitParameters) {
-    generation.omitParameters = cleanKeyList(
-      config.omitParameters,
-      GENERATION_GATEWAY_RESERVED_PAYLOAD_KEY_SET
-    )
-  }
-  gateway.generation = generation
   nextMetadata.gateway = gateway
   return nextMetadata
 }

@@ -4,6 +4,7 @@ import {
   modelCategorySchema,
   modelPricingConfigSchema
 } from '../agent/model-provider.js'
+import { generationPayloadConfigSchema } from '../models/payload.js'
 import { timestampSchema } from '../shared/timestamp.js'
 
 export const userNotificationSettingsSchema = z.object({
@@ -25,7 +26,7 @@ export const generationModelPreferencesSchema = z
   .default({})
 
 export const userApiSettingsSchema = z.object({
-  defaultModel: z.string().default('gpt-image-2'),
+  defaultModel: z.string().default(''),
   defaultQuality: z.string().default('auto'),
   defaultSize: z.string().default('1024x1024'),
   generationModelPreferences: generationModelPreferencesSchema
@@ -40,7 +41,7 @@ export const userSettingsSchema = z.object({
     notifications: { email: true, browser: true }
   }),
   apiSettings: userApiSettingsSchema.default({
-    defaultModel: 'gpt-image-2',
+    defaultModel: '',
     defaultQuality: 'auto',
     defaultSize: '1024x1024',
     generationModelPreferences: {}
@@ -61,7 +62,8 @@ export const userGenerationModelPreferenceModelSchema = z.object({
   displayName: z.string().min(1),
   provider: z.string().min(1).optional(),
   category: modelCategorySchema,
-  pricing: modelPricingConfigSchema,
+  pricing: modelPricingConfigSchema.optional(),
+  payload: generationPayloadConfigSchema,
   isSystemDefault: z.boolean().default(false)
 })
 

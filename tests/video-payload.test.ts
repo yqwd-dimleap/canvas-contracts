@@ -1,310 +1,120 @@
 import { describe, expect, test } from 'bun:test'
 import { isConfiguredVideoGenerationModel } from '../src/agent/model-category.js'
-import { applyGenerationGatewayConfig } from '../src/generation/gateway-config.js'
 import {
   buildConfiguredVideoGenerationPayload,
-  modelRegistry
-} from '../src/models/registry.js'
-import type {
-  VideoGatewayPayload,
-  VideoGenerationParams
-} from '../src/models/types.js'
+  normalizeVideoGenerationParams
+} from '../src/models/generation-payload.js'
+import {
+  buildGenerationPayloadFromConfig,
+  createDefaultGenerationPayloadConfig,
+  mergeGenerationPayloadConfig
+} from '../src/models/payload.js'
 
 const IMAGE_URL = 'https://example.com/input.png'
 const SECOND_IMAGE_URL = 'https://example.com/second.png'
+const VIDEO_MODEL_ID = 'video-model-a'
 
-function buildVideoPayload(
-  params: Partial<VideoGenerationParams> & Pick<VideoGenerationParams, 'model'>
-): VideoGatewayPayload {
-  return modelRegistry.buildVideoPayload({
-    prompt: 'generate a short video',
-    duration: 5,
-    size: '720P',
-    ...params
-  })
-}
-
-describe('video model payloads', () => {
-  test('configured video eligibility requires a payload builder', () => {
+describe('video generation metadata.payload', () => {
+  test('configured video eligibility requires metadata.payload', () => {
     expect(
       isConfiguredVideoGenerationModel('third-party-video-model', {
         modelKind: 'video'
       })
     ).toBe(false)
     expect(
-      isConfiguredVideoGenerationModel('doubao-seedance-2-0-fast-260128', {
-        modelKind: 'video'
+      isConfiguredVideoGenerationModel('third-party-video-model', {
+        modelKind: 'video',
+        payload: createDefaultGenerationPayloadConfig('video')
       })
-    ).toBe(true)
-    expect(
-      isConfiguredVideoGenerationModel('doubao-seedance-2-0-fast-260128')
     ).toBe(true)
   })
 
-  test('configured video payload applies shared defaults and admin generation config', () => {
+  test('normalizes grouped video references without injecting model defaults', () => {
+    const params = normalizeVideoGenerationParams({
+      model: VIDEO_MODEL_ID,
+      prompt: ' generate a short video ',
+      references: {
+        firstImage: IMAGE_URL,
+        images: [IMAGE_URL, SECOND_IMAGE_URL]
+      }
+    })
+
+    expect(params).toMatchObject({
+      model: VIDEO_MODEL_ID,
+      prompt: 'generate a short video',
+      references: {
+        firstImage: IMAGE_URL,
+        images: [IMAGE_URL, SECOND_IMAGE_URL]
+      }
+    })
+    expect(params.input).not.toHaveProperty('duration')
+    expect(params.input).not.toHaveProperty('resolution')
+  })
+
+  test('renders default video payload template from grouped context', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    expect(payload.endpoint).toBe('/v1/videos')
     const configured = buildConfiguredVideoGenerationPayload(
       {
-        model: 'wan2.7-t2v',
-        prompt: 'generate a short video'
-      },
-      {
-        gateway: {
-          generation: {
-            parameters: {
-              projectId: 'must-not-leak',
-              provider_option: 'enabled'
-            },
-            omitParameters: ['model']
-          }
+        model: VIDEO_MODEL_ID,
+        prompt: 'generate a short video',
+        references: {
+          images: [IMAGE_URL, SECOND_IMAGE_URL]
         }
-      }
+      },
+      mergeGenerationPayloadConfig(null, payload)
     )
 
     expect(configured.params).toMatchObject({
-      model: 'wan2.7-t2v',
+      model: VIDEO_MODEL_ID,
       prompt: 'generate a short video',
-      duration: 10,
-      size: '720P',
-      mergeVideoAspectRatio: '16:9',
-      ratio: '16:9',
-      promptExtend: true,
-      watermark: true
+      input: {
+        duration: 5,
+        resolution: '720P',
+        aspectRatio: '16:9'
+      }
     })
     expect(configured.payload).toMatchObject({
-      input: { prompt: 'generate a short video' },
-      parameters: {
-        resolution: '720P',
-        ratio: '16:9',
-        duration: 10,
-        prompt_extend: true,
-        watermark: true
-      },
-      provider_option: 'enabled'
-    })
-    expect(configured.payload).toHaveProperty('model', 'wan2.7-t2v')
-    expect(configured.payload).not.toHaveProperty('projectId')
-  })
-
-  test('wan2.6-i2v sends first-frame URL as input.img_url', () => {
-    const payload = buildVideoPayload({
-      model: 'wan2.6-i2v',
-      imgUrl: IMAGE_URL,
-      mergeReferenceImageUrls: [SECOND_IMAGE_URL],
-      mergeVideoAspectRatio: '16:9',
-      promptExtend: true,
-      watermark: true
-    })
-
-    expect(payload.input).toMatchObject({
+      model: VIDEO_MODEL_ID,
       prompt: 'generate a short video',
-      img_url: IMAGE_URL
-    })
-    expect(payload.input).not.toHaveProperty('media')
-    expect(payload.parameters).toMatchObject({
-      resolution: '720P',
-      ratio: '16:9',
       duration: 5,
-      prompt_extend: true,
-      watermark: true
-    })
-  })
-
-  test('wan2.7-i2v sends first-frame URL as input.media', () => {
-    const payload = buildVideoPayload({
-      model: 'wan2.7-i2v',
-      imgUrl: IMAGE_URL,
-      mergeReferenceImageUrls: [SECOND_IMAGE_URL],
-      mergeVideoAspectRatio: '16:9',
-      promptExtend: true,
-      watermark: true
-    })
-
-    expect(payload.input).toMatchObject({
-      prompt: 'generate a short video',
-      media: [
-        {
-          type: 'first_frame',
-          url: IMAGE_URL
-        }
-      ]
-    })
-    expect(payload.input).not.toHaveProperty('img_url')
-    expect(payload.parameters).toMatchObject({
-      resolution: '720P',
-      ratio: '16:9',
-      duration: 5,
-      prompt_extend: true,
-      watermark: true
-    })
-  })
-
-  test('wan i2v falls back to first_frame referenceMedia', () => {
-    const payload = buildVideoPayload({
-      model: 'wan2.6-i2v',
-      referenceMedia: [
-        {
-          type: 'first_frame',
-          url: IMAGE_URL
-        }
-      ]
-    })
-
-    expect(payload.input).toMatchObject({
-      img_url: IMAGE_URL
-    })
-  })
-
-  test('wan2.7-i2v falls back to first_frame referenceMedia in input.media', () => {
-    const payload = buildVideoPayload({
-      model: 'wan2.7-i2v',
-      referenceMedia: [
-        {
-          type: 'first_frame',
-          url: IMAGE_URL
-        }
-      ]
-    })
-
-    expect(payload.input?.media).toEqual([
-      {
-        type: 'first_frame',
-        url: IMAGE_URL
-      }
-    ])
-    expect(payload.input).not.toHaveProperty('img_url')
-  })
-
-  test('wan2.7-i2v includes driving audio in input.media', () => {
-    const audioUrl = 'https://example.com/rap.mp3'
-    const payload = buildVideoPayload({
-      model: 'wan2.7-i2v',
-      imgUrl: IMAGE_URL,
-      drivingAudioUrl: audioUrl,
-      referenceMedia: [
-        {
-          type: 'driving_audio',
-          url: audioUrl
-        }
-      ]
-    })
-
-    expect(payload.input?.media).toEqual([
-      {
-        type: 'first_frame',
-        url: IMAGE_URL
-      },
-      {
-        type: 'driving_audio',
-        url: audioUrl
-      }
-    ])
-  })
-
-  test('wan i2v rejects missing image input before gateway submission', () => {
-    expect(() =>
-      buildVideoPayload({
-        model: 'wan2.6-i2v'
-      })
-    ).toThrow('wan2.6-i2v requires imgUrl')
-  })
-
-  test.each([
-    'wan2.6-r2v',
-    'wan2.7-r2v'
-  ])('%s keeps multiple reference images in input.media', (model) => {
-    const payload = buildVideoPayload({
-      model,
+      size: '720P',
       imgUrl: IMAGE_URL,
       mergeReferenceImageUrls: [IMAGE_URL, SECOND_IMAGE_URL],
       mergeVideoAspectRatio: '16:9'
     })
+  })
 
-    expect(payload.input?.media).toEqual([
-      {
-        type: 'reference_image',
-        url: IMAGE_URL
+  test('supports provider-specific seedance body templates', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    payload.request.body = {
+      model: '{{model}}',
+      content: '{{helpers.seedance.content}}',
+      resolution: '{{input.resolution}}',
+      ratio: '{{input.aspectRatio}}',
+      duration: '{{input.duration}}',
+      frames: '{{controls.frames}}'
+    }
+
+    const configured = buildGenerationPayloadFromConfig(payload, {
+      model: 'provider-video-model',
+      prompt: 'make this a dynamic wallpaper',
+      references: {
+        images: [IMAGE_URL, SECOND_IMAGE_URL]
       },
-      {
-        type: 'reference_image',
-        url: SECOND_IMAGE_URL
+      controls: {
+        frames: 57
       }
-    ])
-    expect(payload.input).not.toHaveProperty('img_url')
-    expect(payload.parameters).toMatchObject({
+    })
+
+    expect(configured.payload).toMatchObject({
+      model: 'provider-video-model',
+      resolution: '720P',
       ratio: '16:9',
-      duration: 5
+      duration: 5,
+      frames: 57
     })
-  })
-
-  test('happyhorse i2v keeps first-frame image in input.media', () => {
-    const payload = buildVideoPayload({
-      model: 'happyhorse-1.0-i2v',
-      imgUrl: IMAGE_URL
-    })
-
-    expect(payload.input?.media).toEqual([
-      {
-        type: 'first_frame',
-        url: IMAGE_URL
-      }
-    ])
-    expect(payload.input).not.toHaveProperty('img_url')
-  })
-
-  test.each([
-    'kling-v2-1-master',
-    'runway-gen3-alpha-turbo'
-  ])('%s keeps single image-to-video URL in input.img_url', (model) => {
-    const payload = buildVideoPayload({
-      model,
-      imgUrl: IMAGE_URL
-    })
-
-    expect(payload.input).toMatchObject({
-      img_url: IMAGE_URL
-    })
-  })
-
-  test('doubao seedance builds official content task payload', () => {
-    const payload = buildVideoPayload({
-      model: 'doubao-seedance-2-0-260128',
-      imgUrl: IMAGE_URL,
-      mergeReferenceImageUrls: [IMAGE_URL, SECOND_IMAGE_URL],
-      mergeVideoAspectRatio: '16:9',
-      size: '4k',
-      duration: 8,
-      frames: 57,
-      watermark: true,
-      generate_audio: false,
-      service_tier: 'default',
-      return_last_frame: true,
-      execution_expires_after: 3600,
-      priority: 5,
-      safety_identifier: 'user_hash',
-      tools: [{ type: 'web_search' }]
-    })
-
-    expect(payload).toMatchObject({
-      model: 'doubao-seedance-2-0-260128',
-      prompt: 'generate a short video',
-      resolution: '720p',
-      ratio: '16:9',
-      duration: 8,
-      frames: 57,
-      watermark: true,
-      generate_audio: false,
-      return_last_frame: true,
-      service_tier: 'default',
-      execution_expires_after: 3600,
-      priority: 5,
-      safety_identifier: 'user_hash',
-      tools: [{ type: 'web_search' }]
-    })
-    expect(payload.content).toEqual([
-      {
-        type: 'text',
-        text: 'generate a short video'
-      },
+    expect(configured.payload.content).toEqual([
       {
         type: 'image_url',
         image_url: { url: IMAGE_URL }
@@ -312,46 +122,77 @@ describe('video model payloads', () => {
       {
         type: 'image_url',
         image_url: { url: SECOND_IMAGE_URL }
+      },
+      {
+        type: 'text',
+        text: 'make this a dynamic wallpaper'
       }
     ])
   })
 
-  test('generation gateway parameters cannot override dynamic seedance content', () => {
-    const basePayload = buildVideoPayload({
-      model: 'doubao-seedance-2-0-fast-260128',
-      prompt: 'make this a dynamic wallpaper',
-      referenceMedia: [
-        {
-          type: 'first_frame',
-          url: IMAGE_URL
-        }
-      ]
-    }) as Record<string, unknown>
+  test('renders multi-image reference media helpers', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      duration: '{{input.duration}}',
+      metadata: {
+        resolution: '{{input.resolution}}',
+        action: 'referenceGenerate',
+        media: '{{helpers.references.imageMedia}}'
+      }
+    }
 
-    const payload = applyGenerationGatewayConfig(basePayload, {
-      parameters: {
-        content: [
-          {
-            type: 'text',
-            text: 'static metadata content'
-          }
-        ],
-        watermark: false
-      },
-      omitParameters: ['content', 'model']
+    const configured = buildGenerationPayloadFromConfig(payload, {
+      model: 'provider-video-model',
+      prompt: 'make this a dynamic wallpaper',
+      references: {
+        images: [IMAGE_URL, SECOND_IMAGE_URL]
+      }
     })
 
-    expect(payload.model).toBe('doubao-seedance-2-0-fast-260128')
-    expect(payload.watermark).toBe(false)
-    expect(payload.content).toEqual([
-      {
-        type: 'text',
-        text: 'make this a dynamic wallpaper'
-      },
-      {
-        type: 'image_url',
-        image_url: { url: IMAGE_URL }
+    expect(configured.payload).toMatchObject({
+      model: 'provider-video-model',
+      prompt: 'make this a dynamic wallpaper',
+      duration: 5,
+      metadata: {
+        resolution: '720P',
+        action: 'referenceGenerate',
+        media: [
+          {
+            type: 'first_frame',
+            url: IMAGE_URL
+          },
+          {
+            type: 'reference_image',
+            url: SECOND_IMAGE_URL
+          }
+        ]
       }
-    ])
+    })
+  })
+
+  test('required controls fail before gateway submission', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    payload.controls.push({
+      key: 'camera',
+      label: 'Camera',
+      type: 'text',
+      enabled: true,
+      required: true,
+      options: []
+    })
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      camera: '{{controls.camera}}'
+    }
+
+    expect(() =>
+      buildGenerationPayloadFromConfig(payload, {
+        model: 'video-model',
+        prompt: 'generate a short video'
+      })
+    ).toThrow('Generation payload control "camera" is required')
   })
 })

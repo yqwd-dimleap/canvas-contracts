@@ -19,6 +19,31 @@ export const modelsResponseSchema = z.object({
 })
 
 /**
+ * Admin - Delete Models Request
+ * 管理后台：批量删除已配置模型
+ */
+export const deleteModelsRequestSchema = z.object({
+  models: z
+    .array(
+      z.object({
+        provider: z.string().trim().min(1),
+        modelId: z.string().trim().min(1)
+      })
+    )
+    .min(1)
+})
+
+/**
+ * Admin - Delete Models Response
+ * 管理后台：批量删除已配置模型结果
+ */
+export const deleteModelsResponseSchema = z.object({
+  success: z.boolean(),
+  requested: z.number().int().min(0),
+  deleted: z.number().int().min(0)
+})
+
+/**
  * Admin - Model Providers List Response
  * 管理后台：模型提供商列表
  */
@@ -91,6 +116,8 @@ export const agentRuntimeConfigResponseSchema = z.object({
 })
 
 export type ModelsResponse = z.infer<typeof modelsResponseSchema>
+export type DeleteModelsRequest = z.infer<typeof deleteModelsRequestSchema>
+export type DeleteModelsResponse = z.infer<typeof deleteModelsResponseSchema>
 export type ModelProvidersResponse = z.infer<
   typeof modelProvidersResponseSchema
 >
