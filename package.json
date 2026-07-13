@@ -80,7 +80,7 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck && bun run build",
-    "pack:verify": "npm pack --json --silent --pack-destination /tmp > /tmp/canvas-contracts-pack.json && node scripts/verify-package.mjs $(node -p \"const data=JSON.parse(require('fs').readFileSync('/tmp/canvas-contracts-pack.json','utf8')); const path=require('path'); console.log(path.isAbsolute(data[0].filename) ? data[0].filename : path.join('/tmp', data[0].filename))\")",
+    "pack:verify": "npm pack --json --silent --cache /tmp/canvas-contracts-npm-cache --pack-destination /tmp > /tmp/canvas-contracts-pack.json && node scripts/verify-package.mjs $(node -p \"const data=JSON.parse(require('fs').readFileSync('/tmp/canvas-contracts-pack.json','utf8')); const path=require('path'); console.log(path.isAbsolute(data[0].filename) ? data[0].filename : path.join('/tmp', data[0].filename))\")",
     "prepack": "bun run build",
     "prepare": "husky"
   },

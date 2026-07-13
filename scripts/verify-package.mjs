@@ -28,26 +28,6 @@ const requiredExports = [
   './utils'
 ]
 
-const requiredFiles = [
-  'package/package.json',
-  'package/dist/agent/index.js',
-  'package/dist/agent/index.d.ts',
-  'package/dist/agent/canvas-run.js',
-  'package/dist/agent/canvas-run.d.ts',
-  'package/dist/admin/index.js',
-  'package/dist/admin/index.d.ts',
-  'package/dist/billing/index.js',
-  'package/dist/billing/index.d.ts',
-  'package/dist/canvas/index.js',
-  'package/dist/canvas/index.d.ts',
-  'package/dist/canvas/graph.js',
-  'package/dist/canvas/graph.d.ts',
-  'package/dist/models/index.js',
-  'package/dist/models/index.d.ts',
-  'package/dist/storage/index.js',
-  'package/dist/storage/index.d.ts'
-]
-
 function run(command, args) {
   const result = spawnSync(command, args, {
     encoding: 'utf8',
@@ -63,6 +43,22 @@ function run(command, args) {
   return result.stdout
 }
 
+function packageFilePath(value) {
+  if (typeof value !== 'string') return []
+  const path = value.replace(/^\.\//, '')
+  return path ? [`package/${path}`] : []
+}
+
+function exportTargetFiles(entry) {
+  if (typeof entry === 'string') return packageFilePath(entry)
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+  return Object.values(entry).flatMap((value) => exportTargetFiles(value))
+}
+
+function unique(values) {
+  return Array.from(new Set(values))
+}
+
 const listing = new Set(
   run('tar', ['-tf', tarballPath])
     .split('\n')
@@ -70,11 +66,12 @@ const listing = new Set(
     .filter(Boolean)
 )
 
-const missingFiles = requiredFiles.filter((file) => !listing.has(file))
+const requiredBaseFiles = ['package/package.json']
+const missingBaseFiles = requiredBaseFiles.filter((file) => !listing.has(file))
 
-if (missingFiles.length > 0) {
+if (missingBaseFiles.length > 0) {
   console.error('Package tarball is missing required files:')
-  for (const file of missingFiles) {
+  for (const file of missingBaseFiles) {
     console.error(`  - ${file}`)
   }
   process.exit(1)
@@ -94,6 +91,21 @@ if (missingExports.length > 0) {
   console.error('Package tarball is missing required exports:')
   for (const entry of missingExports) {
     console.error(`  - ${entry}`)
+  }
+  process.exit(1)
+}
+
+const requiredFiles = unique([
+  'package/package.json',
+  'package/README.md',
+  ...requiredExports.flatMap((entry) => exportTargetFiles(exportsMap[entry]))
+])
+const missingFiles = requiredFiles.filter((file) => !listing.has(file))
+
+if (missingFiles.length > 0) {
+  console.error('Package tarball is missing required files:')
+  for (const file of missingFiles) {
+    console.error(`  - ${file}`)
   }
   process.exit(1)
 }
