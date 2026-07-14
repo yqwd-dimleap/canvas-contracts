@@ -169,65 +169,35 @@ describe('image generation metadata.payload', () => {
     })
   })
 
-  test('strips retired prompt extension and watermark fields', () => {
+  test('keeps multiple reference images in the rendered payload', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
-    payload.controls.push(
-      {
-        key: 'promptExtend',
-        label: 'Prompt extend',
-        type: 'boolean',
-        enabled: true,
-        required: true,
-        options: [],
-        defaultValue: true
-      },
-      {
-        key: 'watermark',
-        label: 'Watermark',
-        type: 'boolean',
-        enabled: true,
-        required: true,
-        options: [],
-        defaultValue: true
-      }
-    )
     payload.request.body = {
       model: '{{model}}',
       prompt: '{{prompt}}',
-      promptExtend: '{{controls.promptExtend}}',
-      watermark: true,
-      parameters: {
-        watermark: true,
-        style: '{{controls.style}}'
-      }
+      image: '{{references.images}}'
     }
 
     const configured = buildConfiguredImageGenerationPayload(
       {
         model: IMAGE_MODEL_ID,
         prompt: 'generate a clean product render',
-        controls: {
-          promptExtend: false,
-          watermark: false,
-          style: 'editorial'
+        references: {
+          images: [
+            'https://example.com/reference-1.png',
+            'https://example.com/reference-2.png'
+          ]
         }
       },
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.config.controls).not.toContainEqual(
-      expect.objectContaining({ key: 'promptExtend' })
-    )
-    expect(configured.config.controls).not.toContainEqual(
-      expect.objectContaining({ key: 'watermark' })
-    )
-    expect(configured.params.controls).toEqual({ style: 'editorial' })
     expect(configured.payload).toEqual({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
-      parameters: {
-        style: 'editorial'
-      }
+      image: [
+        'https://example.com/reference-1.png',
+        'https://example.com/reference-2.png'
+      ]
     })
   })
 

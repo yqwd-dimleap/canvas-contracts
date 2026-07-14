@@ -4,6 +4,7 @@ import {
   modelCategorySchema,
   modelPricingConfigSchema
 } from '../agent/model-provider.js'
+import { apiSuccessResponseSchema } from '../api/response.js'
 import { generationPayloadConfigSchema } from '../models/payload.js'
 import { timestampSchema } from '../shared/timestamp.js'
 
@@ -97,3 +98,38 @@ export type UserGenerationModelPreferenceRow = z.infer<
 export type UserGenerationModelPreferencesView = z.infer<
   typeof userGenerationModelPreferencesViewSchema
 >
+
+// ── 用户相关端点的标准信封响应 schema ──
+
+/** GET/POST /api/user/settings —— 用户设置。 */
+export const userSettingsApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ settings: userSettingsSchema })
+)
+
+/** GET /api/user/roles —— 当前用户角色列表。 */
+export const userRolesApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ roles: z.array(z.string()) })
+)
+
+/** GET/PATCH /api/user/generation-model-preferences —— 生成模型偏好视图。 */
+export const userGenerationModelPreferencesApiResponseSchema =
+  apiSuccessResponseSchema(
+    z.object({ preferences: userGenerationModelPreferencesViewSchema })
+  )
+
+/** GET /api/user/init-status —— 用户初始化状态。 */
+export const userInitStatusApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    initialized: z.boolean(),
+    userId: z.string(),
+    checks: z.object({ billing: z.boolean(), role: z.boolean() })
+  })
+)
+
+/** POST /api/user/init-status —— 重新初始化结果。 */
+export const userInitRepairApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    success: z.boolean(),
+    message: z.string().optional()
+  })
+)

@@ -25,3 +25,16 @@ export type ApiSuccessResponse<TData> = {
   data: TData
 }
 export type ApiResponse<TData> = ApiSuccessResponse<TData> | ApiErrorResponse
+
+export function apiSuccess<TData>(data: TData): ApiSuccessResponse<TData> {
+  return {
+    ok: true,
+    data
+  }
+}
+
+export function apiError(error: string, details?: unknown): ApiErrorResponse {
+  return details === undefined
+    ? { ok: false, error }
+    : { ok: false, error, details }
+}

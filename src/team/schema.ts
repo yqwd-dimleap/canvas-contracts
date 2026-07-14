@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { apiSuccessResponseSchema } from '../api/response.js'
 import {
   nullableTimestampSchema,
   timestampSchema
@@ -148,3 +149,30 @@ export const updateTeamMemberRoleRequestSchema = z.object({
 export type UpdateTeamMemberRoleRequest = z.infer<
   typeof updateTeamMemberRoleRequestSchema
 >
+
+// ── 标准信封响应 schema（apiSuccess 内层，前端 parseEnvelope 校验用）──
+
+/** GET /api/teams —— 当前用户可见的团队总览。 */
+export const teamOverviewApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ overview: teamOverviewSchema })
+)
+
+/** 单个团队详情：POST /api/teams、GET/:id、接受邀请、成员增删改后统一返回。 */
+export const teamDetailApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ detail: teamDetailSchema })
+)
+
+/** POST /api/teams/:teamId/invites —— 新建邀请。 */
+export const teamInviteApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ invite: teamInviteViewSchema })
+)
+
+/** GET /api/teams/invites/:token —— 邀请预览（公开，无需登录）。 */
+export const teamInvitePreviewApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ preview: teamInvitePreviewSchema })
+)
+
+/** DELETE /api/teams/:teamId/invites/:inviteId —— 撤销邀请。 */
+export const teamRevokeInviteApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ deleted: z.boolean() })
+)

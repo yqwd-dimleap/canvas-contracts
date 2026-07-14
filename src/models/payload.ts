@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-export const generationPayloadMediaTypeSchema = z.enum(['image', 'video'])
+export const generationPayloadMediaTypeSchema = z.enum([
+  'image',
+  'video',
+  'chat'
+])
 
 export const generationPayloadControlTypeSchema = z.enum([
   'text',
@@ -66,6 +70,7 @@ export type GenerationPayloadConfig = z.infer<
 type RuntimeParams = Record<string, unknown> & {
   model: string
   prompt?: string
+  messages?: unknown
   input?: Record<string, unknown>
   controls?: Record<string, unknown>
   references?: Record<string, unknown>
@@ -82,6 +87,7 @@ export type ConfiguredGenerationPayload = {
 export type GenerationTemplateContext = Record<string, unknown> & {
   model: string
   prompt: string
+  messages: unknown[]
   input: Record<string, unknown>
   controls: Record<string, unknown>
   references: Record<string, unknown>
@@ -107,11 +113,7 @@ const VIDEO_DURATION_OPTIONS = [5, 8, 10]
 const VIDEO_SIZE_OPTIONS = ['480P', '720P', '1080P']
 const VIDEO_ASPECT_OPTIONS = ['16:9', '9:16', '1:1']
 const DEFAULT_VIDEO_GENERATION_ENDPOINT = '/v1/videos'
-const REMOVED_GENERATION_CONTROL_KEYS = new Set([
-  'prompt_extend',
-  'promptExtend',
-  'watermark'
-])
+const DEFAULT_CHAT_GENERATION_ENDPOINT = '/chat/completions'
 const IMAGE_INPUT_CONTROL_KEY_MAP = new Map([
   ['size', 'size'],
   ['n', 'n'],
@@ -136,24 +138,23 @@ const VIDEO_INPUT_CONTROL_KEY_MAP = new Map([
   ['quality', 'quality'],
   ['seed', 'seed']
 ])
+const CHAT_INPUT_CONTROL_KEY_MAP = new Map([
+  ['temperature', 'temperature'],
+  ['max_tokens', 'maxTokens'],
+  ['maxTokens', 'maxTokens'],
+  ['max_completion_tokens', 'maxTokens'],
+  ['maxCompletionTokens', 'maxTokens'],
+  ['reasoning_effort', 'reasoningEffort'],
+  ['reasoningEffort', 'reasoningEffort'],
+  ['stream', 'stream'],
+  ['stream_options', 'streamOptions'],
+  ['streamOptions', 'streamOptions']
+])
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
-}
-
-export function isRemovedGenerationControlKey(key: string): boolean {
-  return REMOVED_GENERATION_CONTROL_KEYS.has(key)
-}
-
-export function stripRemovedGenerationControls<
-  T extends Record<string, unknown>
->(controls: T): T {
-  for (const key of REMOVED_GENERATION_CONTROL_KEYS) {
-    delete controls[key]
-  }
-  return controls
 }
 
 function sanitizeGenerationPayloadBodyValue(value: unknown): unknown {
@@ -165,7 +166,6 @@ function sanitizeGenerationPayloadBodyValue(value: unknown): unknown {
     for (const [key, item] of Object.entries(
       value as Record<string, unknown>
     )) {
-      if (isRemovedGenerationControlKey(key)) continue
       next[key] = sanitizeGenerationPayloadBodyValue(item)
     }
     return next
@@ -184,9 +184,7 @@ export function sanitizeGenerationPayloadConfig(
 ): GenerationPayloadConfig {
   return {
     ...config,
-    controls: config.controls.filter(
-      (control) => !isRemovedGenerationControlKey(control.key)
-    ),
+    controls: config.controls,
     request: {
       ...config.request,
       body: sanitizeGenerationPayloadBody(config.request.body)
@@ -240,8 +238,21 @@ function objectArray(value: unknown): Record<string, unknown>[] {
 
 function referenceImagesFromParams(params: RuntimeParams): string[] {
   const references = record(params.references)
+  const mediaUrls = objectArray(references.media)
+    .filter((item) => {
+      const type = typeof item.type === 'string' ? item.type.trim() : ''
+      return (
+        type === 'reference_image' ||
+        type === 'first_frame' ||
+        type === 'last_frame' ||
+        type === 'image'
+      )
+    })
+    .map((item) => (typeof item.url === 'string' ? item.url.trim() : ''))
+    .filter(Boolean)
   return [
     ...stringArray(references.images),
+    ...mediaUrls,
     ...(typeof references.firstImage === 'string'
       ? [references.firstImage]
       : [])
@@ -326,7 +337,6 @@ function defaultsFromControls(
   const defaults: Record<string, unknown> = {}
   for (const control of controls) {
     if (!control.enabled) continue
-    if (isRemovedGenerationControlKey(control.key)) continue
     if (control.type === 'referenceImages') continue
     if ('defaultValue' in control) defaults[control.key] = control.defaultValue
   }
@@ -337,9 +347,9 @@ function inputControlKey(
   mediaType: GenerationPayloadMediaType,
   key: string
 ): string | undefined {
-  return mediaType === 'image'
-    ? IMAGE_INPUT_CONTROL_KEY_MAP.get(key)
-    : VIDEO_INPUT_CONTROL_KEY_MAP.get(key)
+  if (mediaType === 'image') return IMAGE_INPUT_CONTROL_KEY_MAP.get(key)
+  if (mediaType === 'video') return VIDEO_INPUT_CONTROL_KEY_MAP.get(key)
+  return CHAT_INPUT_CONTROL_KEY_MAP.get(key)
 }
 
 function splitControlDefaults(
@@ -373,7 +383,7 @@ function normalizeRuntimeParams(
   }
   const controls = {
     ...defaults.controls,
-    ...stripRemovedGenerationControls(record(params.controls))
+    ...record(params.controls)
   }
   for (const [key, value] of Object.entries({ ...controls })) {
     const inputKey = inputControlKey(config.mediaType, key)
@@ -381,9 +391,11 @@ function normalizeRuntimeParams(
     input[inputKey] = value
     delete controls[key]
   }
+  const messages = compactGenerationValue(params.messages)
   return {
     model: params.model,
     prompt: params.prompt,
+    messages: Array.isArray(messages) ? messages : [],
     input: compactGenerationRecord(input),
     controls: compactGenerationRecord(controls),
     references: compactGenerationRecord(record(params.references)),
@@ -400,7 +412,6 @@ function assertRequiredControlValues(
   const runtimeInput = record(params.input)
   for (const control of controls) {
     if (!control.enabled || !control.required) continue
-    if (isRemovedGenerationControlKey(control.key)) continue
     if (control.type === 'referenceImages') {
       if (referenceImagesFromParams(params).length > 0) continue
       throw new Error(
@@ -503,13 +514,13 @@ export function buildGenerationTemplateContext(
         : images[0]
   })
   const input = compactGenerationRecord(record(params.input))
-  const controls = compactGenerationRecord(
-    stripRemovedGenerationControls(record(params.controls))
-  )
+  const messages = compactGenerationValue(params.messages)
+  const controls = compactGenerationRecord(record(params.controls))
   const system = compactGenerationRecord(record(params.system))
   return {
     model: params.model,
     prompt: typeof params.prompt === 'string' ? params.prompt : '',
+    messages: Array.isArray(messages) ? messages : [],
     input,
     controls,
     references,
@@ -698,74 +709,118 @@ export function createDefaultGenerationPayloadConfig(
             }
           }
         }
-      : {
-          mediaType: 'video',
-          endpoint: DEFAULT_VIDEO_GENERATION_ENDPOINT,
-          controls: [
-            {
-              key: 'duration',
-              label: 'Duration',
-              type: 'select',
-              defaultValue: 5,
-              options: VIDEO_DURATION_OPTIONS
-            },
-            {
-              key: 'size',
-              label: 'Resolution',
-              type: 'select',
-              defaultValue: '720P',
-              options: VIDEO_SIZE_OPTIONS
-            },
-            {
-              key: 'mergeVideoAspectRatio',
-              label: 'Aspect ratio',
-              type: 'select',
-              defaultValue: '16:9',
-              options: VIDEO_ASPECT_OPTIONS
-            },
-            {
-              key: 'referenceImages',
-              label: 'Reference images',
-              type: 'referenceImages'
-            },
-            {
-              key: 'frames',
-              label: 'Frames',
-              type: 'number',
-              min: 1
-            },
-            {
-              key: 'seed',
-              label: 'Seed',
-              type: 'number',
-              min: 0
-            },
-            {
-              key: 'generate_audio',
-              label: 'Generate audio',
-              type: 'boolean'
-            }
-          ],
-          request: {
-            omitEmpty: true,
-            body: {
-              model: '{{model}}',
-              prompt: '{{prompt}}',
-              duration: '{{input.duration}}',
-              seconds: '{{input.seconds}}',
-              size: '{{input.resolution}}',
-              imgUrl: '{{references.firstImage}}',
-              mergeReferenceImageUrls: '{{references.images}}',
-              referenceMedia: '{{references.media}}',
-              mergeClipUrls: '{{references.clips}}',
-              mergeVideoAspectRatio: '{{input.aspectRatio}}',
-              videoEditVideoUrl: '{{references.sourceVideo}}',
-              drivingAudioUrl: '{{references.drivingAudio}}',
-              frames: '{{controls.frames}}',
-              seed: '{{input.seed}}',
-              generate_audio: '{{controls.generate_audio}}'
+      : mediaType === 'video'
+        ? {
+            mediaType: 'video',
+            endpoint: DEFAULT_VIDEO_GENERATION_ENDPOINT,
+            controls: [
+              {
+                key: 'duration',
+                label: 'Duration',
+                type: 'select',
+                defaultValue: 5,
+                options: VIDEO_DURATION_OPTIONS
+              },
+              {
+                key: 'size',
+                label: 'Resolution',
+                type: 'select',
+                defaultValue: '720P',
+                options: VIDEO_SIZE_OPTIONS
+              },
+              {
+                key: 'mergeVideoAspectRatio',
+                label: 'Aspect ratio',
+                type: 'select',
+                defaultValue: '16:9',
+                options: VIDEO_ASPECT_OPTIONS
+              },
+              {
+                key: 'referenceImages',
+                label: 'Reference images',
+                type: 'referenceImages'
+              },
+              {
+                key: 'frames',
+                label: 'Frames',
+                type: 'number',
+                min: 1
+              },
+              {
+                key: 'seed',
+                label: 'Seed',
+                type: 'number',
+                min: 0
+              },
+              {
+                key: 'generate_audio',
+                label: 'Generate audio',
+                type: 'boolean'
+              }
+            ],
+            request: {
+              omitEmpty: true,
+              body: {
+                model: '{{model}}',
+                prompt: '{{prompt}}',
+                duration: '{{input.duration}}',
+                seconds: '{{input.seconds}}',
+                size: '{{input.resolution}}',
+                imgUrl: '{{references.firstImage}}',
+                mergeReferenceImageUrls: '{{references.images}}',
+                referenceMedia: '{{references.media}}',
+                mergeClipUrls: '{{references.clips}}',
+                mergeVideoAspectRatio: '{{input.aspectRatio}}',
+                videoEditVideoUrl: '{{references.sourceVideo}}',
+                drivingAudioUrl: '{{references.drivingAudio}}',
+                frames: '{{controls.frames}}',
+                seed: '{{input.seed}}',
+                generate_audio: '{{controls.generate_audio}}'
+              }
             }
           }
-        }
+        : {
+            mediaType: 'chat',
+            endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
+            controls: [
+              {
+                key: 'temperature',
+                label: 'Temperature',
+                type: 'number',
+                min: 0,
+                max: 2,
+                step: 0.1
+              },
+              {
+                key: 'maxTokens',
+                label: 'Max tokens',
+                type: 'number',
+                min: 1
+              },
+              {
+                key: 'reasoningEffort',
+                label: 'Reasoning effort',
+                type: 'select',
+                options: ['low', 'medium', 'high']
+              },
+              {
+                key: 'stream',
+                label: 'Stream',
+                type: 'boolean'
+              }
+            ],
+            request: {
+              omitEmpty: true,
+              body: {
+                model: '{{model}}',
+                messages: '{{messages}}',
+                temperature: '{{input.temperature}}',
+                max_tokens: '{{input.maxTokens}}',
+                reasoning_effort: '{{input.reasoningEffort}}',
+                stream: '{{input.stream}}',
+                stream_options: '{{input.streamOptions}}'
+              }
+            }
+          }
   return generationPayloadConfigSchema.parse(payload)
 }

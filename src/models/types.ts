@@ -1,6 +1,10 @@
 import type { z } from 'zod'
 import type {
   canvasGenerationTargetSchema,
+  chatGenerationInputSchema,
+  chatGenerationMessagesSchema,
+  chatGenerationParamsSchema,
+  chatGenerationReferencesSchema,
   generationControlsSchema,
   generationSystemSchema,
   imageGenerationInputSchema,
@@ -33,5 +37,13 @@ export type VideoGenerationInput = z.infer<typeof videoGenerationInputSchema>
 export type VideoGenerationReferences = z.infer<
   typeof videoGenerationReferencesSchema
 >
+export type ChatGenerationMessages = z.infer<
+  typeof chatGenerationMessagesSchema
+>
+export type ChatGenerationInput = z.infer<typeof chatGenerationInputSchema>
+export type ChatGenerationReferences = z.infer<
+  typeof chatGenerationReferencesSchema
+>
+export type ChatGenerationParams = z.infer<typeof chatGenerationParamsSchema>
 export type GenerationControls = z.infer<typeof generationControlsSchema>
 export type GenerationSystem = z.infer<typeof generationSystemSchema>

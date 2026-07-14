@@ -1,8 +1,8 @@
 import { z } from 'zod'
+import { apiSuccessResponseSchema } from '../api/response.js'
 import { canvasResourceStorageSchema } from '../canvas/resources/types.js'
+import { timestampSchema } from '../shared/timestamp.js'
 import { workspaceAssetMediaMetadataSchema } from '../storage/workspace-assets.js'
-
-export * from './gateway-config.js'
 
 // ============================================================================
 // Generation Status (single source of truth)
@@ -65,6 +65,12 @@ export const generationTaskSchema = z.object({
   result: generationTaskResultSchema.optional()
 })
 
+export const generationTaskDocumentSchema = generationTaskSchema.extend({
+  projectId: z.string().nullable().optional(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema
+})
+
 export const createGenerationTaskRequestSchema = z.object({
   type: generationTaskTypeSchema,
   documentId: z.string().optional(),
@@ -97,6 +103,17 @@ export const updateGenerationTaskResponseSchema = z.object({
   task: generationTaskSchema.nullable().optional()
 })
 
+export const createGenerationTaskApiResponseSchema =
+  apiSuccessResponseSchema(generationTaskSchema)
+
+export const listGenerationTasksApiResponseSchema = apiSuccessResponseSchema(
+  listGenerationTasksResponseSchema
+)
+
+export const updateGenerationTaskApiResponseSchema = apiSuccessResponseSchema(
+  updateGenerationTaskResponseSchema
+)
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -105,6 +122,9 @@ export type GenerationTaskType = z.infer<typeof generationTaskTypeSchema>
 export type GenerationTaskStatus = z.infer<typeof generationTaskStatusSchema>
 export type GenerationTaskResult = z.infer<typeof generationTaskResultSchema>
 export type GenerationTask = z.infer<typeof generationTaskSchema>
+export type GenerationTaskDocument = z.infer<
+  typeof generationTaskDocumentSchema
+>
 export type CreateGenerationTaskRequest = z.infer<
   typeof createGenerationTaskRequestSchema
 >

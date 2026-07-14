@@ -61,6 +61,36 @@ export const imageGenerationParamsSchema = z
   })
   .strict()
 
+export const chatGenerationMessagesSchema = z
+  .array(z.object({}).passthrough())
+  .default([])
+
+export const chatGenerationInputSchema = z
+  .object({
+    temperature: z.number().optional(),
+    maxTokens: z.number().optional(),
+    reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
+    stream: z.boolean().optional(),
+    streamOptions: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict()
+
+export const chatGenerationReferencesSchema = z
+  .record(z.string(), z.unknown())
+  .default({})
+
+export const chatGenerationParamsSchema = z
+  .object({
+    messages: chatGenerationMessagesSchema.default([]),
+    prompt: z.string().optional(),
+    model: z.string().min(1),
+    input: chatGenerationInputSchema.default({}),
+    controls: generationControlsSchema.default({}),
+    references: chatGenerationReferencesSchema,
+    system: generationSystemSchema.default({})
+  })
+  .strict()
+
 /** 视频参考媒体 */
 export const videoReferenceMediaSchema = z
   .object({

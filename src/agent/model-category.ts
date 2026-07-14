@@ -376,7 +376,11 @@ export function getEffectiveModelCategory(
   extraHints?: GatewayModelKindHints
 ): ModelCategoryId {
   const payload = readGenerationPayloadConfig(metadata)
-  if (payload?.mediaType === 'image' || payload?.mediaType === 'video') {
+  if (
+    payload?.mediaType === 'image' ||
+    payload?.mediaType === 'video' ||
+    payload?.mediaType === 'chat'
+  ) {
     return payload.mediaType
   }
   const raw = metadata?.[AI_MODEL_KIND_METADATA_KEY]

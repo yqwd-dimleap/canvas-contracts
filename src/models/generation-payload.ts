@@ -2,9 +2,9 @@ import {
   buildGenerationPayloadFromConfig,
   compactGenerationRecord,
   type GenerationPayloadConfig,
+  type GenerationPayloadMediaType,
   hasGenerationPayloadConfig,
-  readGenerationPayloadConfig,
-  stripRemovedGenerationControls
+  readGenerationPayloadConfig
 } from './payload.js'
 import type { ImageGenerationParams, VideoGenerationParams } from './types.js'
 import { normalizeVideoGenerationReferenceParams } from './video-reference.js'
@@ -80,9 +80,7 @@ export function normalizeImageGenerationParams(
 
   const input = record(params.input)
   const references = record(params.references)
-  const controls = compactGenerationRecord(
-    stripRemovedGenerationControls(record(params.controls))
-  )
+  const controls = compactGenerationRecord(record(params.controls))
 
   return {
     model,
@@ -132,9 +130,7 @@ export function normalizeVideoGenerationParams(
   if (!prompt) throw new Error('Video prompt is required.')
 
   const input = record(params.input)
-  const controls = compactGenerationRecord(
-    stripRemovedGenerationControls(record(params.controls))
-  )
+  const controls = compactGenerationRecord(record(params.controls))
   const normalized = normalizeVideoGenerationReferenceParams({
     model,
     prompt,
@@ -173,7 +169,7 @@ export type ConfiguredVideoGenerationPayload = {
 }
 
 export function hasGenerationPayloadConfiguration(input: {
-  mediaType: 'image' | 'video'
+  mediaType: GenerationPayloadMediaType
   metadata?: Record<string, unknown> | null
 }): boolean {
   return hasGenerationPayloadConfig(input)

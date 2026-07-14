@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { apiSuccessResponseSchema } from '../../api/response.js'
 import {
   workspaceAssetMetadataSchema,
   workspaceAssetTypeSchema
@@ -74,15 +75,6 @@ export const recentWorkspaceProjectSchema = z.object({
 /**
  * Canvas 画布数据完整结构
  * 存储在 MongoDB project.resources 字段
- *
- * schemaVersion: 2 是当前稳定版本
- * - v1: 已废弃的图结构画布架构
- * - v2: Canvas2D 架构（当前使用）
- *
- * 资产管理说明：
- * - 所有资产通过 project.assets[] 统一管理
- * - canvasDocument.elements[].assetId 引用 assets
- * - 不再使用独立的 resources[] 字段
  */
 export const workspaceProjectCanvasDataSchema = z
   .object({
@@ -142,6 +134,96 @@ export const workspaceProjectSchema = z.object({
   publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
 })
 
+const workspaceProjectRecordSchema = z.record(z.string(), z.unknown())
+
+export const workspaceProjectCreateRequestSchema = z
+  .object({
+    id: z.string().trim().min(1).optional(),
+    title: z.string().optional(),
+    status: z.string().optional(),
+    historyId: z.string().nullable().optional(),
+    previewImage: z.string().optional(),
+    previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
+    runs: z.array(z.unknown()).optional(),
+    session: workspaceProjectRecordSchema.optional(),
+    metadata: workspaceProjectRecordSchema.optional()
+  })
+  .strict()
+
+export const workspaceProjectUpdateRequestSchema = z
+  .object({
+    title: z.string().optional(),
+    status: z.string().optional(),
+    historyId: z.string().nullable().optional(),
+    previewImage: z.string().optional(),
+    previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
+    runs: z.array(z.unknown()).optional(),
+    session: workspaceProjectRecordSchema.optional(),
+    metadata: workspaceProjectRecordSchema.optional(),
+    assets: z.array(workspaceProjectAssetSchema).optional(),
+    publishStatus: z
+      .enum(['none', 'pending_review', 'published', 'rejected'])
+      .optional(),
+    publishSubmittedAt: z.string().optional(),
+    publishReview: workspaceProjectRecordSchema.optional(),
+    publishCoverMediaId: z.string().optional(),
+    publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
+  })
+  .strict()
+
+export const workspaceProjectCanvasUpdateRequestSchema = z
+  .object({
+    resources: workspaceProjectCanvasDataSchema
+  })
+  .strict()
+
+export const workspaceProjectPublishRequestSchema = z
+  .object({
+    useAgentReview: z.boolean().optional(),
+    coverMediaId: z.string().trim().min(1).optional(),
+    coverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
+  })
+  .strict()
+
+export const listWorkspaceProjectsResponseSchema = z.object({
+  projects: z.array(workspaceProjectSchema)
+})
+
+export const getWorkspaceProjectResponseSchema = z.object({
+  project: workspaceProjectSchema
+})
+
+export const recentWorkspaceProjectsResponseSchema = z.object({
+  projects: z.array(recentWorkspaceProjectSchema)
+})
+
+export const workspaceProjectDeleteResponseSchema = z.object({
+  success: z.literal(true)
+})
+
+export const workspaceProjectPublishWithdrawResponseSchema = z.object({
+  success: z.literal(true),
+  status: z.enum(['withdrawn', 'unpublished'])
+})
+
+export const listWorkspaceProjectsApiResponseSchema = apiSuccessResponseSchema(
+  listWorkspaceProjectsResponseSchema
+)
+
+export const workspaceProjectApiResponseSchema = apiSuccessResponseSchema(
+  getWorkspaceProjectResponseSchema
+)
+
+export const recentWorkspaceProjectsApiResponseSchema =
+  apiSuccessResponseSchema(recentWorkspaceProjectsResponseSchema)
+
+export const workspaceProjectDeleteApiResponseSchema = apiSuccessResponseSchema(
+  workspaceProjectDeleteResponseSchema
+)
+
+export const workspaceProjectPublishWithdrawApiResponseSchema =
+  apiSuccessResponseSchema(workspaceProjectPublishWithdrawResponseSchema)
+
 export function parseWorkspaceProjectCanvasData(
   value: unknown
 ): WorkspaceProjectCanvasData {
@@ -186,3 +268,30 @@ export type WorkspaceProjectCanvasData = z.infer<
 
 export type WorkspaceProjectAsset = z.infer<typeof workspaceProjectAssetSchema>
 export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>
+export type WorkspaceProjectCreateRequest = z.infer<
+  typeof workspaceProjectCreateRequestSchema
+>
+export type WorkspaceProjectUpdateRequest = z.infer<
+  typeof workspaceProjectUpdateRequestSchema
+>
+export type WorkspaceProjectCanvasUpdateRequest = z.infer<
+  typeof workspaceProjectCanvasUpdateRequestSchema
+>
+export type WorkspaceProjectPublishRequest = z.infer<
+  typeof workspaceProjectPublishRequestSchema
+>
+export type ListWorkspaceProjectsResponse = z.infer<
+  typeof listWorkspaceProjectsResponseSchema
+>
+export type GetWorkspaceProjectResponse = z.infer<
+  typeof getWorkspaceProjectResponseSchema
+>
+export type RecentWorkspaceProjectsResponse = z.infer<
+  typeof recentWorkspaceProjectsResponseSchema
+>
+export type WorkspaceProjectDeleteResponse = z.infer<
+  typeof workspaceProjectDeleteResponseSchema
+>
+export type WorkspaceProjectPublishWithdrawResponse = z.infer<
+  typeof workspaceProjectPublishWithdrawResponseSchema
+>

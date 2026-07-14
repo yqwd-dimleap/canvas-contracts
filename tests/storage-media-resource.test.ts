@@ -4,10 +4,75 @@ import type { CanvasResource } from '../src/canvas/resources.js'
 import { workspaceProjectCanvasDataSchema } from '../src/canvas/workspace/project.js'
 import {
   compactCanvasDocumentAssetReferences,
+  getImageModelReferenceUrl,
   readCanvasImageOutputResource,
   readCanvasVideoOutputResource,
-  resolveCanvasDocumentAssetReferences
+  resolveCanvasDocumentAssetReferences,
+  workspaceAssetMediaForContext
 } from '../src/storage/workspace-assets.js'
+
+describe('animated image media contexts', () => {
+  const animatedImage = {
+    type: 'image' as const,
+    url: 'https://assets.example.com/source.gif',
+    metadata: {
+      media: {
+        type: 'image' as const,
+        original: {
+          url: 'https://assets.example.com/source.gif',
+          key: 'objects/source.gif',
+          mimeType: 'image/gif',
+          size: 1024
+        },
+        image: {
+          isAnimated: true,
+          model: {
+            url: 'https://imgproxy.example.com/model.webp'
+          },
+          preview: {
+            url: 'https://imgproxy.example.com/preview.avif'
+          },
+          thumbnail: {
+            url: 'https://imgproxy.example.com/thumb.avif'
+          },
+          derivatives: {
+            original: 'https://imgproxy.example.com/original.avif',
+            preview: 'https://imgproxy.example.com/preview.avif',
+            thumb: 'https://imgproxy.example.com/thumb.avif',
+            thumbnails: {
+              w128: 'https://imgproxy.example.com/128.avif',
+              w320: 'https://imgproxy.example.com/320.avif',
+              w640: 'https://imgproxy.example.com/640.avif',
+              w1280: 'https://imgproxy.example.com/1280.avif',
+              w2048: 'https://imgproxy.example.com/2048.avif'
+            }
+          }
+        }
+      }
+    }
+  }
+
+  test('uses the static AVIF only for canvas textures', () => {
+    expect(workspaceAssetMediaForContext(animatedImage, 'canvasTexture')).toBe(
+      'https://imgproxy.example.com/preview.avif'
+    )
+    expect(workspaceAssetMediaForContext(animatedImage, 'canvas')).toBe(
+      'https://assets.example.com/source.gif'
+    )
+    expect(workspaceAssetMediaForContext(animatedImage, 'preview')).toBe(
+      'https://assets.example.com/source.gif'
+    )
+    expect(workspaceAssetMediaForContext(animatedImage, 'thumbnail')).toBe(
+      'https://assets.example.com/source.gif'
+    )
+    expect(workspaceAssetMediaForContext(animatedImage, 'download')).toBe(
+      'https://assets.example.com/source.gif'
+    )
+    expect(getImageModelReferenceUrl(animatedImage)).toBe(
+      'https://assets.example.com/source.gif'
+    )
+  })
+})
 
 describe('canvas media output resource readers', () => {
   test('image output ignores legacy resource url without media metadata or asset', () => {

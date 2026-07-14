@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { apiSuccessResponseSchema } from '../api/response.js'
 import {
   nullableTimestampSchema,
   timestampSchema
@@ -86,3 +87,194 @@ export const creditOperationConfigSchema = z.object({
 })
 
 export type CreditOperationConfig = z.infer<typeof creditOperationConfigSchema>
+
+/** GET /api/admin/credit-operations —— 全部积分操作配置（管理端，完整字段）。 */
+export const adminCreditOperationsApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ operations: z.array(creditOperationConfigSchema) })
+)
+
+/** PATCH /api/admin/credit-operations —— 更新后的单条配置。 */
+export const adminCreditOperationApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ operation: creditOperationConfigSchema })
+)
+
+/**
+ * 积分操作的公开投影：仅暴露展示所需字段，不含 metadata / 时间戳等内部字段。
+ * GET /api/credit-operations（无鉴权）用此形状。
+ */
+export const creditOperationPublicConfigSchema =
+  creditOperationConfigSchema.pick({
+    id: true,
+    label: true,
+    description: true,
+    credits: true,
+    enabled: true
+  })
+
+export type CreditOperationPublicConfig = z.infer<
+  typeof creditOperationPublicConfigSchema
+>
+
+/** GET /api/credit-operations —— 公开积分操作列表（部分字段）。 */
+export const publicCreditOperationsApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ operations: z.array(creditOperationPublicConfigSchema) })
+)
+
+export type PublicCreditOperationsResponse = z.infer<
+  typeof publicCreditOperationsApiResponseSchema
+>['data']
+
+/**
+ * 计费面向前端的业务端点响应 schema。
+ *
+ * 以 canvas-agent billing 路由的实际返回为准（serializeBilling / normalizeOrder /
+ * normalizeUsageEvent），时间戳这里保持后端产出的 ISO 字符串，不做 epoch 归一，
+ * 因为前端计费 UI 直接展示字符串。协议绑定的支付回调（Stripe webhook / 微信 notify）
+ * 不属于业务端点，无 schema。
+ */
+
+/** 用户额度快照：serializeBilling 的产出（不含 metadata/时间戳等实体字段）。 */
+export const billingSnapshotSchema = z.object({
+  plan: z.string(),
+  status: z.string(),
+  credits: z.number(),
+  monthlyCreditLimit: z.number(),
+  renewsAt: z.string().nullable()
+})
+
+export type BillingSnapshot = z.infer<typeof billingSnapshotSchema>
+
+/** usage_event 面向前端的一行流水：normalizeUsageEvent 的产出（createdAt 为 ISO）。 */
+export const usageEventRowSchema = z.object({
+  id: z.string(),
+  userId: z.string().optional(),
+  type: z.string(),
+  modelId: z.string().nullable(),
+  provider: z.string().nullable(),
+  credits: z.number(),
+  costCents: z.number(),
+  requestId: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  createdAt: z.string()
+})
+
+export type UsageEventRow = z.infer<typeof usageEventRowSchema>
+
+/** 支付方式（面向前端的公开视图）：listPublicPaymentMethodsForUser 的单项。 */
+export const publicPaymentMethodSchema = z.object({
+  provider: z.enum(['stripe', 'wechat', 'alipay', 'apple_pay']),
+  displayName: z.string(),
+  checkoutReady: z.boolean(),
+  publishableKey: z.string().optional(),
+  wechatReadiness: z.object({ blockers: z.array(z.string()) }).optional()
+})
+
+export type PublicPaymentMethod = z.infer<typeof publicPaymentMethodSchema>
+
+/** 订单状态（展示型枚举，容忍未知取值降级为 unknown）。 */
+export const paymentOrderStatusSchema = z
+  .enum([
+    'pending',
+    'fulfilling',
+    'paid',
+    'expired',
+    'cancelled',
+    'failed',
+    'unknown'
+  ])
+  .catch('unknown')
+
+/** 支付订单（面向前端）：normalizeOrder 的产出，时间戳为 ISO 字符串。 */
+export const paymentOrderSchema = z.object({
+  orderId: z.string(),
+  userId: z.string(),
+  planId: z.string().optional(),
+  orderKind: z.enum(['subscription', 'credit_pack']).optional(),
+  creditPackId: z.string().optional(),
+  grantCredits: z.number().optional(),
+  amount: z.number().optional(),
+  currency: z.string().optional(),
+  provider: z.string().optional(),
+  status: paymentOrderStatusSchema.optional(),
+  qrCodeUrl: z.string().optional(),
+  checkoutUrl: z.string().optional(),
+  expiresAt: z.string().optional(),
+  paidAt: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  wechatTransactionId: z.string().optional(),
+  stripeSessionId: z.string().optional(),
+  stripeInvoiceId: z.string().optional(),
+  stripeSubscriptionId: z.string().optional(),
+  stripeCustomerId: z.string().optional(),
+  fulfillError: z.string().optional()
+})
+
+export type PaymentOrder = z.infer<typeof paymentOrderSchema>
+
+/** GET /api/billing/me —— 当前用户额度快照。 */
+export const billingMeApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ billing: billingSnapshotSchema })
+)
+
+/** GET /api/billing/usage-events —— 用量流水列表。 */
+export const billingUsageEventsApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ events: z.array(usageEventRowSchema) })
+)
+
+/** GET /api/billing/payment-options —— 可用支付方式与本地开关。 */
+export const paymentOptionsApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    methods: z.array(publicPaymentMethodSchema),
+    localSubscribeEnabled: z.boolean()
+  })
+)
+
+/** GET /api/billing/orders —— 用户订单列表。 */
+export const billingOrdersApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ orders: z.array(paymentOrderSchema) })
+)
+
+/** POST /api/billing/create-checkout-session —— Stripe checkout URL。 */
+export const createCheckoutSessionApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ url: z.string() })
+)
+
+/** POST /api/billing/wechat/create-order —— 微信 Native 下单结果。 */
+export const wechatCreateOrderApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    orderId: z.string(),
+    qrCodeUrl: z.string(),
+    amount: z.number(),
+    expiresAt: z.string().optional(),
+    reused: z.boolean().optional()
+  })
+)
+
+/** POST /api/billing/cancel-order & /wechat/cancel-order —— 取消结果。 */
+export const cancelOrderApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    orderId: z.string(),
+    status: paymentOrderStatusSchema
+  })
+)
+
+/** GET /api/billing/wechat/order-status —— 订单最新状态。 */
+export const wechatOrderStatusApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    orderId: z.string(),
+    status: paymentOrderStatusSchema,
+    amount: z.number().optional(),
+    planId: z.string().optional(),
+    createdAt: z.string().optional(),
+    paidAt: z.string().nullish()
+  })
+)
+
+/** POST /api/billing/local-subscribe & /local-credit-pack —— 本地授予结果。 */
+export const localBillingGrantApiResponseSchema = apiSuccessResponseSchema(
+  z.object({
+    billing: billingSnapshotSchema,
+    grantedCredits: z.number()
+  })
+)

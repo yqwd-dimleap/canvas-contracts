@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { apiSuccessResponseSchema } from '../api/response.js'
 import type {
   CanvasResource,
   CanvasResourceStorage,
@@ -51,8 +52,8 @@ export const workspaceAssetOriginalMediaSchema = z.object({
   key: z.string().min(1),
   mimeType: z.string().min(1),
   size: z.number().int().nonnegative(),
-  width: z.number().positive().optional(),
-  height: z.number().positive().optional(),
+  width: z.number().nonnegative().optional(),
+  height: z.number().nonnegative().optional(),
   viewPath: z.string().min(1).optional(),
   publicUrl: z.string().min(1).optional()
 })
@@ -79,22 +80,22 @@ export const workspaceImageDerivativeMetadataSchema = z.object({
   format: z.literal(WORKSPACE_IMAGE_THUMBNAIL_FORMAT),
   original: z.object({
     url: z.string().min(1),
-    width: z.number().positive().optional(),
-    height: z.number().positive().optional()
+    width: z.number().nonnegative().optional(),
+    height: z.number().nonnegative().optional()
   }),
   derivatives: workspaceImageDerivativesSchema,
   modelReference: z.object({
     url: z.string().min(1),
-    width: z.number().positive().optional(),
-    height: z.number().positive().optional()
+    width: z.number().nonnegative().optional(),
+    height: z.number().nonnegative().optional()
   }),
   preview: z.object({
-    width: z.number().positive().optional(),
-    height: z.number().positive().optional()
+    width: z.number().nonnegative().optional(),
+    height: z.number().nonnegative().optional()
   }),
   thumbnail: z.object({
-    width: z.number().positive().optional(),
-    height: z.number().positive().optional()
+    width: z.number().nonnegative().optional(),
+    height: z.number().nonnegative().optional()
   })
 })
 
@@ -103,23 +104,23 @@ export const workspaceAssetImageMediaSchema = z.object({
   model: z
     .object({
       url: z.string().min(1),
-      width: z.number().positive().optional(),
-      height: z.number().positive().optional(),
+      width: z.number().nonnegative().optional(),
+      height: z.number().nonnegative().optional(),
       format: z.string().optional()
     })
     .optional(),
   preview: z
     .object({
       url: z.string().min(1),
-      width: z.number().positive().optional(),
+      width: z.number().nonnegative().optional(),
       format: z.string().optional()
     })
     .optional(),
   thumbnail: z
     .object({
       url: z.string().min(1),
-      width: z.number().positive().optional(),
-      height: z.number().positive().optional(),
+      width: z.number().nonnegative().optional(),
+      height: z.number().nonnegative().optional(),
       format: z.string().optional()
     })
     .optional(),
@@ -170,6 +171,161 @@ export const workspaceAssetMediaSourcesSchema = z.object({
   derivatives: workspaceImageDerivativesSchema.nullable()
 })
 
+export const WORKSPACE_UPLOAD_MAX_PARTS = 10_000 as const
+
+export const workspaceUploadModeSchema = z.enum(['auto', 'single', 'multipart'])
+
+export const workspaceUploadKindSchema = z.enum(['objects'])
+
+export const workspaceUploadAssetMetadataSchema = z
+  .object({
+    assetId: z.string().min(8).max(128).optional(),
+    name: z.string().max(512).optional(),
+    projectId: z.string().min(1).max(128).nullable().optional(),
+    origin: z.record(z.string(), z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict()
+
+export const workspaceUploadCreateRequestSchema = z
+  .object({
+    filename: z.string().max(512).optional(),
+    contentType: z.string().max(256).optional(),
+    size: z.number().int().nonnegative(),
+    kind: workspaceUploadKindSchema.optional(),
+    mode: workspaceUploadModeSchema.optional(),
+    multipartThresholdBytes: z.number().int().positive().optional()
+  })
+  .strict()
+
+export const workspaceUploadSessionSchema = z.object({
+  key: z.string().min(1),
+  mode: z.enum(['single', 'multipart']),
+  uploadId: z.string().min(1).optional(),
+  uploadUrl: z.string().min(1).optional(),
+  contentType: z.string().min(1),
+  size: z.number().int().nonnegative(),
+  partSize: z.number().int().positive().optional(),
+  partCount: z.number().int().positive().optional(),
+  expiresInSeconds: z.number().int().positive().optional(),
+  viewPath: z.string().min(1),
+  publicUrl: z.string().min(1).optional()
+})
+
+export const workspaceUploadPartRequestSchema = z
+  .object({
+    key: z.string().min(1).max(2048),
+    uploadId: z.string().min(1).max(2048),
+    partNumber: z.number().int().min(1).max(WORKSPACE_UPLOAD_MAX_PARTS)
+  })
+  .strict()
+
+export const workspaceUploadPartResponseSchema = z.object({
+  uploadUrl: z.string().min(1)
+})
+
+export const workspaceUploadMultipartPartSchema = z.object({
+  partNumber: z.number().int().min(1).max(WORKSPACE_UPLOAD_MAX_PARTS),
+  etag: z.string().min(1).max(512)
+})
+
+export const workspaceUploadMultipartCompleteRequestSchema = z
+  .object({
+    key: z.string().min(1).max(2048),
+    uploadId: z.string().min(1).max(2048),
+    parts: z
+      .array(workspaceUploadMultipartPartSchema)
+      .min(1)
+      .max(WORKSPACE_UPLOAD_MAX_PARTS)
+  })
+  .strict()
+
+export const workspaceUploadAbortRequestSchema =
+  workspaceUploadMultipartCompleteRequestSchema.pick({
+    key: true,
+    uploadId: true
+  })
+
+function isSupportedWorkspaceUploadMimeType(value: string): boolean {
+  const normalized = value.split(';')[0]?.trim().toLowerCase() ?? ''
+  return normalized.startsWith('image/') || normalized.startsWith('video/')
+}
+
+export const workspaceUploadCompleteRequestSchema = z
+  .object({
+    key: z.string().min(1).max(2048),
+    uploadId: z.string().min(1).max(2048).optional(),
+    parts: z.array(workspaceUploadMultipartPartSchema).optional(),
+    mimeType: z
+      .string()
+      .min(1)
+      .max(256)
+      .refine(isSupportedWorkspaceUploadMimeType, {
+        message: 'Only image and video assets are supported'
+      }),
+    size: z.number().int().nonnegative(),
+    publicUrl: z.string().url().max(2048).optional(),
+    viewPath: z.string().min(1).max(2048).optional(),
+    asset: workspaceUploadAssetMetadataSchema.optional()
+  })
+  .strict()
+
+export const workspaceUploadCompleteResultSchema = z.object({
+  assetId: z.string().min(1),
+  url: z.string().min(1),
+  asset: workspaceAssetSchema,
+  persisted: z.boolean().default(true),
+  created: z.boolean().default(false)
+})
+
+export const workspaceAssetPatchRequestSchema = z
+  .object({
+    name: z.string().max(512).optional(),
+    projectId: z.string().min(1).max(128).nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict()
+
+export const listWorkspaceAssetsResponseSchema = z.object({
+  assets: z.array(workspaceAssetSchema),
+  hasMore: z.boolean()
+})
+
+export const workspaceAssetResponseSchema = z.object({
+  asset: workspaceAssetSchema
+})
+
+export const workspaceAssetDeleteResponseSchema = z.object({
+  success: z.literal(true)
+})
+
+export const workspaceUploadCreateApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ upload: workspaceUploadSessionSchema })
+)
+
+export const workspaceUploadPartApiResponseSchema = apiSuccessResponseSchema(
+  workspaceUploadPartResponseSchema
+)
+
+export const workspaceUploadAbortApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ success: z.literal(true) })
+)
+
+export const workspaceUploadCompleteApiResponseSchema =
+  apiSuccessResponseSchema(workspaceUploadCompleteResultSchema)
+
+export const listWorkspaceAssetsApiResponseSchema = apiSuccessResponseSchema(
+  listWorkspaceAssetsResponseSchema
+)
+
+export const workspaceAssetApiResponseSchema = apiSuccessResponseSchema(
+  workspaceAssetResponseSchema
+)
+
+export const workspaceAssetDeleteApiResponseSchema = apiSuccessResponseSchema(
+  workspaceAssetDeleteResponseSchema
+)
+
 export type WorkspaceAssetType = z.infer<typeof workspaceAssetTypeSchema>
 export type WorkspaceAssetOriginKind = z.infer<
   typeof workspaceAssetOriginKindSchema
@@ -198,9 +354,54 @@ export type WorkspaceAsset = z.infer<typeof workspaceAssetSchema>
 export type WorkspaceAssetMediaSources = z.infer<
   typeof workspaceAssetMediaSourcesSchema
 >
+export type WorkspaceUploadMode = z.infer<typeof workspaceUploadModeSchema>
+export type WorkspaceUploadKind = z.infer<typeof workspaceUploadKindSchema>
+export type WorkspaceUploadAssetMetadata = z.infer<
+  typeof workspaceUploadAssetMetadataSchema
+>
+export type WorkspaceUploadCreateRequest = z.infer<
+  typeof workspaceUploadCreateRequestSchema
+>
+export type WorkspaceUploadSession = z.infer<
+  typeof workspaceUploadSessionSchema
+>
+export type WorkspaceUploadPartRequest = z.infer<
+  typeof workspaceUploadPartRequestSchema
+>
+export type WorkspaceUploadPartResponse = z.infer<
+  typeof workspaceUploadPartResponseSchema
+>
+export type WorkspaceUploadMultipartPart = z.infer<
+  typeof workspaceUploadMultipartPartSchema
+>
+export type WorkspaceUploadMultipartCompleteRequest = z.infer<
+  typeof workspaceUploadMultipartCompleteRequestSchema
+>
+export type WorkspaceUploadAbortRequest = z.infer<
+  typeof workspaceUploadAbortRequestSchema
+>
+export type WorkspaceUploadCompleteRequest = z.infer<
+  typeof workspaceUploadCompleteRequestSchema
+>
+export type WorkspaceUploadCompleteResult = z.infer<
+  typeof workspaceUploadCompleteResultSchema
+>
+export type WorkspaceAssetPatchRequest = z.infer<
+  typeof workspaceAssetPatchRequestSchema
+>
+export type ListWorkspaceAssetsResponse = z.infer<
+  typeof listWorkspaceAssetsResponseSchema
+>
+export type WorkspaceAssetResponse = z.infer<
+  typeof workspaceAssetResponseSchema
+>
+export type WorkspaceAssetDeleteResponse = z.infer<
+  typeof workspaceAssetDeleteResponseSchema
+>
 
 export type WorkspaceAssetMediaContext =
   | 'canvas'
+  | 'canvasTexture'
   | 'preview'
   | 'thumbnail'
   | 'download'
@@ -569,7 +770,7 @@ export function canvasMediaResourcePreviewUrl(
   if (!resource) return null
   return mediaResourceType(resource) === 'video'
     ? canvasMediaResourceThumbnailUrl(resource)
-    : canvasMediaResourceModelUrl(resource)
+    : canvasMediaResourceUrl(resource, 'preview')
 }
 
 export const canvasResourceModelUrl = canvasMediaResourceModelUrl
@@ -684,6 +885,7 @@ export function canvasMediaResourceModelReferenceUrl(
 ): string | null {
   const media = canvasMediaResourceMetadata(resource)
   if (media?.type !== 'image') return null
+  if (media.image?.isAnimated) return stringValue(media.original.url)
   const url = media.image?.model?.url?.trim()
   return url || null
 }
@@ -1003,10 +1205,11 @@ export function workspaceAssetMediaForContext(
 
   const originalUrl = stringValue(media.original.url)
   const image = media.image
-  if (!image || image.isAnimated) return originalUrl
+  if (!image) return originalUrl
 
   if (context === 'download') return originalUrl
-  if (context === 'canvas') {
+  if (context === 'canvas' || context === 'canvasTexture') {
+    if (image.isAnimated && context !== 'canvasTexture') return originalUrl
     return (
       stringValue(image.preview?.url) ??
       stringValue(image.derivatives?.preview) ??
@@ -1015,6 +1218,7 @@ export function workspaceAssetMediaForContext(
       originalUrl
     )
   }
+  if (image.isAnimated) return originalUrl
   if (context === 'preview') {
     return (
       stringValue(image.preview?.url) ??
