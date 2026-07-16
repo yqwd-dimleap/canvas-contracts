@@ -1,25 +1,10 @@
 # Canvas Contracts
 
-Shared TypeScript and Zod contracts for Canvas frontend and agent services.
+`@yqwd-dimleap/canvas-contracts` 是 Canvas frontend 与 agent 的共享
+TypeScript/Zod 契约包。它是独立仓库和独立发布物；消费方依赖 registry 版本，
+本地联调使用父目录 `link-contracts.sh`，不直接跨仓导入源码。
 
-This package is an independent repository/package. Frontend and backend should depend on a versioned release from the registry, not import source from each other.
-
-## Technology
-
-- TypeScript for static types
-- Zod as runtime schema source
-- ESM subpath exports
-- No framework, database, or UI dependency
-
-## Install
-
-```bash
-bun add @yqwd-dimleap/canvas-contracts
-```
-
-In the parent `canvas-dev` workspace, use `link-contracts.sh` for local integration. Do not change consumer `package.json` to `link:` or workspace references.
-
-## Scripts
+## Commands
 
 ```bash
 bun install
@@ -27,125 +12,104 @@ bun run typecheck
 bun run build
 bun run test
 bun run check
+bun run pack:verify
 ```
 
-## Usage
+修改 `src/` 后先 build，再重新链接并检查两个消费方：
 
-Backend request validation:
+```bash
+cd canvas-contracts && bun run build
+cd .. && ./link-contracts.sh
+cd canvas-frontend && bun run typecheck
+cd ../canvas-agent && bun run typecheck
+```
+
+## Import boundaries
+
+优先使用具体 subpath，不从消费方复制 schema：
 
 ```ts
-import { canvasRunRequestSchema } from '@yqwd-dimleap/canvas-contracts/canvas'
+import {
+  type CanvasDocument,
+  type CanvasOperation,
+  canvasRunRequestSchema,
+} from '@yqwd-dimleap/canvas-contracts/canvas'
 
-const parsed = canvasRunRequestSchema.safeParse(body)
+import {
+  CANVAS_AGENT_LANGGRAPH_ROUTE_PREFIX,
+  agentRuntimeConfigViewSchema,
+} from '@yqwd-dimleap/canvas-contracts/agent'
+
+import {
+  type SystemEvent,
+  systemEventSchema,
+} from '@yqwd-dimleap/canvas-contracts/events'
 ```
 
-Frontend response validation:
-
-```ts
-import { agentRuntimeConfigViewSchema } from '@yqwd-dimleap/canvas-contracts/agent'
-
-const json = await res.json()
-const parsed = agentRuntimeConfigViewSchema.parse(json.data)
-```
-
-Runtime constants:
-
-```ts
-import { CANVAS_AGENT_LANGGRAPH_ROUTE_PREFIX } from '@yqwd-dimleap/canvas-contracts/agent'
-import { CANVAS_AGENT_TOOL_NAMES } from '@yqwd-dimleap/canvas-contracts/canvas'
-```
-
-## Agent Runtime Boundaries
-
-The Canvas Agent contracts intentionally keep one source of truth per runtime
-concern:
-
-- `CanvasRunRequest` is the only cross-service run input shape.
-- `SystemEvent` / `SequencedSystemEvent` is the single runtime event vocabulary.
-- `CanvasAgentUiState` is the backend-projected `values` state consumed by the
-  Canvas Agent panel.
-- LangGraph channel constants describe bridge capability. The panel subscribes
-  to `values` and `custom`, but the bridge still supports `messages`, `tools`,
-  `updates`, `lifecycle`, and `input`.
-- `CanvasEvent` is the outer Redis/SSE/webhook event-bus envelope for async
-  product notifications; it is not a second Agent runtime stream.
-
-Do not add client-owned Agent message reducers, custom `agent.event` websocket
-envelopes, or request fields that duplicate LangGraph/Deep Agents state.
-
-## Package Layout
-
-Each domain has a dedicated subpath export. Importers should prefer specific subpaths over the package root.
+## Package layout
 
 ```txt
 src/
-  admin/       admin console response contracts
-  agent/       LangGraph runtime, model catalog/admin runtime contracts, routes,
-               skills, and suggestions
-  api/         shared API response envelopes
-  artifacts/   artifact contracts
-  auth/        auth/session/permission/user contracts
+  admin/       admin console request/response contracts
+  agent/       LangGraph wire protocol, model/runtime config, skills,
+               suggestions, web search
+  api/         HTTP success/error envelopes
+  artifacts/   artifact schemas
+  auth/        session, permission, user contracts
   billing/     billing and credit schemas
-  canvas/      Canvas v2 核心类型系统
-    core/      核心类型：document, operations, context
-    view/      视图相关：viewport
-    resources/ 资源管理：types, storage
-    agent/     Agent 相关类型：actions, capabilities, prompt, run-state, ui-state
-    events/    Canvas 事件：operations (CanvasOperationEvent, CanvasRuntimeEvent)
-    snapshot/  快照类型
-    workspace/ 工作区项目类型
-  events/      SystemEvent, CanvasEvent, webhook, notification, Redis helpers
-               (re-exports canvas/events/operations for CanvasOperationEvent, CanvasRuntimeEvent)
-  generation/  image/video generation request contracts
-  models/      model registry and endpoint contracts
-  rag/         RAG search request/response contracts
-  storage/     workspace asset and imgproxy contracts
-  team/        team membership schemas
-  shared/      internal helpers, not exported as a subpath
-  utils/       shared utility helpers
+  canvas/
+    core/      CanvasDocument, CanvasOperation, run context
+    resources/ CanvasResource and media metadata
+    agent/     actions, capabilities, prompt, interrupt, run/UI state
+    events/    Canvas operation/runtime events
+    snapshot/  snapshot compression
+    view/      Canvas2D viewport/runtime view
+    workspace/ project and brand-kit schemas
+  events/      SystemEvent, CanvasEvent, Redis/webhook/notification events
+  generation/  image/video payload and generation task contracts
+  models/      model catalog and endpoint contracts
+  rag/         RAG request/response contracts
+  storage/     object storage and imgproxy contracts
+  team/        team membership contracts
+  workspace/   app config, featured work, public work
 ```
 
-### Canvas 类型系统重构（2026-07-09）
+`src/canvas/events/operations.ts` is re-exported by `./events`; there is no
+separate `./canvas/events` package subpath.
 
-Canvas v2 类型已从平铺结构重组为模块化架构：
+## Runtime invariants
 
-**已删除的旧文件：**
-- `canvas/canvas2d.ts` - 移至 `canvas/core/document.ts`
-- `canvas/media.ts` - `CanvasMediaEntry` 已删除（包含 UI state），保留 `CanvasMediaKind`
-- `canvas/compression.ts` - 已删除
-- `canvas/workspace-project.ts` - 移至 `canvas/workspace/`
-- `agent/canvas-*.ts` - 移至 `canvas/agent/`
-- `events/canvas.ts` - 移至 `canvas/events/operations.ts`
+- `CanvasRunRequest` is the cross-service run input.
+- `CanvasDocument`, `CanvasResource` and `CanvasOperation` are the only
+  persisted/cross-service canvas shapes.
+- Canvas Agent action/capability/run/UI contracts are exported by `./canvas`.
+- LangGraph wire shapes are defined once in
+  `agent/langgraph-protocol.ts`; frontend and agent consume them.
+- `SystemEvent` is the Agent run event union.
+- `CanvasEvent` is the outer Redis/SSE/webhook product-event envelope, not a
+  second Agent runtime protocol.
+- `agent.interrupt` pauses a run; `agent.suggestions` does not.
+- Runtime tool events are `tool.start`, `tool.progress`, `tool.result`
+  and `tool.error`.
+- UI positions, Pixi objects, DOM state and renderer internals do not belong in
+  contracts.
 
-**导入边界：**
-- Canvas Agent run/action/UI/capability contracts 统一从 `@yqwd-dimleap/canvas-contracts/canvas` 导入。
-- 通用 Agent runtime/model/admin contracts 从 `@yqwd-dimleap/canvas-contracts/agent` 导入。
-- Canvas operation events 仍由 `@yqwd-dimleap/canvas-contracts/events` 暴露给事件总线消费。
+Do not add React Flow shapes, client-owned message reducers, custom
+`agent.event` envelopes, retired control events, or fields that duplicate
+LangGraph/Deep Agents state.
 
-**前端迁移注意：**
-- `CanvasMediaEntry` 已从 contracts 删除（包含 UI position），前端需自行定义
-- `CanvasMediaKind` 保留在 `canvas/resources/types`
-- React Flow 相关代码已清理，Canvas2D 为唯一画布实现
+## Versioning and release
 
-## Versioning
+- Patch: documentation, comments and non-behavioral refinements.
+- Minor: additive backward-compatible schemas or fields.
+- Major: removed/renamed fields, changed requiredness or changed semantics.
 
-Use semver:
-
-- Patch: docs, comments, non-behavioral type refinements.
-- Minor: additive and backward-compatible fields, routes, or schemas.
-- Major: removed fields, renamed fields, changed requiredness, or changed semantics.
-
-Any API-shape change must be checked against both `canvas-frontend` and `canvas-agent`.
-
-## Release
-
-This package publishes to GitHub Packages. Use the release script:
+Any API-shape change must be checked against both consumers. Releases use:
 
 ```bash
 ./scripts/release.sh
 ./scripts/release.sh publish
 ./scripts/release.sh retry-publish
-./scripts/release.sh --with-changelog
 ```
 
-The script prepares a local version commit and tag, runs `bun run check`, and leaves publishing as an explicit step. See `scripts/README.md` for details.
+See `scripts/README.md` and `CHANGELOG.md`.

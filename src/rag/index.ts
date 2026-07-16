@@ -9,7 +9,7 @@ import { canvasAgentActionSchema } from '../canvas/agent/actions.js'
 export const canvasRecipeFeedbackRequestSchema = z.object({
   recipeId: z.string().min(1),
   intent: z.string().min(1),
-  intentKind: z.enum(['image', 'video', 'storyboard']),
+  intentKind: z.enum(['image', 'video']),
   actions: z.array(canvasAgentActionSchema),
   userRating: z.number().int().min(1).max(5),
   adjustmentCount: z.number().int().min(0),
@@ -30,7 +30,7 @@ export const canvasRecipeFeedbackResponseSchema = apiSuccessResponseSchema(
 
 export const ragSearchCanvasRecipesRequestSchema = z.object({
   query: z.string().min(1),
-  intentKind: z.enum(['image', 'video', 'storyboard']).optional(),
+  intentKind: z.enum(['image', 'video']).optional(),
   topK: z.number().int().min(1).max(20).default(5),
   minScore: z.number().min(0).max(1).default(0.7)
 })

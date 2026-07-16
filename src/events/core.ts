@@ -15,18 +15,14 @@ import { type AgentEvent, agentEventSchema } from './agent.js'
 import { type ArtifactEvent, artifactEventSchema } from './artifact.js'
 import { baseEventSchema } from './base.js'
 import { type RuntimeEvent, runtimeEventSchema } from './runtime.js'
-import { type SystemControlEvent, systemControlEventSchema } from './system.js'
 import { type ToolEvent, toolEventSchema } from './tool.js'
-import { type UserEvent, userEventSchema } from './user.js'
 
 export const systemEventSchema = z.union([
   runtimeEventSchema,
   agentEventSchema,
   toolEventSchema,
   artifactEventSchema,
-  canvasRuntimeEventSchema,
-  userEventSchema,
-  systemControlEventSchema
+  canvasRuntimeEventSchema
 ])
 
 export const sequencedSystemEventSchema = z.object({
@@ -40,8 +36,6 @@ export type SystemEvent =
   | ToolEvent
   | ArtifactEvent
   | CanvasRuntimeEvent
-  | UserEvent
-  | SystemControlEvent
 
 export type SequencedSystemEvent = z.infer<typeof sequencedSystemEventSchema>
 

@@ -5,7 +5,10 @@ import {
   canvasDocumentElementSchema,
   canvasDocumentSchema
 } from '../core/document.js'
-import { canvasAgentCapabilityManifestSchema } from './capabilities.js'
+import {
+  canvasAgentCapabilityManifestSchema,
+  canvasAgentToolIdentifierSchema
+} from './capabilities.js'
 
 /**
  * Canvas Action Ref
@@ -50,8 +53,7 @@ export const canvasIntentKindSchema = z.enum([
   'image_edit', // 图像编辑
   'video', // 视频生成
   'video_edit', // 视频编辑
-  'script', // 脚本规划
-  'storyboard' // 故事板
+  'script' // 脚本规划
 ])
 
 export const canvasAgentCommandKindSchema = z.enum([
@@ -59,7 +61,6 @@ export const canvasAgentCommandKindSchema = z.enum([
   'generate_video',
   'edit_selection',
   'inspect',
-  'storyboard',
   'tool_preference'
 ])
 
@@ -79,7 +80,10 @@ export const canvasAgentCommandSchema = z.object({
   targetDocumentId: z.string().min(1).optional(),
   targetElementIds: z.array(z.string().min(1)).max(64).optional(),
   attachmentIds: z.array(z.string().min(1)).max(24).optional(),
-  preferredToolNames: z.array(z.string().min(1)).max(16).optional(),
+  preferredToolNames: z
+    .array(canvasAgentToolIdentifierSchema)
+    .max(16)
+    .optional(),
   modelPreference: z
     .object({
       modelId: z.string().min(1).optional()

@@ -6,15 +6,13 @@ import {
   canvasAgentSuggestionChoices
 } from './suggestions.js'
 
-export type CanvasAgentLangGraphRuntimeStatus =
-  | 'starting'
-  | 'thinking'
-  | 'streaming'
+export type CanvasAgentActivityPhase =
+  | 'initializing'
+  | 'reasoning'
+  | 'responding'
   | 'tooling'
-  | 'waiting'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+  | 'applying'
+  | 'finalizing'
 
 export type CanvasAgentLangGraphMessage = {
   id: string
@@ -62,7 +60,7 @@ export type CanvasAgentLangGraphCanvasEvent = {
 
 export type CanvasAgentLangGraphRuntime = {
   transport: 'langgraph'
-  status: CanvasAgentLangGraphRuntimeStatus
+  phase: CanvasAgentActivityPhase
   currentActivity?: string
   startedAt?: string
   completedAt?: string
@@ -70,6 +68,7 @@ export type CanvasAgentLangGraphRuntime = {
   messages: CanvasAgentLangGraphMessage[]
   tools: CanvasAgentLangGraphTool[]
   interrupts: CanvasAgentLangGraphInterrupt[]
+  suggestions: CanvasAgentSuggestionChoice[]
   canvasEvents: CanvasAgentLangGraphCanvasEvent[]
 }
 
@@ -298,8 +297,7 @@ function toolNameFromRuntimeEvent(event: SequencedSystemEvent) {
   if (
     runtimeEvent.type === 'tool.progress' ||
     runtimeEvent.type === 'tool.result' ||
-    runtimeEvent.type === 'tool.error' ||
-    runtimeEvent.type === 'tool.cancel'
+    runtimeEvent.type === 'tool.error'
   ) {
     return runtimeEvent.toolId
   }
@@ -312,8 +310,7 @@ function toolIdFromRuntimeEvent(event: SequencedSystemEvent) {
     runtimeEvent.type === 'tool.start' ||
     runtimeEvent.type === 'tool.progress' ||
     runtimeEvent.type === 'tool.result' ||
-    runtimeEvent.type === 'tool.error' ||
-    runtimeEvent.type === 'tool.cancel'
+    runtimeEvent.type === 'tool.error'
   ) {
     return runtimeEvent.toolId
   }
@@ -332,38 +329,34 @@ function upsertById<T extends { id: string }>(
   return updated
 }
 
-function statusFromRuntimeEvent(
+function activityPhaseFromRuntimeEvent(
   event: SequencedSystemEvent,
-  previous: CanvasAgentLangGraphRuntimeStatus | undefined
-): CanvasAgentLangGraphRuntimeStatus {
+  previous: CanvasAgentActivityPhase | undefined
+): CanvasAgentActivityPhase {
   const runtimeEvent = event.event
-  if (runtimeEvent.type === 'run.started') return 'starting'
-  if (runtimeEvent.type === 'agent.thinking') return 'thinking'
+  if (runtimeEvent.type === 'run.started') return 'initializing'
+  if (runtimeEvent.type === 'agent.thinking') return 'reasoning'
   if (
     runtimeEvent.type === 'token.delta' ||
     runtimeEvent.type === 'token.complete'
   ) {
-    return 'streaming'
+    return 'responding'
   }
   if (runtimeEvent.type.startsWith('tool.')) return 'tooling'
   if (
     runtimeEvent.type.startsWith('canvas.') ||
     runtimeEvent.type.startsWith('artifact.')
   ) {
-    return 'tooling'
+    return 'applying'
   }
-  if (runtimeEvent.type === 'agent.interrupt') {
-    return runtimeEvent.needsUserInput ? 'waiting' : (previous ?? 'thinking')
-  }
-  if (runtimeEvent.type === 'run.completed') return 'completed'
   if (
+    runtimeEvent.type === 'run.completed' ||
     runtimeEvent.type === 'run.failed' ||
-    runtimeEvent.type === 'system.error'
+    runtimeEvent.type === 'run.cancelled'
   ) {
-    return 'failed'
+    return 'finalizing'
   }
-  if (runtimeEvent.type === 'run.cancelled') return 'cancelled'
-  return previous ?? 'starting'
+  return previous ?? 'initializing'
 }
 
 function activityFromRuntimeEvent(event: SequencedSystemEvent) {
@@ -377,7 +370,7 @@ function activityFromRuntimeEvent(event: SequencedSystemEvent) {
     return '回复已生成，正在整理结果...'
   }
   if (runtimeEvent.type === 'tool.start') {
-    return `正在执行 ${runtimeEvent.toolName}`
+    return toolActivityLabel(runtimeEvent.toolName)
   }
   if (runtimeEvent.type === 'tool.progress') {
     return runtimeEvent.message || runtimeEvent.stage || '正在处理...'
@@ -397,10 +390,36 @@ function activityFromRuntimeEvent(event: SequencedSystemEvent) {
   if (runtimeEvent.type === 'run.cancelled') {
     return runtimeEvent.reason ?? '已停止本次处理。'
   }
-  if (runtimeEvent.type === 'system.error') {
-    return userFacingCanvasAgentErrorMessage(runtimeEvent.error.message)
-  }
   return undefined
+}
+
+function toolActivityLabel(name: string) {
+  const normalized = name.toLowerCase().replaceAll('.', '_')
+  if (
+    normalized === 'canvas_inspect' ||
+    normalized === 'canvas_inspect_assets' ||
+    normalized === 'canvas2d_inspect_scene' ||
+    normalized === 'canvas2d_inspect_elements' ||
+    normalized === 'canvas2d_inspect_selection'
+  ) {
+    return '正在查看当前内容...'
+  }
+  if (
+    normalized === 'canvas2d_search_recipes' ||
+    normalized === 'prompt_search_templates'
+  ) {
+    return '正在查找参考方案...'
+  }
+  if (normalized === 'canvas2d_submit_plan') {
+    return '正在整理下一步...'
+  }
+  if (normalized === 'canvas2d_request_user_input') {
+    return '正在等待你的确认...'
+  }
+  if (normalized === 'canvas2d_execute_actions') {
+    return '正在应用画布更新...'
+  }
+  return '正在处理...'
 }
 
 function canvasLabelFromRuntimeEvent(event: SequencedSystemEvent) {
@@ -455,7 +474,7 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
   const timestamp = eventTimestamp(event)
   let next: CanvasAgentLangGraphRuntime = {
     transport: 'langgraph',
-    status: statusFromRuntimeEvent(event, existing?.status),
+    phase: activityPhaseFromRuntimeEvent(event, existing?.phase),
     currentActivity:
       activityFromRuntimeEvent(event) ?? existing?.currentActivity,
     startedAt:
@@ -471,6 +490,7 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
     messages: existing?.messages ?? [],
     tools: existing?.tools ?? [],
     interrupts: existing?.interrupts ?? [],
+    suggestions: existing?.suggestions ?? [],
     canvasEvents: existing?.canvasEvents ?? []
   }
 
@@ -584,19 +604,6 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
           12
         )
       }
-    } else if (runtimeEvent.type === 'tool.cancel') {
-      next = {
-        ...next,
-        tools: upsertById(
-          next.tools,
-          {
-            ...base,
-            status: 'cancelled',
-            completedAt: timestamp
-          },
-          12
-        )
-      }
     }
   }
 
@@ -612,7 +619,7 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
           suggestions: canvasAgentSuggestionChoices(
             runtimeEvent.metadata?.suggestions
           ),
-          status: runtimeEvent.needsUserInput ? 'waiting' : 'resolved',
+          status: 'waiting',
           createdAt:
             next.interrupts.find(
               (interrupt) => interrupt.id === runtimeEvent.id
@@ -621,6 +628,13 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
         },
         6
       )
+    }
+  }
+
+  if (runtimeEvent.type === 'agent.suggestions') {
+    next = {
+      ...next,
+      suggestions: canvasAgentSuggestionChoices(runtimeEvent.suggestions)
     }
   }
 
@@ -648,7 +662,12 @@ export function mergeCanvasAgentLangGraphRuntimeEvent(
         tool.status === 'running'
           ? {
               ...tool,
-              status: runtimeEvent.type === 'run.failed' ? 'error' : 'finished',
+              status:
+                runtimeEvent.type === 'run.failed'
+                  ? 'error'
+                  : runtimeEvent.type === 'run.cancelled'
+                    ? 'cancelled'
+                    : 'finished',
               completedAt: tool.completedAt ?? timestamp,
               updatedAt: timestamp
             }

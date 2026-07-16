@@ -1,7 +1,11 @@
 import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../api/response.js'
 import { userBillingSchema } from '../billing/schema.js'
-import { workspaceProjectSchema } from '../canvas/workspace/project.js'
+import {
+  workspaceProjectPublishReviewSchema,
+  workspaceProjectPublishStatusSchema,
+  workspaceProjectSchema
+} from '../canvas/workspace/project.js'
 
 /**
  * Admin Business route response schemas.
@@ -59,6 +63,44 @@ export const adminUsersResponseSchema = z.object({
 export const adminUserPatchResponseSchema = z.object({
   user: userBillingSchema
 })
+
+export const BILLING_PLAN_IDS = ['free', 'pro', 'team'] as const
+export const USER_BILLING_STATUSES = [
+  'active',
+  'canceled',
+  'past_due',
+  'trialing',
+  'incomplete',
+  'incomplete_expired',
+  'unpaid',
+  'paused'
+] as const
+
+export const adminUserPatchRequestSchema = z
+  .object({
+    userId: z.string().min(1),
+    credits: z.number().int().min(0).max(1_000_000_000).optional(),
+    monthlyCreditLimit: z.number().int().min(0).max(1_000_000_000).optional(),
+    plan: z.enum(BILLING_PLAN_IDS).optional(),
+    status: z.enum(USER_BILLING_STATUSES).optional(),
+    roles: z.array(z.string()).optional()
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const hasPatch =
+      value.credits !== undefined ||
+      value.monthlyCreditLimit !== undefined ||
+      value.plan !== undefined ||
+      value.status !== undefined ||
+      value.roles !== undefined
+    if (!hasPatch) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'At least one of credits, monthlyCreditLimit, plan, status, roles is required'
+      })
+    }
+  })
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Orders
@@ -276,11 +318,9 @@ export const adminPublishItemSchema = z.object({
   mediaCount: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  publishStatus: z
-    .enum(['none', 'pending_review', 'published', 'rejected'])
-    .optional(),
+  publishStatus: workspaceProjectPublishStatusSchema.optional(),
   publishSubmittedAt: z.string().nullish(),
-  publishReview: z.record(z.string(), z.unknown()).nullish(),
+  publishReview: workspaceProjectPublishReviewSchema.nullish(),
   publishCoverMediaId: z.string().nullish(),
   publishCoverDimensions: z
     .object({ width: z.number(), height: z.number() })
@@ -291,8 +331,27 @@ export const adminPublishQueueResponseSchema = z.object({
   items: z.array(adminPublishItemSchema)
 })
 
+export const adminPublishActionSchema = z.enum([
+  'approve',
+  'reject',
+  'unpublish',
+  'reset'
+])
+
+export const adminPublishReviewRequestSchema = z
+  .object({
+    projectId: z.string().min(1),
+    action: adminPublishActionSchema,
+    note: z.string().optional()
+  })
+  .strict()
+
+export const adminPublishProjectSchema = workspaceProjectSchema.extend({
+  userId: z.string().min(1)
+})
+
 export const adminPublishDetailResponseSchema = z.object({
-  project: workspaceProjectSchema
+  project: adminPublishProjectSchema
 })
 
 export const adminPublishReviewResultSchema = z.object({
@@ -363,6 +422,7 @@ export const adminPublishReviewApiResponseSchema = apiSuccessResponseSchema(
 // ──────────────────────────────────────────────────────────────────────────────
 
 export type AdminUserRow = z.infer<typeof adminUserRowSchema>
+export type AdminUserPatchRequest = z.infer<typeof adminUserPatchRequestSchema>
 export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>
 export type AdminOrderRow = z.infer<typeof adminOrderRowSchema>
 export type AdminOrdersSummary = z.infer<typeof adminOrdersSummarySchema>
@@ -381,6 +441,11 @@ export type AdminOverview = z.infer<typeof adminOverviewSchema>
 export type AdminAnnouncementRow = z.infer<typeof adminAnnouncementRowSchema>
 export type AdminPaymentConfigRow = z.infer<typeof adminPaymentConfigRowSchema>
 export type AdminPublishItem = z.infer<typeof adminPublishItemSchema>
+export type AdminPublishProject = z.infer<typeof adminPublishProjectSchema>
+export type AdminPublishAction = z.infer<typeof adminPublishActionSchema>
+export type AdminPublishReviewRequest = z.infer<
+  typeof adminPublishReviewRequestSchema
+>
 export type AdminPublishReviewResult = z.infer<
   typeof adminPublishReviewResultSchema
 >

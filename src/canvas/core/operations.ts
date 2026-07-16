@@ -178,13 +178,16 @@ export const batchOperationSchema: z.ZodType<{
   payload: {
     operations: z.infer<typeof canvasOperationBaseSchema>[]
     label?: string
+    /** 同一事务的操作原子应用与合帧渲染的关联 ID。 */
+    transactionId?: string
   }
 }> = z.lazy(() =>
   z.object({
     type: z.literal('batch'),
     payload: z.object({
       operations: z.array(canvasOperationBaseSchema),
-      label: z.string().optional()
+      label: z.string().optional(),
+      transactionId: z.string().optional()
     })
   })
 )

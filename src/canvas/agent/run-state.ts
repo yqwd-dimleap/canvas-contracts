@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import type { SystemEvent } from '../../events/core.js'
 import { canvasAgentActionSchema, canvasIntentKindSchema } from './actions.js'
 
 export const agentRunStatusSchema = z.enum([
   'queued',
   'running',
+  // 运行被 LangGraph interrupt 暂停，等待用户通过 input.respond 恢复
+  'interrupted',
   'completed',
   'failed',
   'cancelled'
@@ -127,6 +130,8 @@ export const agentRunStepSchema = z.object({
 
 export const agentRunSchema = z.object({
   runId: z.string().min(1),
+  turnId: z.string().min(1).optional(),
+  parentRunId: z.string().min(1).optional(),
   traceId: z.string().min(1).optional(),
   projectId: z.string().nullable(),
   intent: z.string().min(1),
@@ -156,3 +161,55 @@ export type AgentExecutionObservation = z.infer<
 >
 export type AgentRunStep = z.infer<typeof agentRunStepSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
+
+export function isAgentRunActiveStatus(status: AgentRunStatus) {
+  return status === 'queued' || status === 'running'
+}
+
+const AGENT_RUN_TRANSITIONS: Record<AgentRunStatus, AgentRunStatus[]> = {
+  queued: ['running', 'failed', 'cancelled'],
+  running: ['interrupted', 'completed', 'failed', 'cancelled'],
+  interrupted: ['cancelled'],
+  completed: [],
+  failed: [],
+  cancelled: []
+}
+
+export function canTransitionAgentRunStatus(
+  current: AgentRunStatus,
+  next: AgentRunStatus
+) {
+  return current === next || AGENT_RUN_TRANSITIONS[current].includes(next)
+}
+
+/**
+ * Agent run 顶层生命周期的唯一事件归约器。
+ *
+ * phase、tool、message、suggestion 等子状态不得在其他位置发明顶层状态转换。
+ */
+export function reduceAgentRunStatus(
+  current: AgentRunStatus,
+  event: SystemEvent
+): AgentRunStatus {
+  let next = current
+  switch (event.type) {
+    case 'run.started':
+      next = 'running'
+      break
+    case 'agent.interrupt':
+      next = 'interrupted'
+      break
+    case 'run.completed':
+      next = event.metadata?.status === 'failed' ? 'failed' : 'completed'
+      break
+    case 'run.failed':
+      next = 'failed'
+      break
+    case 'run.cancelled':
+      next = 'cancelled'
+      break
+    default:
+      return current
+  }
+  return canTransitionAgentRunStatus(current, next) ? next : current
+}

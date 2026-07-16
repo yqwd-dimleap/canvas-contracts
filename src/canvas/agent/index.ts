@@ -1,5 +1,6 @@
 export * from './actions.js'
 export * from './capabilities.js'
+export * from './interrupts.js'
 export * from './prompt.js'
 export * from './run-state.js'
 export * from './ui-state.js'

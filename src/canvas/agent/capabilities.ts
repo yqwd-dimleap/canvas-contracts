@@ -15,8 +15,6 @@ export const canvasAgentActionTypeSchema = z.enum([
   'element.highlight',
   'element.clearHighlight',
   'element.generate',
-  'resource.upsert',
-  'resource.delete',
   'viewport.set',
   'viewport.focus'
 ])
@@ -65,8 +63,7 @@ export const canvasAgentRecipeCapabilitySchema = z
           'image_edit',
           'video',
           'video_edit',
-          'script',
-          'storyboard'
+          'script'
         ])
       )
       .default([]),
@@ -90,13 +87,25 @@ export const canvasAgentToolCategorySchema = z.enum([
   'generation',
   'prompt',
   'memory',
+  'search',
   'review',
   'other'
 ])
 
+/**
+ * OpenAI-compatible function/tool identifier.
+ *
+ * Keep this constraint in contracts so an invalid display-oriented name can
+ * never reach a model provider and fail every conversation at request time.
+ */
+export const canvasAgentToolIdentifierSchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-zA-Z0-9_-]+$/)
+
 export const canvasAgentToolCapabilitySchema = z
   .object({
-    name: z.string().min(1),
+    name: canvasAgentToolIdentifierSchema,
     title: z.string().min(1),
     description: z.string().min(1).optional(),
     category: canvasAgentToolCategorySchema,
@@ -147,8 +156,6 @@ export const DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES = [
     enabled: true,
     metadata: { mediaTypes: ['image', 'video'] }
   },
-  { action: 'resource.upsert', enabled: true },
-  { action: 'resource.delete', enabled: true },
   { action: 'viewport.set', enabled: true },
   { action: 'viewport.focus', enabled: true }
 ] as const
@@ -212,23 +219,47 @@ export const DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES = [
   {
     elementType: 'group',
     title: 'Group',
+    enabled: false,
+    visible: false,
     supportsGeneration: false,
     requiredFields: ['childElementIds'],
-    editableFields: ['childElementIds', 'x', 'y', 'opacity', 'visible']
+    editableFields: ['childElementIds', 'x', 'y', 'opacity', 'visible'],
+    metadata: {
+      unavailableReason:
+        'Canvas2D does not yet implement group hierarchy semantics.'
+    }
   },
   {
     elementType: 'mask',
     title: 'Mask',
+    enabled: false,
+    visible: false,
     supportsGeneration: false,
     requiredFields: ['targetElementId'],
-    editableFields: ['assetId', 'targetElementId', 'mode', 'opacity', 'visible']
+    editableFields: [
+      'assetId',
+      'targetElementId',
+      'mode',
+      'opacity',
+      'visible'
+    ],
+    metadata: {
+      unavailableReason:
+        'Canvas2D does not yet implement persisted mask composition semantics.'
+    }
   },
   {
     elementType: 'adjustment',
     title: 'Adjustment',
+    enabled: false,
+    visible: false,
     supportsGeneration: false,
     requiredFields: ['adjustment', 'value'],
-    editableFields: ['adjustment', 'value', 'opacity', 'visible']
+    editableFields: ['adjustment', 'value', 'opacity', 'visible'],
+    metadata: {
+      unavailableReason:
+        'Canvas2D does not yet define an adjustment target or filter scope.'
+    }
   }
 ] as const
 
@@ -253,16 +284,7 @@ export const DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES = [
     id: 'canvas2d-edit-selection',
     title: 'Edit selection',
     intentKinds: ['image_edit', 'question'],
-    elementTypes: [
-      'raster',
-      'text',
-      'shape',
-      'vector',
-      'path',
-      'group',
-      'mask',
-      'adjustment'
-    ],
+    elementTypes: ['raster', 'text', 'shape', 'vector', 'path'],
     actionTypes: [
       'element.patch',
       'element.reorder',
@@ -293,14 +315,17 @@ export const DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES = [
 ] as const
 
 export const CANVAS_AGENT_TOOL_NAMES = {
-  inspect: 'canvas.inspect',
-  inspectAssets: 'canvas.inspect_assets',
-  inspectCanvas2dScene: 'canvas2d.inspect_scene',
-  inspectCanvas2dElements: 'canvas2d.inspect_elements',
-  inspectCanvas2dSelection: 'canvas2d.inspect_selection',
-  searchCanvas2dRecipes: 'canvas2d.search_recipes',
-  searchPromptTemplates: 'prompt.search_templates',
-  executeActions: 'canvas2d.execute_actions'
+  inspect: 'canvas_inspect',
+  inspectAssets: 'canvas_inspect_assets',
+  inspectCanvas2dScene: 'canvas2d_inspect_scene',
+  inspectCanvas2dElements: 'canvas2d_inspect_elements',
+  inspectCanvas2dSelection: 'canvas2d_inspect_selection',
+  searchCanvas2dRecipes: 'canvas2d_search_recipes',
+  searchPromptTemplates: 'prompt_search_templates',
+  webSearch: 'web_search',
+  submitPlan: 'canvas2d_submit_plan',
+  requestUserInput: 'canvas2d_request_user_input',
+  executeActions: 'canvas2d_execute_actions'
 } as const
 
 export type CanvasAgentToolName =
@@ -445,6 +470,67 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     }
   },
   {
+    name: CANVAS_AGENT_TOOL_NAMES.webSearch,
+    title: 'Search the web',
+    description:
+      'Search current public web sources when up-to-date external information is required.',
+    category: 'search',
+    runtime: 'langchain',
+    permission: 'reference',
+    enabled: true,
+    visible: true,
+    streaming: false,
+    interruptible: true,
+    requiresConfirmation: false,
+    actionTypes: [],
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'reference'
+    }
+  },
+  {
+    name: CANVAS_AGENT_TOOL_NAMES.submitPlan,
+    title: 'Submit Canvas2D plan',
+    description:
+      'Commit the structured run plan (intent, actions, suggestions, questions) for schema validation, immediate canvas projection, and execution.',
+    category: 'canvas',
+    runtime: 'langchain',
+    permission: 'write',
+    enabled: true,
+    visible: false,
+    streaming: false,
+    interruptible: false,
+    requiresConfirmation: false,
+    actionTypes: DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES.map(
+      (item) => item.action
+    ),
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'apply',
+      surface: 'canvas2d'
+    }
+  },
+  {
+    name: CANVAS_AGENT_TOOL_NAMES.requestUserInput,
+    title: 'Request user input',
+    description:
+      'Pause the run with a LangGraph interrupt and wait for the user to answer a clarifying question before continuing.',
+    category: 'canvas',
+    runtime: 'langchain',
+    permission: 'read',
+    enabled: true,
+    visible: false,
+    streaming: false,
+    interruptible: true,
+    requiresConfirmation: false,
+    actionTypes: [],
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'understand',
+      surface: 'canvas2d'
+    }
+  },
+  {
     name: CANVAS_AGENT_TOOL_NAMES.executeActions,
     title: 'Apply Canvas2D changes',
     description:
@@ -460,9 +546,11 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     actionTypes: DEFAULT_CANVAS_AGENT_ACTION_CAPABILITIES.map(
       (item) => item.action
     ),
-    elementTypes: DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES.map(
-      (element) => element.elementType
-    ),
+    elementTypes: DEFAULT_CANVAS_AGENT_ELEMENT_CAPABILITIES.filter(
+      (element) =>
+        !('enabled' in element && element.enabled === false) &&
+        !('visible' in element && element.visible === false)
+    ).map((element) => element.elementType),
     metadata: {
       uiGroup: 'apply',
       executionPath: 'canvas-agent',

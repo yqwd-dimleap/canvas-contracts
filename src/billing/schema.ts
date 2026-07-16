@@ -35,7 +35,6 @@ export const usageEventTypeSchema = z.enum([
   'agent.chat',
   'canvas.run',
   'prompt.improve',
-  'prompt.script_split',
   'image.generation',
   'image.edit',
   'video.generation',
@@ -69,8 +68,7 @@ export const GENERATION_ALLOWED_STATUSES = ['active', 'trialing'] as const
 export const creditOperationIdSchema = z.enum([
   'agent.chat',
   'canvas.run',
-  'prompt.improve',
-  'prompt.script_split'
+  'prompt.improve'
 ])
 
 export type CreditOperationId = z.infer<typeof creditOperationIdSchema>

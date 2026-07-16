@@ -97,25 +97,13 @@ export const toolErrorEventSchema = baseEventSchema.extend({
 export type ToolErrorEvent = z.infer<typeof toolErrorEventSchema>
 
 /**
- * 工具取消事件
- */
-export const toolCancelEventSchema = baseEventSchema.extend({
-  type: z.literal('tool.cancel'),
-  toolId: z.string(),
-  reason: z.string().optional()
-})
-
-export type ToolCancelEvent = z.infer<typeof toolCancelEventSchema>
-
-/**
  * 工具事件联合类型
  */
 export const toolEventSchema = z.discriminatedUnion('type', [
   toolStartEventSchema,
   toolProgressEventSchema,
   toolResultEventSchema,
-  toolErrorEventSchema,
-  toolCancelEventSchema
+  toolErrorEventSchema
 ])
 
 export type ToolEvent =
@@ -123,4 +111,3 @@ export type ToolEvent =
   | ToolProgressEvent
   | ToolResultEvent
   | ToolErrorEvent
-  | ToolCancelEvent

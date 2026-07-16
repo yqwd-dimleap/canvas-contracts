@@ -64,6 +64,93 @@ export const workspaceProjectPreviewDimensionsSchema = z.object({
   height: z.number().positive()
 })
 
+export const workspaceProjectPublishStatusSchema = z.enum([
+  'none',
+  'pending_review',
+  'published',
+  'rejected'
+])
+
+export const workspaceProjectPublishAgentStatusSchema = z.enum([
+  'pass',
+  'flag',
+  'skipped'
+])
+
+export const workspaceProjectPublishReviewSchema = z
+  .object({
+    agentStatus: workspaceProjectPublishAgentStatusSchema
+      .nullish()
+      .transform((value) => value ?? undefined),
+    agentNotes: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
+    agentAt: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
+    humanStatus: z
+      .enum(['approved', 'rejected'])
+      .nullish()
+      .transform((value) => value ?? undefined),
+    humanNote: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
+    humanBy: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined),
+    humanAt: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? undefined)
+  })
+  .loose()
+
+export const workspaceProjectSessionSchema = z
+  .object({
+    prompt: z.string().optional(),
+    imageTransportMode: z.enum(['url', 'base64']).optional(),
+    uploadedImages: z.array(z.unknown()).optional(),
+    urlImages: z.array(z.unknown()).optional(),
+    pendingUrl: z.string().optional(),
+    model: z.string().optional(),
+    quality: z
+      .enum(['auto', 'high', 'medium', 'low'])
+      .optional()
+      .catch(undefined),
+    background: z.string().optional(),
+    outputFormat: z.string().optional(),
+    outputCompression: z.number().optional(),
+    imageCount: z.number().optional(),
+    sizeInputMode: z.enum(['preset', 'custom']).optional(),
+    customSize: z.string().optional(),
+    presetSize: z.string().optional(),
+    isGenerating: z.boolean().optional(),
+    taskStatus: z.string().optional(),
+    generationProgress: z.record(z.string(), z.unknown()).optional(),
+    noticeText: z.string().optional(),
+    activeResultTab: z.string().optional(),
+    previewImageUrls: z.array(z.string()).optional(),
+    previewFallbackText: z.string().optional(),
+    requestJson: z.string().optional(),
+    responseJson: z.string().optional()
+  })
+  .loose()
+
+export const workspaceProjectRunSchema = z.object({
+  id: z.string().optional(),
+  historyId: z.string().nullable().optional(),
+  timestamp: z.number().optional(),
+  status: z.string().optional(),
+  prompt: z.string().optional(),
+  model: z.string().optional(),
+  previewImages: z.array(z.string()).default([]),
+  errorMessage: z.string().optional()
+})
+
 export const recentWorkspaceProjectSchema = z.object({
   id: z.string().min(1),
   title: z.string(),
@@ -116,8 +203,8 @@ export const workspaceProjectSchema = z.object({
   historyId: z.string().nullable(),
   previewImage: z.string(),
   previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
-  runs: z.array(z.unknown()).default([]),
-  session: z.record(z.string(), z.unknown()).default({}),
+  runs: z.array(workspaceProjectRunSchema).default([]),
+  session: workspaceProjectSessionSchema.default({}),
   metadata: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string().or(z.number()),
   updatedAt: z.string().or(z.number()),
@@ -125,11 +212,9 @@ export const workspaceProjectSchema = z.object({
   // Canvas 画布数据
   resources: workspaceProjectCanvasDataSchema.optional(),
   summary: workspaceProjectSummarySchema.optional(),
-  publishStatus: z
-    .enum(['none', 'pending_review', 'published', 'rejected'])
-    .optional(),
+  publishStatus: workspaceProjectPublishStatusSchema.optional(),
   publishSubmittedAt: z.string().optional(),
-  publishReview: z.record(z.string(), z.unknown()).optional(),
+  publishReview: workspaceProjectPublishReviewSchema.optional(),
   publishCoverMediaId: z.string().optional(),
   publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
 })
@@ -144,8 +229,8 @@ export const workspaceProjectCreateRequestSchema = z
     historyId: z.string().nullable().optional(),
     previewImage: z.string().optional(),
     previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
-    runs: z.array(z.unknown()).optional(),
-    session: workspaceProjectRecordSchema.optional(),
+    runs: z.array(workspaceProjectRunSchema).optional(),
+    session: workspaceProjectSessionSchema.optional(),
     metadata: workspaceProjectRecordSchema.optional()
   })
   .strict()
@@ -157,15 +242,13 @@ export const workspaceProjectUpdateRequestSchema = z
     historyId: z.string().nullable().optional(),
     previewImage: z.string().optional(),
     previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
-    runs: z.array(z.unknown()).optional(),
-    session: workspaceProjectRecordSchema.optional(),
+    runs: z.array(workspaceProjectRunSchema).optional(),
+    session: workspaceProjectSessionSchema.optional(),
     metadata: workspaceProjectRecordSchema.optional(),
     assets: z.array(workspaceProjectAssetSchema).optional(),
-    publishStatus: z
-      .enum(['none', 'pending_review', 'published', 'rejected'])
-      .optional(),
+    publishStatus: workspaceProjectPublishStatusSchema.optional(),
     publishSubmittedAt: z.string().optional(),
-    publishReview: workspaceProjectRecordSchema.optional(),
+    publishReview: workspaceProjectPublishReviewSchema.optional(),
     publishCoverMediaId: z.string().optional(),
     publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
   })
@@ -173,7 +256,12 @@ export const workspaceProjectUpdateRequestSchema = z
 
 export const workspaceProjectCanvasUpdateRequestSchema = z
   .object({
-    resources: workspaceProjectCanvasDataSchema
+    resources: workspaceProjectCanvasDataSchema,
+    /**
+     * Cloud resources.updatedAt observed before the local edit started.
+     * `null` means the client observed no cloud Canvas snapshot.
+     */
+    baseRevision: z.number().nullable().optional()
   })
   .strict()
 
@@ -255,6 +343,19 @@ export type WorkspaceProjectSummary = z.infer<
 export type WorkspaceProjectPreviewDimensions = z.infer<
   typeof workspaceProjectPreviewDimensionsSchema
 >
+export type WorkspaceProjectPublishStatus = z.infer<
+  typeof workspaceProjectPublishStatusSchema
+>
+export type WorkspaceProjectPublishAgentStatus = z.infer<
+  typeof workspaceProjectPublishAgentStatusSchema
+>
+export type WorkspaceProjectPublishReview = z.infer<
+  typeof workspaceProjectPublishReviewSchema
+>
+export type WorkspaceProjectSession = z.infer<
+  typeof workspaceProjectSessionSchema
+>
+export type WorkspaceProjectRun = z.infer<typeof workspaceProjectRunSchema>
 export type RecentWorkspaceProject = z.infer<
   typeof recentWorkspaceProjectSchema
 >

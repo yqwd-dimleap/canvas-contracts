@@ -29,7 +29,6 @@ export const promptTextContentKindSchema = z.enum([
   'image_prompt',
   'video_prompt',
   'script',
-  'storyboard',
   'ui_copy'
 ])
 

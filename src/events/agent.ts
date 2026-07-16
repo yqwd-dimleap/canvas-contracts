@@ -39,7 +39,7 @@ export const agentInterruptEventSchema = baseEventSchema.extend({
   type: z.literal('agent.interrupt'),
   agentId: z.string(),
   reason: z.string(),
-  needsUserInput: z.boolean().default(false),
+  needsUserInput: z.literal(true),
   metadata: z
     .object({
       suggestions: canvasAgentSuggestionsSchema.optional()
@@ -49,6 +49,21 @@ export const agentInterruptEventSchema = baseEventSchema.extend({
 })
 
 export type AgentInterruptEvent = z.infer<typeof agentInterruptEventSchema>
+
+/**
+ * Agent 完成当前回合后给出的非阻塞后续建议。
+ *
+ * 该事件绝不改变 run 生命周期；需要暂停并等待用户回答时必须使用
+ * `agent.interrupt`。
+ */
+export const agentSuggestionsEventSchema = baseEventSchema.extend({
+  type: z.literal('agent.suggestions'),
+  agentId: z.string(),
+  reason: z.string().optional(),
+  suggestions: canvasAgentSuggestionsSchema
+})
+
+export type AgentSuggestionsEvent = z.infer<typeof agentSuggestionsEventSchema>
 
 /**
  * Token / 内容 delta 事件
@@ -88,6 +103,7 @@ export const agentEventSchema = z.discriminatedUnion('type', [
   agentThinkingEventSchema,
   agentSwitchEventSchema,
   agentInterruptEventSchema,
+  agentSuggestionsEventSchema,
   tokenDeltaEventSchema,
   tokenCompleteEventSchema
 ])
@@ -96,5 +112,6 @@ export type AgentEvent =
   | AgentThinkingEvent
   | AgentSwitchEvent
   | AgentInterruptEvent
+  | AgentSuggestionsEvent
   | TokenDeltaEvent
   | TokenCompleteEvent
