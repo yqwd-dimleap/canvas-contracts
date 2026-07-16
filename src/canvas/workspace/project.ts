@@ -9,6 +9,7 @@ import {
   CANVAS2D_DEFAULT_WORKSPACE_VIEW,
   canvas2dWorkspaceViewSchema
 } from '../view/canvas2d.js'
+import { normalizeProjectCanvasConversations } from './conversation.js'
 
 export const workspaceProjectSummaryMediaSourceSchema = z.enum([
   'cover',
@@ -167,7 +168,13 @@ export const workspaceProjectCanvasDataSchema = z
   .object({
     schemaVersion: z.literal(2).default(2),
     canvasDocument: canvasDocumentSchema.nullable().default(null),
-    conversations: z.array(z.unknown()).default([]),
+    // Tolerant, typed conversation persistence. Invalid rows are dropped and
+    // messages normalized on every read/PATCH so a single bad entry can never
+    // 409 the whole canvas. Shape owned by ./conversation.ts (single source).
+    conversations: z
+      .array(z.unknown())
+      .default([])
+      .transform((value) => normalizeProjectCanvasConversations(value)),
     activeConversationId: z.string().nullable().default(null),
     canvas2d: canvas2dWorkspaceViewSchema.default(() => ({
       ...CANVAS2D_DEFAULT_WORKSPACE_VIEW,
