@@ -1,8 +1,10 @@
 export {
-  type CanvasOperationEvent,
   type CanvasRuntimeEvent,
-  canvasOperationEventSchema,
-  canvasRuntimeEventSchema
+  type CanvasTransactionEvent,
+  type CanvasTransientEffectEvent,
+  canvasRuntimeEventSchema,
+  canvasTransactionEventSchema,
+  canvasTransientEffectEventSchema
 } from '../canvas/events/operations.js'
 export * from './agent.js'
 export * from './artifact.js'

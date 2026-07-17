@@ -1,102 +1,372 @@
-export const CANVAS_AGENT_PROTOCOL_VERSION = 'v2' as const
-
-export const CANVAS_AGENT_ASSISTANT_ID = 'canvas-agent' as const
-
-export const CANVAS_AGENT_GRAPH_NAME = 'canvas-agent' as const
-
-export const CANVAS_AGENT_LANGGRAPH_ROUTE_PREFIX =
-  '/api/agent/canvas/v2' as const
-
-export const CANVAS_AGENT_LANGGRAPH_STREAM_PROTOCOL = 'v2-websocket' as const
+import { z } from 'zod'
+import { artifactSchema } from '../artifacts/index.js'
+import {
+  canvasMutationReceiptSchema,
+  canvasMutationTransactionSchema,
+  canvasTransientEffectSchema
+} from '../canvas/core/mutations.js'
+import { canvasAgentSuggestionsSchema } from './suggestions.js'
 
 /**
- * Channels supported by the Canvas LangGraph bridge.
- *
- * This is the protocol capability surface exposed to LangGraph SDK clients.
- * Do not shrink this list to the Canvas panel subscription surface: messages,
- * tools, updates, lifecycle, input, custom, and values are all bridge-level
- * capabilities.
+ * Application protocol version. This is independent from the npm package
+ * version and stays on the established Canvas Agent v2 wire baseline.
  */
+export const CANVAS_AGENT_PROTOCOL_VERSION = 'v2' as const
+export const CANVAS_AGENT_ASSISTANT_ID = 'canvas-agent' as const
+export const CANVAS_AGENT_GRAPH_NAME = 'canvas-agent' as const
+export const CANVAS_AGENT_LANGGRAPH_ROUTE_PREFIX =
+  '/api/agent/canvas/v2' as const
+export const CANVAS_AGENT_LANGGRAPH_STREAM_PROTOCOL = 'v2-websocket' as const
+
 export const CANVAS_AGENT_LANGGRAPH_SUPPORTED_CHANNELS = [
   'lifecycle',
   'messages',
-  'tools',
-  'updates',
-  'custom',
-  'values',
-  'input'
-] as const
-
-/**
- * Channels consumed by the Canvas Agent panel.
- *
- * `values` carries backend-projected UI state snapshots as sync anchors —
- * emitted on subscribe and on non-token events only. Token streaming rides the
- * incremental `messages` channel (message-start / content-block-delta /
- * content-block-finish), so a long reply never re-serializes the full state
- * per token. `custom` carries canvas side effects (canvas.operation).
- */
-export const CANVAS_AGENT_LANGGRAPH_UI_CHANNELS = [
-  'values',
-  'messages',
-  'custom'
-] as const
-
-export const CANVAS_AGENT_LANGGRAPH_DEFAULT_CHANNELS =
-  CANVAS_AGENT_LANGGRAPH_SUPPORTED_CHANNELS
-
-export const CANVAS_AGENT_LANGGRAPH_CUSTOM_CHANNELS = [
+  'input',
+  'custom:activity',
   'custom:canvas',
   'custom:artifact'
 ] as const
 
-export const CANVAS_AGENT_LANGGRAPH_REPLAY_CHANNELS = ['values'] as const
+export const CANVAS_AGENT_LANGGRAPH_UI_CHANNELS =
+  CANVAS_AGENT_LANGGRAPH_SUPPORTED_CHANNELS
+export const CANVAS_AGENT_LANGGRAPH_DEFAULT_CHANNELS =
+  CANVAS_AGENT_LANGGRAPH_SUPPORTED_CHANNELS
+export const CANVAS_AGENT_LANGGRAPH_CUSTOM_CHANNELS = [
+  'custom:activity',
+  'custom:canvas',
+  'custom:artifact'
+] as const
+export const CANVAS_AGENT_LANGGRAPH_REPLAY_CHANNELS = [] as const
 
 export type CanvasAgentLangGraphDefaultChannel =
   (typeof CANVAS_AGENT_LANGGRAPH_DEFAULT_CHANNELS)[number]
-
 export type CanvasAgentLangGraphSupportedChannel =
   (typeof CANVAS_AGENT_LANGGRAPH_SUPPORTED_CHANNELS)[number]
-
 export type CanvasAgentLangGraphUiChannel =
   (typeof CANVAS_AGENT_LANGGRAPH_UI_CHANNELS)[number]
-
 export type CanvasAgentLangGraphCustomChannel =
   (typeof CANVAS_AGENT_LANGGRAPH_CUSTOM_CHANNELS)[number]
 
-export type CanvasAgentLangGraphReplayChannel =
-  (typeof CANVAS_AGENT_LANGGRAPH_REPLAY_CHANNELS)[number]
+export const canvasAgentRunLifecycleStatusSchema = z.enum([
+  'queued',
+  'running',
+  'interrupted',
+  'completed',
+  'failed',
+  'cancelled'
+])
 
-/**
- * LangGraph 协议桥的线格式事件（server → client）。
- *
- * 单一真相源：前端订阅循环与后端桥都以此为准，
- * 不要在消费方各自手写宽松类型。
- */
-export type CanvasAgentLangGraphProtocolEvent = {
-  type: 'event'
-  event_id?: string
-  seq?: number
-  method: string
-  params: {
-    namespace?: string[]
-    timestamp?: number
-    data?: unknown
-    [key: string]: unknown
-  }
-}
+export const canvasAgentActivitySchema = z
+  .object({
+    id: z.string().trim().min(1),
+    kind: z.enum([
+      'preparing',
+      'inspecting_canvas',
+      'planning',
+      'searching',
+      'generating_media',
+      'editing_canvas',
+      'finalizing'
+    ]),
+    title: z.string().trim().min(1).max(160),
+    status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+    startedAt: z.string().datetime().optional(),
+    completedAt: z.string().datetime().optional(),
+    detail: z.string().trim().min(1).max(500).optional(),
+    progress: z.number().min(0).max(100).optional()
+  })
+  .strict()
 
-/** messages 通道的消息流事件（message-start / delta / finish）。 */
-export type CanvasAgentLangGraphMessageStreamData = {
-  event?: string
-  id?: string
-  role?: string
-  index?: number
-  delta?: { type?: string; text?: string }
-  content?: { type?: string; text?: string }
-}
+export const canvasAgentInterruptSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    kind: z.enum(['clarification', 'canvas_conflict']),
+    title: z.string().trim().min(1).max(160),
+    prompt: z.string().trim().min(1).max(2_000),
+    options: z
+      .array(
+        z
+          .object({
+            value: z.string().trim().min(1),
+            label: z.string().trim().min(1).max(120),
+            description: z.string().trim().min(1).max(240).optional()
+          })
+          .strict()
+      )
+      .max(8)
+      .default([]),
+    createdAt: z.string().datetime()
+  })
+  .strict()
 
-/** state.get / GET thread state 响应中前端消费的最小形状。 */
-export type CanvasAgentLangGraphThreadStateResponse = {
-  values?: unknown
-}
+export const canvasAgentStreamMessageSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    role: z.enum(['user', 'assistant']),
+    runId: z.string().trim().min(1).optional(),
+    content: z.string(),
+    status: z.enum(['pending', 'streaming', 'completed', 'failed']),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime()
+  })
+  .strict()
+
+export const canvasAgentArtifactRefSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    type: z.string().trim().min(1),
+    status: z.string().trim().min(1),
+    title: z.string().trim().min(1).optional()
+  })
+  .strict()
+
+const frameFields = {
+  type: z.literal('event'),
+  event_id: z.string().trim().min(1),
+  seq: z.number().int().nonnegative(),
+  run_id: z.string().trim().min(1),
+  thread_id: z.string().trim().min(1)
+} as const
+
+const rootNamespaceSchema = z.tuple([])
+
+export const canvasAgentLifecycleFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('lifecycle'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z
+          .object({
+            event: z.enum([
+              'started',
+              'running',
+              'interrupted',
+              'completed',
+              'failed'
+            ]),
+            status: canvasAgentRunLifecycleStatusSchema,
+            error: z.string().trim().min(1).optional()
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentMessageFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('messages'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z.discriminatedUnion('event', [
+          z
+            .object({
+              event: z.literal('message.start'),
+              message: canvasAgentStreamMessageSchema
+            })
+            .strict(),
+          z
+            .object({
+              event: z.literal('message.delta'),
+              messageId: z.string().trim().min(1),
+              delta: z.string().min(1)
+            })
+            .strict(),
+          z
+            .object({
+              event: z.literal('message.finish'),
+              message: canvasAgentStreamMessageSchema
+            })
+            .strict()
+        ])
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentInputFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('input.requested'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z
+          .object({
+            interrupt_id: z.string().trim().min(1),
+            payload: canvasAgentInterruptSchema
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentActivityFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('custom'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z
+          .object({
+            name: z.literal('activity'),
+            payload: z.discriminatedUnion('event', [
+              z
+                .object({
+                  event: z.literal('activity.upsert'),
+                  activity: canvasAgentActivitySchema
+                })
+                .strict(),
+              z
+                .object({
+                  event: z.literal('suggestions.replace'),
+                  suggestions: canvasAgentSuggestionsSchema
+                })
+                .strict()
+            ])
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentCanvasFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('custom'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z
+          .object({
+            name: z.literal('canvas'),
+            payload: z.discriminatedUnion('event', [
+              z
+                .object({
+                  event: z.literal('transaction.committed'),
+                  transaction: canvasMutationTransactionSchema,
+                  receipt: canvasMutationReceiptSchema
+                })
+                .strict(),
+              z
+                .object({
+                  event: z.literal('effect'),
+                  effect: canvasTransientEffectSchema
+                })
+                .strict()
+            ])
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentArtifactFrameSchema = z
+  .object({
+    ...frameFields,
+    method: z.literal('custom'),
+    params: z
+      .object({
+        namespace: rootNamespaceSchema,
+        timestamp: z.string().datetime(),
+        data: z
+          .object({
+            name: z.literal('artifact'),
+            payload: z.discriminatedUnion('event', [
+              z
+                .object({
+                  event: z.literal('artifact.upsert'),
+                  artifact: artifactSchema
+                })
+                .strict(),
+              z
+                .object({
+                  event: z.literal('artifact.delete'),
+                  artifactId: z.string().trim().min(1)
+                })
+                .strict()
+            ])
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict()
+
+export const canvasAgentLangGraphProtocolEventSchema = z.union([
+  canvasAgentLifecycleFrameSchema,
+  canvasAgentMessageFrameSchema,
+  canvasAgentInputFrameSchema,
+  canvasAgentActivityFrameSchema,
+  canvasAgentCanvasFrameSchema,
+  canvasAgentArtifactFrameSchema
+])
+
+export const canvasAgentThreadSnapshotSchema = z
+  .object({
+    protocolVersion: z.literal(CANVAS_AGENT_PROTOCOL_VERSION),
+    projectId: z.string().trim().min(1),
+    threadId: z.string().trim().min(1),
+    currentRun: z
+      .object({
+        runId: z.string().trim().min(1),
+        status: canvasAgentRunLifecycleStatusSchema,
+        startedAt: z.string().datetime().optional(),
+        completedAt: z.string().datetime().optional()
+      })
+      .strict()
+      .nullable(),
+    assistantMessage: canvasAgentStreamMessageSchema.nullable(),
+    activities: z.array(canvasAgentActivitySchema),
+    interrupt: canvasAgentInterruptSchema.nullable(),
+    suggestions: canvasAgentSuggestionsSchema,
+    artifacts: z.array(canvasAgentArtifactRefSchema),
+    appliedThroughSeq: z.number().int().min(-1),
+    canvasRevision: z.number().int().nonnegative()
+  })
+  .strict()
+
+export const canvasAgentLangGraphThreadStateResponseSchema = z
+  .object({
+    values: canvasAgentThreadSnapshotSchema,
+    // LangGraph SDK ThreadState envelope. Canvas materializes interrupts and
+    // lifecycle inside values, so graph checkpoint/task fields stay empty.
+    next: z.array(z.never()).length(0),
+    tasks: z.array(z.never()).length(0),
+    metadata: z.object({}).strict(),
+    checkpoint: z.null(),
+    parent_checkpoint: z.null(),
+    created_at: z.null()
+  })
+  .strict()
+
+export type CanvasAgentActivity = z.infer<typeof canvasAgentActivitySchema>
+export type CanvasAgentInterrupt = z.infer<typeof canvasAgentInterruptSchema>
+export type CanvasAgentStreamMessage = z.infer<
+  typeof canvasAgentStreamMessageSchema
+>
+export type CanvasAgentArtifactRef = z.infer<
+  typeof canvasAgentArtifactRefSchema
+>
+export type CanvasAgentLangGraphProtocolEvent = z.infer<
+  typeof canvasAgentLangGraphProtocolEventSchema
+>
+export type CanvasAgentThreadSnapshot = z.infer<
+  typeof canvasAgentThreadSnapshotSchema
+>
+export type CanvasAgentLangGraphThreadStateResponse = z.infer<
+  typeof canvasAgentLangGraphThreadStateResponseSchema
+>

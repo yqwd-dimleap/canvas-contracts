@@ -1,165 +1,130 @@
 import type { CanvasDocument, CanvasDocumentElement } from './document.js'
-import {
-  canvasDocumentElementSchema,
-  canvasDocumentSchema
-} from './document.js'
-import type { CanvasOperation } from './operations.js'
+import type { CanvasMutation, CanvasMutationTransaction } from './mutations.js'
 
-/**
- * Pure `CanvasOperation → CanvasDocument` reducer.
- *
- * This is the single implementation of how agent-emitted canvas operations
- * materialize into a persisted `CanvasDocument`. The frontend store and the
- * canvas-agent terminal write-back both fold operations through it, so the
- * document a closed tab reloads from the cloud is identical to what a live
- * client would have produced.
- *
- * Only operations that change durable document content are handled:
- * `document.*`, `element.add|patch|delete|reorder`, and `batch`. Ephemeral
- * runtime operations (`element.status|generationProgress|highlight|
- * clearHighlight|select`, `viewport.*`) carry no persisted document state and
- * return the document unchanged.
- */
-export function applyCanvasOperationToDocument(
-  document: CanvasDocument | null,
-  operation: CanvasOperation,
-  options: { now?: number } = {}
-): CanvasDocument | null {
-  const now = options.now ?? Date.now()
-
-  switch (operation.type) {
-    case 'batch':
-      return operation.payload.operations.reduce(
-        (current, item) =>
-          applyCanvasOperationToDocument(current, item, { now }),
-        document
-      )
-
-    case 'document.create': {
-      const parsed = canvasDocumentSchema.safeParse(operation.payload.document)
-      return parsed.success ? parsed.data : document
-    }
-
-    case 'document.patch': {
-      if (!document || document.id !== operation.payload.documentId) {
-        return document
-      }
-      const merged = {
-        ...document,
-        ...operation.payload.patch,
-        id: document.id,
-        elements: document.elements,
-        updatedAt: now
-      }
-      const parsed = canvasDocumentSchema.safeParse(merged)
-      return parsed.success ? parsed.data : document
-    }
-
-    case 'document.delete':
-      return document && document.id === operation.payload.documentId
-        ? null
-        : document
-
-    case 'element.add': {
-      if (!document || document.id !== operation.payload.documentId) {
-        return document
-      }
-      const parsed = canvasDocumentElementSchema.safeParse(
-        operation.payload.element
-      )
-      if (!parsed.success) return document
-      return withElements(
-        document,
-        upsertElement(document.elements, parsed.data),
-        now
-      )
-    }
-
-    case 'element.patch': {
-      if (!document || document.id !== operation.payload.documentId) {
-        return document
-      }
-      const elements = document.elements.map((element) => {
-        if (element.id !== operation.payload.elementId) return element
-        const merged = {
-          ...element,
-          ...operation.payload.patch,
-          id: element.id,
-          type: element.type
-        }
-        const parsed = canvasDocumentElementSchema.safeParse(merged)
-        return parsed.success ? parsed.data : element
-      })
-      return withElements(document, elements, now)
-    }
-
-    case 'element.delete': {
-      if (!document || document.id !== operation.payload.documentId) {
-        return document
-      }
-      return withElements(
-        document,
-        document.elements.filter(
-          (element) => element.id !== operation.payload.elementId
-        ),
-        now
-      )
-    }
-
-    case 'element.reorder': {
-      if (!document || document.id !== operation.payload.documentId) {
-        return document
-      }
-      const elements = document.elements.map((element) =>
-        element.id === operation.payload.elementId
-          ? ({
-              ...element,
-              zIndex: operation.payload.zIndex
-            } as CanvasDocumentElement)
-          : element
-      )
-      return withElements(document, elements, now)
-    }
-
-    default:
-      // Ephemeral runtime operations carry no persisted document state.
-      return document
-  }
-}
-
-/** Fold a run's full operation stream onto a document in arrival order. */
-export function applyCanvasOperationsToDocument(
-  document: CanvasDocument | null,
-  operations: readonly CanvasOperation[],
-  options: { now?: number } = {}
-): CanvasDocument | null {
-  return operations.reduce(
-    (current, operation) =>
-      applyCanvasOperationToDocument(current, operation, options),
-    document
-  )
-}
-
-function upsertElement(
-  elements: readonly CanvasDocumentElement[],
-  element: CanvasDocumentElement
-): CanvasDocumentElement[] {
-  const index = elements.findIndex((item) => item.id === element.id)
-  if (index === -1) return [...elements, element]
-  return elements.map((item) => (item.id === element.id ? element : item))
-}
-
-function withElements(
-  document: CanvasDocument,
-  elements: CanvasDocumentElement[],
-  now: number
-): CanvasDocument {
+function withDocumentRevision(document: CanvasDocument, now: number) {
   return {
     ...document,
-    elements,
-    selectedElementIds: document.selectedElementIds.filter((id) =>
-      elements.some((element) => element.id === id)
-    ),
+    revision: document.revision + 1,
     updatedAt: now
   }
+}
+
+/** Pure authoritative mutation reducer with document/element preconditions. */
+export function applyCanvasMutationToDocument(
+  document: CanvasDocument | null,
+  mutation: CanvasMutation,
+  options?: { now?: number }
+): CanvasDocument | null {
+  const now = options?.now ?? Date.now()
+
+  if (mutation.type === 'document.create') {
+    return document ? document : mutation.payload.document
+  }
+  if (!document) return null
+  if (mutation.payload.documentId !== document.id) return document
+
+  switch (mutation.type) {
+    case 'document.patch':
+      if (document.revision !== mutation.payload.expectedRevision) {
+        return document
+      }
+      return withDocumentRevision(
+        { ...document, ...mutation.payload.patch },
+        now
+      )
+    case 'document.delete':
+      return document.revision === mutation.payload.expectedRevision
+        ? null
+        : document
+    case 'element.add':
+      if (document.revision !== mutation.payload.expectedDocumentRevision) {
+        return document
+      }
+      if (
+        document.elements.some(
+          (element) => element.id === mutation.payload.element.id
+        )
+      ) {
+        return document
+      }
+      return withDocumentRevision(
+        {
+          ...document,
+          elements: [...document.elements, mutation.payload.element]
+        },
+        now
+      )
+    case 'element.patch': {
+      const index = document.elements.findIndex(
+        (element) => element.id === mutation.payload.elementId
+      )
+      const element = document.elements[index]
+      if (
+        !element ||
+        element.type !== mutation.payload.elementType ||
+        element.revision !== mutation.payload.expectedRevision
+      ) {
+        return document
+      }
+      const nextElement = {
+        ...element,
+        ...mutation.payload.patch,
+        id: element.id,
+        type: element.type,
+        revision: element.revision + 1
+      } as CanvasDocumentElement
+      const elements = document.elements.slice()
+      elements[index] = nextElement
+      return withDocumentRevision({ ...document, elements }, now)
+    }
+    case 'element.delete': {
+      const element = document.elements.find(
+        (item) => item.id === mutation.payload.elementId
+      )
+      if (!element || element.revision !== mutation.payload.expectedRevision) {
+        return document
+      }
+      return withDocumentRevision(
+        {
+          ...document,
+          elements: document.elements.filter(
+            (item) => item.id !== mutation.payload.elementId
+          ),
+          selectedElementIds: document.selectedElementIds.filter(
+            (id) => id !== mutation.payload.elementId
+          )
+        },
+        now
+      )
+    }
+    case 'element.reorder': {
+      const index = document.elements.findIndex(
+        (item) => item.id === mutation.payload.elementId
+      )
+      const element = document.elements[index]
+      if (!element || element.revision !== mutation.payload.expectedRevision) {
+        return document
+      }
+      const elements = document.elements.slice()
+      elements[index] = {
+        ...element,
+        zIndex: mutation.payload.zIndex,
+        revision: element.revision + 1
+      }
+      return withDocumentRevision({ ...document, elements }, now)
+    }
+  }
+}
+
+export function applyCanvasMutationTransactionToDocument(
+  document: CanvasDocument | null,
+  transaction: CanvasMutationTransaction,
+  options?: { now?: number }
+): CanvasDocument | null {
+  const now = options?.now ?? Date.now()
+  return transaction.mutations.reduce<CanvasDocument | null>(
+    (current, mutation) =>
+      applyCanvasMutationToDocument(current, mutation, { now }),
+    document
+  )
 }

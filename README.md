@@ -31,7 +31,7 @@ cd ../canvas-agent && bun run typecheck
 ```ts
 import {
   type CanvasDocument,
-  type CanvasOperation,
+  type CanvasMutationTransaction,
   canvasRunRequestSchema,
 } from '@yqwd-dimleap/canvas-contracts/canvas'
 
@@ -58,7 +58,7 @@ src/
   auth/        session, permission, user contracts
   billing/     billing and credit schemas
   canvas/
-    core/      CanvasDocument, CanvasOperation, run context
+    core/      CanvasDocument, mutation transactions, receipts and effects
     resources/ CanvasResource and media metadata
     agent/     actions, capabilities, prompt, interrupt, run/UI state
     events/    Canvas operation/runtime events
@@ -80,8 +80,10 @@ separate `./canvas/events` package subpath.
 ## Runtime invariants
 
 - `CanvasRunRequest` is the cross-service run input.
-- `CanvasDocument`, `CanvasResource` and `CanvasOperation` are the only
-  persisted/cross-service canvas shapes.
+- `CanvasDocument`, `CanvasMutationTransaction`, receipts and transient effects
+  are the cross-service Canvas shapes.
+- `WorkspaceProjectCanvas` contains only revisioned Canvas content. Editor view
+  state is frontend-local and active thread state belongs to the Agent domain.
 - Canvas Agent action/capability/run/UI contracts are exported by `./canvas`.
 - LangGraph wire shapes are defined once in
   `agent/langgraph-protocol.ts`; frontend and agent consume them.
@@ -100,6 +102,13 @@ LangGraph/Deep Agents state.
 
 ## Versioning and release
 
+- Package semver, persisted schema versions, and wire protocol versions are
+  independent version spaces. Never copy a package major into a schema or
+  protocol version.
+- The current baselines are package `2.0.x`, CanvasDocument schema `1`,
+  workspace Canvas schema `2`, and Canvas Agent application protocol `v2`.
+- Schema and protocol versions advance only with an explicit migration plan;
+  ordinary package releases must not change them.
 - Patch: documentation, comments and non-behavioral refinements.
 - Minor: additive backward-compatible schemas or fields.
 - Major: removed/renamed fields, changed requiredness or changed semantics.

@@ -5,11 +5,10 @@ import {
   workspaceAssetTypeSchema
 } from '../../storage/workspace-assets.js'
 import { canvasDocumentSchema } from '../core/document.js'
-import {
-  CANVAS2D_DEFAULT_WORKSPACE_VIEW,
-  canvas2dWorkspaceViewSchema
-} from '../view/canvas2d.js'
-import { normalizeProjectCanvasConversations } from './conversation.js'
+import { canvasMutationReceiptSchema } from '../core/mutations.js'
+
+/** Persisted project Canvas schema baseline; independent from package semver. */
+export const WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION = 2 as const
 
 export const workspaceProjectSummaryMediaSourceSchema = z.enum([
   'cover',
@@ -161,26 +160,24 @@ export const recentWorkspaceProjectSchema = z.object({
 })
 
 /**
- * Canvas 画布数据完整结构
- * 存储在 MongoDB project.resources 字段
+ * Canonical workspace Canvas snapshot. The identical shape is stored in
+ * MongoDB `workspace_projects.canvas`, returned by the workspace API, and
+ * cached locally by the frontend.
  */
-export const workspaceProjectCanvasDataSchema = z
+export const workspaceProjectCanvasSchema = z
   .object({
-    schemaVersion: z.literal(2).default(2),
+    schemaVersion: z
+      .literal(WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION)
+      .default(WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION),
+    revision: z.number().int().nonnegative().default(0),
     canvasDocument: canvasDocumentSchema.nullable().default(null),
-    // Tolerant, typed conversation persistence. Invalid rows are dropped and
-    // messages normalized on every read/PATCH so a single bad entry can never
-    // 409 the whole canvas. Shape owned by ./conversation.ts (single source).
-    conversations: z
-      .array(z.unknown())
-      .default([])
-      .transform((value) => normalizeProjectCanvasConversations(value)),
-    activeConversationId: z.string().nullable().default(null),
-    canvas2d: canvas2dWorkspaceViewSchema.default(() => ({
-      ...CANVAS2D_DEFAULT_WORKSPACE_VIEW,
-      selectedElementIds: []
-    })),
     updatedAt: z.number().optional()
+  })
+  .strict()
+
+export const workspaceProjectAgentStateSchema = z
+  .object({
+    activeThreadId: z.string().trim().min(1).nullable().default(null)
   })
   .strict()
 
@@ -216,8 +213,8 @@ export const workspaceProjectSchema = z.object({
   createdAt: z.string().or(z.number()),
   updatedAt: z.string().or(z.number()),
   assets: z.array(workspaceProjectAssetSchema).optional(),
-  // Canvas 画布数据
-  resources: workspaceProjectCanvasDataSchema.optional(),
+  canvas: workspaceProjectCanvasSchema.optional(),
+  agent: workspaceProjectAgentStateSchema.optional(),
   summary: workspaceProjectSummarySchema.optional(),
   publishStatus: workspaceProjectPublishStatusSchema.optional(),
   publishSubmittedAt: z.string().optional(),
@@ -261,17 +258,6 @@ export const workspaceProjectUpdateRequestSchema = z
   })
   .strict()
 
-export const workspaceProjectCanvasUpdateRequestSchema = z
-  .object({
-    resources: workspaceProjectCanvasDataSchema,
-    /**
-     * Cloud resources.updatedAt observed before the local edit started.
-     * `null` means the client observed no cloud Canvas snapshot.
-     */
-    baseRevision: z.number().nullable().optional()
-  })
-  .strict()
-
 export const workspaceProjectPublishRequestSchema = z
   .object({
     useAgentReview: z.boolean().optional(),
@@ -309,6 +295,14 @@ export const workspaceProjectApiResponseSchema = apiSuccessResponseSchema(
   getWorkspaceProjectResponseSchema
 )
 
+export const workspaceProjectCanvasCommitApiResponseSchema =
+  apiSuccessResponseSchema(
+    z.object({
+      receipt: canvasMutationReceiptSchema,
+      canvas: workspaceProjectCanvasSchema
+    })
+  )
+
 export const recentWorkspaceProjectsApiResponseSchema =
   apiSuccessResponseSchema(recentWorkspaceProjectsResponseSchema)
 
@@ -319,16 +313,16 @@ export const workspaceProjectDeleteApiResponseSchema = apiSuccessResponseSchema(
 export const workspaceProjectPublishWithdrawApiResponseSchema =
   apiSuccessResponseSchema(workspaceProjectPublishWithdrawResponseSchema)
 
-export function parseWorkspaceProjectCanvasData(
+export function parseWorkspaceProjectCanvas(
   value: unknown
-): WorkspaceProjectCanvasData {
-  return workspaceProjectCanvasDataSchema.parse(value)
+): WorkspaceProjectCanvas {
+  return workspaceProjectCanvasSchema.parse(value)
 }
 
-export function safeParseWorkspaceProjectCanvasData(
+export function safeParseWorkspaceProjectCanvas(
   value: unknown
-): WorkspaceProjectCanvasData | null {
-  const result = workspaceProjectCanvasDataSchema.safeParse(value)
+): WorkspaceProjectCanvas | null {
+  const result = workspaceProjectCanvasSchema.safeParse(value)
   return result.success ? result.data : null
 }
 
@@ -367,11 +361,11 @@ export type RecentWorkspaceProject = z.infer<
   typeof recentWorkspaceProjectSchema
 >
 
-/**
- * Canvas 画布数据类型（推荐使用）
- */
-export type WorkspaceProjectCanvasData = z.infer<
-  typeof workspaceProjectCanvasDataSchema
+export type WorkspaceProjectCanvas = z.infer<
+  typeof workspaceProjectCanvasSchema
+>
+export type WorkspaceProjectAgentState = z.infer<
+  typeof workspaceProjectAgentStateSchema
 >
 
 export type WorkspaceProjectAsset = z.infer<typeof workspaceProjectAssetSchema>
@@ -381,9 +375,6 @@ export type WorkspaceProjectCreateRequest = z.infer<
 >
 export type WorkspaceProjectUpdateRequest = z.infer<
   typeof workspaceProjectUpdateRequestSchema
->
-export type WorkspaceProjectCanvasUpdateRequest = z.infer<
-  typeof workspaceProjectCanvasUpdateRequestSchema
 >
 export type WorkspaceProjectPublishRequest = z.infer<
   typeof workspaceProjectPublishRequestSchema

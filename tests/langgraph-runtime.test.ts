@@ -1,112 +1,131 @@
 import { describe, expect, test } from 'bun:test'
-import { mergeCanvasAgentLangGraphRuntimeEvent } from '../src/agent/langgraph-runtime.js'
-import { reduceAgentRunStatus } from '../src/canvas/agent/run-state.js'
-import type { SequencedSystemEvent } from '../src/events/core.js'
+import {
+  CANVAS_AGENT_PROTOCOL_VERSION,
+  canvasAgentLangGraphProtocolEventSchema,
+  canvasAgentLangGraphThreadStateResponseSchema,
+  canvasAgentThreadSnapshotSchema
+} from '../src/agent/langgraph-protocol.js'
 
-function toolStarted(toolName: string): SequencedSystemEvent {
-  return {
-    sequence: 1,
-    event: {
-      id: 'event-1',
-      runId: 'run-1',
-      timestamp: '2026-07-15T06:00:00.000Z',
-      type: 'tool.start',
-      toolId: 'tool-1',
-      toolName,
-      input: {},
-      agentId: 'canvas-agent'
-    }
+const lifecycleFrame = {
+  type: 'event',
+  event_id: 'thread-1:1',
+  seq: 1,
+  run_id: 'run-1',
+  thread_id: 'thread-1',
+  method: 'lifecycle',
+  params: {
+    namespace: [],
+    timestamp: '2026-07-17T00:00:00.000Z',
+    data: { event: 'running', status: 'running' }
   }
 }
 
-describe('Canvas Agent LangGraph runtime presentation', () => {
-  test('does not expose provider tool identifiers as user activity', () => {
-    const inspect = mergeCanvasAgentLangGraphRuntimeEvent(
-      undefined,
-      toolStarted('canvas2d_inspect_scene')
-    )
-    const internal = mergeCanvasAgentLangGraphRuntimeEvent(
-      undefined,
-      toolStarted('write_todos')
-    )
+const threadSnapshot = {
+  protocolVersion: CANVAS_AGENT_PROTOCOL_VERSION,
+  projectId: 'project-1',
+  threadId: 'thread-1',
+  currentRun: null,
+  assistantMessage: null,
+  activities: [],
+  interrupt: null,
+  suggestions: [],
+  artifacts: [],
+  appliedThroughSeq: -1,
+  canvasRevision: 4
+} as const
 
-    expect(inspect.currentActivity).toBe('正在查看当前内容...')
-    expect(internal.currentActivity).toBe('正在处理...')
-    expect(internal.currentActivity).not.toContain('write_todos')
+describe('Canvas Agent application protocol v2', () => {
+  test('round-trips a fully sequenced wire frame', () => {
+    expect(
+      canvasAgentLangGraphProtocolEventSchema.parse(lifecycleFrame)
+    ).toEqual(lifecycleFrame)
   })
 
-  test('keeps non-blocking suggestions outside the run lifecycle', () => {
-    const event: SequencedSystemEvent = {
-      sequence: 2,
-      event: {
-        id: 'suggestions-1',
-        runId: 'run-1',
-        timestamp: '2026-07-15T06:00:01.000Z',
-        type: 'agent.suggestions',
-        agentId: 'canvas-agent',
-        reason: '可以继续这样处理',
-        suggestions: [
-          {
-            id: 'continue-1',
-            label: '继续整理',
-            intent: '继续整理当前内容',
-            kind: 'run',
-            priority: 'normal',
-            targetElementIds: []
-          }
-        ]
-      }
-    }
-
-    const runtime = mergeCanvasAgentLangGraphRuntimeEvent(undefined, event)
-    expect(reduceAgentRunStatus('running', event.event)).toBe('running')
-    expect(runtime.suggestions.map((item) => item.label)).toEqual(['继续整理'])
-    expect(runtime.interrupts).toEqual([])
-  })
-
-  test('only a real interrupt moves the run to interrupted', () => {
-    const event: SequencedSystemEvent = {
-      sequence: 3,
-      event: {
-        id: 'run-1:interrupt',
-        runId: 'run-1',
-        timestamp: '2026-07-15T06:00:02.000Z',
-        type: 'agent.interrupt',
-        agentId: 'canvas-agent',
-        reason: '请选择一个方向',
-        needsUserInput: true,
-        metadata: {
-          suggestions: [
-            {
-              id: 'choice-1',
-              label: '方向一',
-              intent: '采用方向一',
-              kind: 'ask',
-              priority: 'normal',
-              targetElementIds: []
+  test('encodes named custom channels in the LangGraph custom event', () => {
+    const frame = {
+      ...lifecycleFrame,
+      method: 'custom',
+      params: {
+        namespace: [],
+        timestamp: '2026-07-17T00:00:00.000Z',
+        data: {
+          name: 'activity',
+          payload: {
+            event: 'activity.upsert',
+            activity: {
+              id: 'activity-1',
+              kind: 'planning',
+              title: 'Planning',
+              status: 'running'
             }
-          ]
+          }
         }
       }
     }
-
-    const runtime = mergeCanvasAgentLangGraphRuntimeEvent(undefined, event)
-    expect(reduceAgentRunStatus('running', event.event)).toBe('interrupted')
-    expect(runtime.interrupts[0]?.status).toBe('waiting')
-    expect(runtime.suggestions).toEqual([])
+    expect(canvasAgentLangGraphProtocolEventSchema.parse(frame)).toEqual(frame)
+    expect(
+      canvasAgentLangGraphProtocolEventSchema.safeParse({
+        ...frame,
+        method: 'custom:activity'
+      }).success
+    ).toBe(false)
   })
 
-  test('never regresses a terminal run when late events arrive', () => {
-    const lateStart: SequencedSystemEvent['event'] = {
-      id: 'late-start',
-      runId: 'run-1',
-      timestamp: '2026-07-15T06:00:03.000Z',
-      type: 'run.started',
-      intent: 'test',
-      mode: 'plan-execute'
-    }
+  test('rejects unknown channels, missing sequence and malformed payloads', () => {
+    expect(
+      canvasAgentLangGraphProtocolEventSchema.safeParse({
+        ...lifecycleFrame,
+        method: 'values'
+      }).success
+    ).toBe(false)
+    const { seq: _seq, ...missingSequence } = lifecycleFrame
+    expect(
+      canvasAgentLangGraphProtocolEventSchema.safeParse(missingSequence).success
+    ).toBe(false)
+    expect(
+      canvasAgentLangGraphProtocolEventSchema.safeParse({
+        ...lifecycleFrame,
+        params: {
+          ...lifecycleFrame.params,
+          data: { event: 'running', status: 'made-up' }
+        }
+      }).success
+    ).toBe(false)
+  })
 
-    expect(reduceAgentRunStatus('completed', lateStart)).toBe('completed')
-    expect(reduceAgentRunStatus('cancelled', lateStart)).toBe('cancelled')
+  test('snapshot is materialized state, not raw event history', () => {
+    const snapshot = canvasAgentThreadSnapshotSchema.parse(threadSnapshot)
+    expect(snapshot.appliedThroughSeq).toBe(-1)
+    expect('events' in snapshot).toBe(false)
+    expect('operations' in snapshot).toBe(false)
+  })
+
+  test('accepts the strict LangGraph SDK state envelope', () => {
+    const state = {
+      values: threadSnapshot,
+      next: [],
+      tasks: [],
+      metadata: {},
+      checkpoint: null,
+      parent_checkpoint: null,
+      created_at: null
+    }
+    expect(canvasAgentLangGraphThreadStateResponseSchema.parse(state)).toEqual(
+      state
+    )
+  })
+
+  test('rejects checkpoint task state outside the materialized snapshot', () => {
+    expect(
+      canvasAgentLangGraphThreadStateResponseSchema.safeParse({
+        values: threadSnapshot,
+        next: ['legacy-node'],
+        tasks: [],
+        metadata: {},
+        checkpoint: null,
+        parent_checkpoint: null,
+        created_at: null
+      }).success
+    ).toBe(false)
   })
 })

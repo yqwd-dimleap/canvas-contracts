@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
   redisAgentPrefix,
-  redisAgentRunEventsKey,
   redisAgentRunQueueKey,
   redisAgentRunQueueStreamKey,
   redisGlobalEventStreamKey,
@@ -23,9 +22,6 @@ describe('Canvas Redis keys', () => {
     )
     expect(redisAgentRunQueueStreamKey(agent)).toBe(
       'canvas:test-env:agent:runs:stream'
-    )
-    expect(redisAgentRunEventsKey(agent, 'run-1')).toBe(
-      'canvas:test-env:agent:run:run-1:events'
     )
     expect(redisUserEventChannel(events, 'user-1')).toBe(
       'canvas:test-env:events:user:user-1:notify'

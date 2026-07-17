@@ -1,26 +1,33 @@
 import { z } from 'zod'
 import { baseEventSchema } from '../../events/base.js'
-import { canvasOperationSchema } from '../core/operations.js'
+import {
+  canvasMutationReceiptSchema,
+  canvasMutationTransactionSchema,
+  canvasTransientEffectSchema
+} from '../core/mutations.js'
 
-/**
- * Renderer-agnostic Canvas operation event.
- *
- * Runtime channels must transport canvas changes through this single event
- * type. UI-specific node/edge event variants are intentionally not part of the
- * contract; adapters can derive renderer updates from CanvasOperation.
- */
-export const canvasOperationEventSchema = baseEventSchema.extend({
-  type: z.literal('canvas.operation'),
-  operation: canvasOperationSchema,
-  artifactId: z.string().min(1).optional(),
-  transient: z.boolean().default(false)
+/** Internal audit vocabulary. UI transport projects these into protocol frames. */
+export const canvasTransactionEventSchema = baseEventSchema.extend({
+  type: z.literal('canvas.transaction'),
+  transaction: canvasMutationTransactionSchema,
+  receipt: canvasMutationReceiptSchema,
+  artifactId: z.string().min(1).optional()
 })
 
-export type CanvasOperationEvent = z.infer<typeof canvasOperationEventSchema>
+export const canvasTransientEffectEventSchema = baseEventSchema.extend({
+  type: z.literal('canvas.effect'),
+  effect: canvasTransientEffectSchema
+})
 
-/**
- * Canvas runtime event union.
- */
-export const canvasRuntimeEventSchema = canvasOperationEventSchema
+export const canvasRuntimeEventSchema = z.discriminatedUnion('type', [
+  canvasTransactionEventSchema,
+  canvasTransientEffectEventSchema
+])
 
-export type CanvasRuntimeEvent = CanvasOperationEvent
+export type CanvasTransactionEvent = z.infer<
+  typeof canvasTransactionEventSchema
+>
+export type CanvasTransientEffectEvent = z.infer<
+  typeof canvasTransientEffectEventSchema
+>
+export type CanvasRuntimeEvent = z.infer<typeof canvasRuntimeEventSchema>

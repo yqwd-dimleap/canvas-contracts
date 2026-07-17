@@ -8,10 +8,13 @@ import { z } from 'zod'
  * LangGraph 协议的 `input.respond` 上行本 payload 作为 resume 值，
  * 后端以 `Command({ resume })` 恢复被中断的图。
  */
-export const canvasAgentInterruptResponseSchema = z.object({
-  /** 用户对澄清问题的回答（自由文本或选中的建议 intent）。 */
-  text: z.string().min(1)
-})
+export const canvasAgentInterruptResponseSchema = z
+  .object({
+    messageId: z.string().trim().min(1),
+    /** 用户对澄清问题的回答（自由文本或选中的建议 intent）。 */
+    text: z.string().min(1)
+  })
+  .strict()
 
 export type CanvasAgentInterruptResponse = z.infer<
   typeof canvasAgentInterruptResponseSchema
@@ -27,17 +30,13 @@ export function canvasAgentInterruptIdForRun(runId: string) {
 }
 
 /**
- * 宽松解析 input.respond 的 response 值：
- * 接受契约对象或裸字符串（SDK 层 response 类型为 any）。
+ * Parse input.respond without accepting legacy bare-string responses.
  */
 export function parseCanvasAgentInterruptResponse(
   value: unknown
 ): CanvasAgentInterruptResponse | null {
-  if (typeof value === 'string' && value.trim()) {
-    return { text: value.trim() }
-  }
   const parsed = canvasAgentInterruptResponseSchema.safeParse(value)
   if (!parsed.success) return null
   const text = parsed.data.text.trim()
-  return text ? { text } : null
+  return text ? { messageId: parsed.data.messageId, text } : null
 }

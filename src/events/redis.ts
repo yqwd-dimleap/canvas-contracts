@@ -57,13 +57,6 @@ export function redisAgentRunQueueStreamKey(agentPrefix: string): string {
   return `${normalizePrefix(agentPrefix)}runs:stream`
 }
 
-export function redisAgentRunEventsKey(
-  agentPrefix: string,
-  runId: string
-): string {
-  return `${normalizePrefix(agentPrefix)}run:${runId}:events`
-}
-
 export function resolveRedisEventBusPrefix(input: {
   appEnv?: string
   explicitPrefix?: string

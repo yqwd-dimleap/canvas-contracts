@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CANVAS_AGENT_PROTOCOL_VERSION } from '../../agent/langgraph-protocol.js'
 import { agentSkillIdSchema } from '../../agent/skills.js'
 import { canvasContextSchema, canvasSelectionSchema } from '../core/context.js'
 import {
@@ -260,27 +261,30 @@ export const canvasAgentBaseRequestSchema = z.object({
 })
 
 /**
- * Canvas Agent Run Request
- * Agent 运行请求（基础上下文 + 用户意图）
+ * Protocol v2 run input. Canvas, messages, resources, model preferences and
+ * capabilities are server-owned context and must never be copied into a run.
  */
-export const canvasRunRequestSchema = canvasAgentBaseRequestSchema
-  .extend({
-    intent: z.string().min(1),
-    /**
-     * UI-originated structured command. This constrains intent resolution without
-     * replacing the natural language intent, so older clients can keep sending
-     * only intent while newer surfaces avoid encoding button clicks as text.
-     */
-    command: canvasAgentCommandSchema.optional()
+export const canvasAgentRunAttachmentSchema = z
+  .object({
+    resourceId: z.string().trim().min(1)
   })
-  .extend({
-    conversation: z
-      .array(canvasAgentConversationMessageSchema)
-      .max(24)
-      .optional(),
-    /** 选中的技能：注入到运行/对话系统提示，引导 agent 行为侧重。 */
-    skillId: agentSkillIdSchema.optional()
+  .strict()
+
+export const canvasAgentRunInputSchema = z
+  .object({
+    protocolVersion: z.literal(CANVAS_AGENT_PROTOCOL_VERSION),
+    projectId: z.string().trim().min(1),
+    messageId: z.string().trim().min(1),
+    canvasRevision: z.number().int().nonnegative(),
+    prompt: z.string().trim().min(1).max(48_000),
+    selection: canvasSelectionSchema,
+    attachments: z.array(canvasAgentRunAttachmentSchema).max(24).default([]),
+    command: canvasAgentCommandSchema.optional(),
+    locale: z.string().trim().min(2).max(16).optional(),
+    skillId: agentSkillIdSchema.optional(),
+    reasoningEffort: z.enum(['low', 'medium', 'high']).optional()
   })
+  .strict()
 
 export type CanvasAgentAction = z.infer<typeof canvasAgentActionSchema>
 export type CanvasActionStatus = z.infer<typeof canvasActionStatusSchema>
@@ -301,4 +305,7 @@ export type CanvasAgentConversationMessage = z.infer<
 export type CanvasAgentBaseRequest = z.infer<
   typeof canvasAgentBaseRequestSchema
 >
-export type CanvasRunRequest = z.infer<typeof canvasRunRequestSchema>
+export type CanvasAgentRunAttachment = z.infer<
+  typeof canvasAgentRunAttachmentSchema
+>
+export type CanvasAgentRunInput = z.infer<typeof canvasAgentRunInputSchema>

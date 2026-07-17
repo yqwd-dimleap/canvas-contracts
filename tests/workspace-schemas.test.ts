@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { adminUserPatchRequestSchema } from '../src/admin/admin-business.js'
 import { setPasswordRequestSchema } from '../src/auth/session.js'
-import { workspaceProjectSchema } from '../src/canvas/workspace/project.js'
+import {
+  WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
+  workspaceProjectCanvasSchema,
+  workspaceProjectSchema
+} from '../src/canvas/workspace/project.js'
 import { featuredWorkDocumentSchema } from '../src/workspace/featured-work.js'
 
 describe('shared workspace schemas', () => {
@@ -51,6 +55,18 @@ describe('shared workspace schemas', () => {
     expect(project.runs[0]?.id).toBe('run-1')
     expect(project.publishReview?.agentStatus).toBe('pass')
     expect(project.publishReview?.humanNote).toBeUndefined()
+  })
+
+  test('uses canvas as the only project snapshot field', () => {
+    const canvas = {
+      schemaVersion: WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
+      revision: 1,
+      canvasDocument: null
+    }
+    expect(workspaceProjectCanvasSchema.safeParse(canvas).success).toBe(true)
+    expect(
+      workspaceProjectCanvasSchema.safeParse({ resources: canvas }).success
+    ).toBe(false)
   })
 
   test('validates featured work storage documents', () => {

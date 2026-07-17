@@ -1,6 +1,6 @@
 # Changelog
 
-Current package version: `2.0.5`.
+Current published package version: `2.0.7`.
 
 The previous hand-maintained file stopped before the 2.x contract surface and
 contained removed Canvas graph examples, so it is not retained as API

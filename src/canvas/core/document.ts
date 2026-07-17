@@ -4,6 +4,9 @@ import {
   canvasResourceSchema
 } from '../resources/types.js'
 
+/** Persisted CanvasDocument schema baseline; independent from package semver. */
+export const CANVAS_DOCUMENT_SCHEMA_VERSION = 1 as const
+
 export const canvasDocumentElementTypeSchema = z.enum([
   'raster',
   'text',
@@ -33,6 +36,7 @@ export const canvasDocumentBlendModeSchema = z.enum([
 export const canvasDocumentElementBaseSchema = z.object({
   id: z.string().min(1),
   type: canvasDocumentElementTypeSchema,
+  revision: z.number().int().nonnegative().default(0),
   name: z.string(),
   parentId: z.string().nullable().optional(),
   x: z.number(),
@@ -163,7 +167,10 @@ export const canvasDocumentSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().nullable().optional(),
   title: z.string().optional(),
-  version: z.literal(1).default(1),
+  schemaVersion: z
+    .literal(CANVAS_DOCUMENT_SCHEMA_VERSION)
+    .default(CANVAS_DOCUMENT_SCHEMA_VERSION),
+  revision: z.number().int().nonnegative().default(0),
   width: z.number().positive(),
   height: z.number().positive(),
   background: z.string().nullable().optional(),

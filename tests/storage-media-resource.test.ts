@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import type { CanvasDocument } from '../src/canvas/document.js'
+import {
+  CANVAS_DOCUMENT_SCHEMA_VERSION,
+  type CanvasDocument
+} from '../src/canvas/core/document.js'
 import type { CanvasResource } from '../src/canvas/resources.js'
-import { workspaceProjectCanvasDataSchema } from '../src/canvas/workspace/project.js'
+import {
+  WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
+  workspaceProjectCanvasSchema
+} from '../src/canvas/workspace/project.js'
 import {
   compactCanvasDocumentAssetReferences,
   getImageModelReferenceUrl,
@@ -284,23 +290,22 @@ describe('canvas document asset references', () => {
   })
 })
 
-describe('workspace project canvas resources', () => {
-  test('v2 canvas resources require the Canvas2D payload shape', () => {
+describe('workspace project canvas', () => {
+  test('v2 canvas requires the Canvas2D payload shape', () => {
     const document = canvasDocumentWithRasterMediaMetadata()
-    const parsed = workspaceProjectCanvasDataSchema.parse({
-      schemaVersion: 2,
-      canvasDocument: document,
-      conversations: [],
-      activeConversationId: null
+    const parsed = workspaceProjectCanvasSchema.parse({
+      schemaVersion: WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
+      revision: 0,
+      canvasDocument: document
     })
 
-    expect(parsed.schemaVersion).toBe(2)
+    expect(parsed.schemaVersion).toBe(WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION)
     expect(parsed.canvasDocument?.id).toBe(document.id)
   })
 
   test('deprecated graph canvas resources are rejected', () => {
     const document = canvasDocumentWithRasterMediaMetadata()
-    const result = workspaceProjectCanvasDataSchema.safeParse({
+    const result = workspaceProjectCanvasSchema.safeParse({
       schemaVersion: 1,
       nodes: [{ id: 'legacy-node' }],
       edges: [{ id: 'legacy-edge' }],
@@ -319,7 +324,8 @@ function canvasDocumentWithRasterMediaMetadata(): CanvasDocument {
     id: 'canvas-doc',
     projectId: 'project-1',
     title: 'Canvas',
-    version: 1,
+    schemaVersion: CANVAS_DOCUMENT_SCHEMA_VERSION,
+    revision: 0,
     width: 1024,
     height: 1024,
     background: null,
