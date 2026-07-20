@@ -1,16 +1,13 @@
 import type { z } from 'zod'
 import type {
   canvasGenerationTargetSchema,
-  chatGenerationInputSchema,
   chatGenerationMessagesSchema,
   chatGenerationParamsSchema,
   chatGenerationReferencesSchema,
-  generationControlsSchema,
+  generationParamsSchema,
   generationSystemSchema,
-  imageGenerationInputSchema,
   imageGenerationParamsSchema,
   imageGenerationReferencesSchema,
-  videoGenerationInputSchema,
   videoGenerationParamsSchema,
   videoGenerationReferencesSchema,
   videoReferenceMediaSchema
@@ -26,24 +23,21 @@ export type CanvasGenerationTarget = z.infer<
 
 /** 图片生成请求运行时上下文（前端 → agent） */
 export type ImageGenerationParams = z.infer<typeof imageGenerationParamsSchema>
-export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>
 export type ImageGenerationReferences = z.infer<
   typeof imageGenerationReferencesSchema
 >
 
 /** 视频生成请求运行时上下文（前端 → agent） */
 export type VideoGenerationParams = z.infer<typeof videoGenerationParamsSchema>
-export type VideoGenerationInput = z.infer<typeof videoGenerationInputSchema>
 export type VideoGenerationReferences = z.infer<
   typeof videoGenerationReferencesSchema
 >
 export type ChatGenerationMessages = z.infer<
   typeof chatGenerationMessagesSchema
 >
-export type ChatGenerationInput = z.infer<typeof chatGenerationInputSchema>
 export type ChatGenerationReferences = z.infer<
   typeof chatGenerationReferencesSchema
 >
 export type ChatGenerationParams = z.infer<typeof chatGenerationParamsSchema>
-export type GenerationControls = z.infer<typeof generationControlsSchema>
+export type GenerationParams = z.infer<typeof generationParamsSchema>
 export type GenerationSystem = z.infer<typeof generationSystemSchema>

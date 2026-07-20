@@ -92,6 +92,13 @@ export const canvasAgentToolCategorySchema = z.enum([
   'other'
 ])
 
+export const canvasAgentLocalizedActivityTitleSchema = z
+  .object({
+    'zh-CN': z.string().min(1),
+    'en-US': z.string().min(1)
+  })
+  .strict()
+
 /**
  * OpenAI-compatible function/tool identifier.
  *
@@ -107,6 +114,7 @@ export const canvasAgentToolCapabilitySchema = z
   .object({
     name: canvasAgentToolIdentifierSchema,
     title: z.string().min(1),
+    activityTitle: canvasAgentLocalizedActivityTitleSchema.optional(),
     description: z.string().min(1).optional(),
     category: canvasAgentToolCategorySchema,
     runtime: canvasAgentToolRuntimeSchema,
@@ -335,6 +343,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspect,
     title: 'Inspect current canvas',
+    activityTitle: {
+      'zh-CN': '检查当前画布',
+      'en-US': 'Inspect current canvas'
+    },
     description:
       'Read active Canvas2D document, viewport, resources, and selection.',
     category: 'review',
@@ -355,6 +367,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectAssets,
     title: 'Inspect assets',
+    activityTitle: {
+      'zh-CN': '检查可用素材',
+      'en-US': 'Inspect available assets'
+    },
     description:
       'Read lightweight workspace resource metadata and media references.',
     category: 'review',
@@ -375,6 +391,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dScene,
     title: 'Inspect Canvas2D scene',
+    activityTitle: {
+      'zh-CN': '读取画布结构',
+      'en-US': 'Read canvas structure'
+    },
     description:
       'Read document bounds, viewport, element summary, and resource links.',
     category: 'review',
@@ -395,6 +415,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dElements,
     title: 'Inspect Canvas2D elements',
+    activityTitle: {
+      'zh-CN': '检查画布元素',
+      'en-US': 'Inspect canvas elements'
+    },
     description:
       'Read element order, bounds, visibility, resources, and editable fields.',
     category: 'review',
@@ -415,6 +439,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.inspectCanvas2dSelection,
     title: 'Inspect Canvas2D selection',
+    activityTitle: {
+      'zh-CN': '检查选中内容',
+      'en-US': 'Inspect selected content'
+    },
     description:
       'Read selected elements and the actions they can safely support.',
     category: 'review',
@@ -435,6 +463,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.searchCanvas2dRecipes,
     title: 'Reference Canvas2D recipes',
+    activityTitle: {
+      'zh-CN': '参考相似画布方案',
+      'en-US': 'Find similar canvas approaches'
+    },
     description: 'Search reusable Canvas2D composition and editing patterns.',
     category: 'memory',
     runtime: 'langchain',
@@ -454,6 +486,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.searchPromptTemplates,
     title: 'Reference prompt templates',
+    activityTitle: {
+      'zh-CN': '查找生成提示词参考',
+      'en-US': 'Find prompt references'
+    },
     description: 'Search reusable image and video prompt structures.',
     category: 'prompt',
     runtime: 'langchain',
@@ -472,6 +508,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.webSearch,
     title: 'Search the web',
+    activityTitle: {
+      'zh-CN': '搜索网络资料',
+      'en-US': 'Search web sources'
+    },
     description:
       'Search current public web sources when up-to-date external information is required.',
     category: 'search',
@@ -491,6 +531,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.submitPlan,
     title: 'Submit Canvas2D plan',
+    activityTitle: {
+      'zh-CN': '提交画布方案',
+      'en-US': 'Submit canvas plan'
+    },
     description:
       'Commit the structured run plan (intent, actions, suggestions, questions) for schema validation, immediate canvas projection, and execution.',
     category: 'canvas',
@@ -513,6 +557,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.requestUserInput,
     title: 'Request user input',
+    activityTitle: {
+      'zh-CN': '等待你的回答',
+      'en-US': 'Wait for your response'
+    },
     description:
       'Pause the run with a LangGraph interrupt and wait for the user to answer a clarifying question before continuing.',
     category: 'canvas',
@@ -533,6 +581,10 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
   {
     name: CANVAS_AGENT_TOOL_NAMES.executeActions,
     title: 'Apply Canvas2D changes',
+    activityTitle: {
+      'zh-CN': '应用画布修改',
+      'en-US': 'Apply canvas changes'
+    },
     description:
       'Materialize planned document, element, resource, and viewport operations.',
     category: 'canvas',
@@ -568,6 +620,19 @@ export function createDefaultCanvasAgentCapabilityManifest() {
     recipes: DEFAULT_CANVAS_AGENT_RECIPE_CAPABILITIES,
     tools: DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES
   })
+}
+
+export function canvasAgentToolActivityTitle(
+  capability: Pick<
+    z.infer<typeof canvasAgentToolCapabilitySchema>,
+    'title' | 'activityTitle'
+  >,
+  locale?: string
+) {
+  if (!capability.activityTitle) return capability.title
+  return locale?.toLowerCase().startsWith('zh')
+    ? capability.activityTitle['zh-CN']
+    : capability.activityTitle['en-US']
 }
 
 export function enabledCanvasAgentCapabilities(

@@ -1,5 +1,6 @@
 import {
   buildGenerationPayloadFromConfig,
+  canonicalizeGenerationParams,
   compactGenerationRecord,
   type GenerationPayloadConfig,
   type GenerationPayloadMediaType,
@@ -18,23 +19,6 @@ function record(value: unknown): Record<string, unknown> {
 function trimmedString(value: unknown): string | undefined {
   const text = typeof value === 'string' ? value.trim() : ''
   return text || undefined
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
-  return value
-}
-
-function positiveInteger(value: unknown): number | undefined {
-  const number = finiteNumber(value)
-  if (number === undefined) return undefined
-  const integer = Math.floor(number)
-  return integer > 0 ? integer : undefined
-}
-
-function integer(value: unknown): number | undefined {
-  const number = finiteNumber(value)
-  return number === undefined ? undefined : Math.floor(number)
 }
 
 function normalizeStringArray(values: unknown): string[] | undefined {
@@ -66,8 +50,8 @@ function normalizeSystem(value: unknown) {
 
 /**
  * Normalize frontend -> agent image generation params before rendering the
- * configured metadata.payload template. The output is intentionally grouped:
- * provider-specific fields live under controls, not top-level runtime keys.
+ * configured metadata.payload template. Model parameters have one canonical
+ * home under params; references and system metadata remain separate.
  */
 export function normalizeImageGenerationParams(
   params: ImageGenerationParams
@@ -78,36 +62,16 @@ export function normalizeImageGenerationParams(
   const prompt = trimmedString(params.prompt)
   if (!prompt) throw new Error('Image prompt is required.')
 
-  const input = record(params.input)
   const references = record(params.references)
-  const controls = compactGenerationRecord(record(params.controls))
+  const runtimeParams = canonicalizeGenerationParams(
+    'image',
+    record(params.params)
+  )
 
   return {
     model,
     prompt,
-    input: compactGenerationRecord({
-      ...(trimmedString(input.size) ? { size: trimmedString(input.size) } : {}),
-      ...(positiveInteger(input.n) ? { n: positiveInteger(input.n) } : {}),
-      ...(trimmedString(input.quality)
-        ? { quality: trimmedString(input.quality) }
-        : {}),
-      ...(trimmedString(input.background)
-        ? { background: trimmedString(input.background) }
-        : {}),
-      ...(trimmedString(input.outputFormat)
-        ? { outputFormat: trimmedString(input.outputFormat)?.toLowerCase() }
-        : {}),
-      ...(finiteNumber(input.outputCompression) !== undefined
-        ? { outputCompression: finiteNumber(input.outputCompression) }
-        : {}),
-      ...(trimmedString(input.negativePrompt)
-        ? { negativePrompt: trimmedString(input.negativePrompt) }
-        : {}),
-      ...(finiteNumber(input.seed) !== undefined
-        ? { seed: finiteNumber(input.seed) }
-        : {})
-    }),
-    controls,
+    params: compactGenerationRecord(runtimeParams),
     references: compactGenerationRecord({
       ...(normalizeStringArray(references.images)
         ? { images: normalizeStringArray(references.images) }
@@ -129,32 +93,14 @@ export function normalizeVideoGenerationParams(
   const prompt = trimmedString(params.prompt)
   if (!prompt) throw new Error('Video prompt is required.')
 
-  const input = record(params.input)
-  const controls = compactGenerationRecord(record(params.controls))
+  const runtimeParams = canonicalizeGenerationParams(
+    'video',
+    record(params.params)
+  )
   const normalized = normalizeVideoGenerationReferenceParams({
     model,
     prompt,
-    input: compactGenerationRecord({
-      ...(finiteNumber(input.duration) !== undefined
-        ? { duration: finiteNumber(input.duration) }
-        : {}),
-      ...(trimmedString(input.seconds)
-        ? { seconds: trimmedString(input.seconds) }
-        : {}),
-      ...(trimmedString(input.resolution)
-        ? { resolution: trimmedString(input.resolution) }
-        : {}),
-      ...(trimmedString(input.aspectRatio)
-        ? { aspectRatio: trimmedString(input.aspectRatio) }
-        : {}),
-      ...(trimmedString(input.quality)
-        ? { quality: trimmedString(input.quality) }
-        : {}),
-      ...(integer(input.seed) !== undefined
-        ? { seed: integer(input.seed) }
-        : {})
-    }),
-    controls,
+    params: compactGenerationRecord(runtimeParams),
     references: record(params.references),
     system: normalizeSystem(params.system)
   })
@@ -163,7 +109,7 @@ export function normalizeVideoGenerationParams(
 }
 
 export type ConfiguredVideoGenerationPayload = {
-  params: VideoGenerationParams
+  runtime: VideoGenerationParams
   payload: Record<string, unknown>
   config: GenerationPayloadConfig
 }
@@ -189,14 +135,14 @@ export function buildConfiguredVideoGenerationPayload(
   const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
 
   return {
-    params: configured.params as VideoGenerationParams,
+    runtime: configured.runtime as VideoGenerationParams,
     payload: configured.payload,
     config: configured.config
   }
 }
 
 export type ConfiguredImageGenerationPayload = {
-  params: ImageGenerationParams
+  runtime: ImageGenerationParams
   payload: Record<string, unknown>
   config: GenerationPayloadConfig
 }
@@ -215,7 +161,7 @@ export function buildConfiguredImageGenerationPayload(
   const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
 
   return {
-    params: configured.params as ImageGenerationParams,
+    runtime: configured.runtime as ImageGenerationParams,
     payload: configured.payload,
     config: configured.config
   }

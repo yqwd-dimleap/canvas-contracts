@@ -59,6 +59,10 @@ export const canvasAgentRunLifecycleStatusSchema = z.enum([
 export const canvasAgentActivitySchema = z
   .object({
     id: z.string().trim().min(1),
+    /** Structural role in the projected run timeline. */
+    scope: z.enum(['stage', 'tool']).optional(),
+    /** Tool activities point at the stage that owns them. */
+    parentId: z.string().trim().min(1).optional(),
     kind: z.enum([
       'preparing',
       'inspecting_canvas',
@@ -69,7 +73,14 @@ export const canvasAgentActivitySchema = z
       'finalizing'
     ]),
     title: z.string().trim().min(1).max(160),
-    status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+    status: z.enum([
+      'pending',
+      'running',
+      'waiting',
+      'completed',
+      'failed',
+      'cancelled'
+    ]),
     startedAt: z.string().datetime().optional(),
     completedAt: z.string().datetime().optional(),
     detail: z.string().trim().min(1).max(500).optional(),

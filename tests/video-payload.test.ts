@@ -29,7 +29,7 @@ describe('video generation metadata.payload', () => {
     ).toBe(true)
   })
 
-  test('normalizes grouped video references without injecting model defaults', () => {
+  test('normalizes video references without injecting model defaults', () => {
     const params = normalizeVideoGenerationParams({
       model: VIDEO_MODEL_ID,
       prompt: ' generate a short video ',
@@ -47,11 +47,11 @@ describe('video generation metadata.payload', () => {
         images: [IMAGE_URL, SECOND_IMAGE_URL]
       }
     })
-    expect(params.input).not.toHaveProperty('duration')
-    expect(params.input).not.toHaveProperty('resolution')
+    expect(params.params).not.toHaveProperty('duration')
+    expect(params.params).not.toHaveProperty('resolution')
   })
 
-  test('renders default video payload template from grouped context', () => {
+  test('renders default video payload template from unified params', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     expect(payload.endpoint).toBe('/v1/videos')
     const configured = buildConfiguredVideoGenerationPayload(
@@ -65,10 +65,10 @@ describe('video generation metadata.payload', () => {
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.params).toMatchObject({
+    expect(configured.runtime).toMatchObject({
       model: VIDEO_MODEL_ID,
       prompt: 'generate a short video',
-      input: {
+      params: {
         duration: 5,
         resolution: '720P',
         aspectRatio: '16:9'
@@ -90,10 +90,10 @@ describe('video generation metadata.payload', () => {
     payload.request.body = {
       model: '{{model}}',
       content: '{{helpers.seedance.content}}',
-      resolution: '{{input.resolution}}',
-      ratio: '{{input.aspectRatio}}',
-      duration: '{{input.duration}}',
-      frames: '{{controls.frames}}'
+      resolution: '{{params.resolution}}',
+      ratio: '{{params.aspectRatio}}',
+      duration: '{{params.duration}}',
+      frames: '{{params.frames}}'
     }
 
     const configured = buildGenerationPayloadFromConfig(payload, {
@@ -102,7 +102,7 @@ describe('video generation metadata.payload', () => {
       references: {
         images: [IMAGE_URL, SECOND_IMAGE_URL]
       },
-      controls: {
+      params: {
         frames: 57
       }
     })
@@ -135,9 +135,9 @@ describe('video generation metadata.payload', () => {
     payload.request.body = {
       model: '{{model}}',
       prompt: '{{prompt}}',
-      duration: '{{input.duration}}',
+      duration: '{{params.duration}}',
       metadata: {
-        resolution: '{{input.resolution}}',
+        resolution: '{{params.resolution}}',
         action: 'referenceGenerate',
         media: '{{helpers.references.imageMedia}}'
       }
@@ -185,7 +185,7 @@ describe('video generation metadata.payload', () => {
     payload.request.body = {
       model: '{{model}}',
       prompt: '{{prompt}}',
-      camera: '{{controls.camera}}'
+      camera: '{{params.camera}}'
     }
 
     expect(() =>

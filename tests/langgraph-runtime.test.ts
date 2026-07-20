@@ -54,9 +54,10 @@ describe('Canvas Agent application protocol v2', () => {
             event: 'activity.upsert',
             activity: {
               id: 'activity-1',
+              scope: 'stage',
               kind: 'planning',
               title: 'Planning',
-              status: 'running'
+              status: 'waiting'
             }
           }
         }

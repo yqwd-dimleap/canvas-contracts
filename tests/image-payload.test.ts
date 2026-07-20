@@ -12,15 +12,13 @@ import {
 const IMAGE_MODEL_ID = 'image-model-a'
 
 describe('image generation metadata.payload', () => {
-  test('normalizes grouped image params without model-specific defaults', () => {
+  test('normalizes canonical image params without model-specific defaults', () => {
     const params = normalizeImageGenerationParams({
       model: IMAGE_MODEL_ID,
       prompt: ' generate a clean product render ',
-      input: {
+      params: {
         size: ' 1536x1024 ',
-        quality: ' high '
-      },
-      controls: {
+        quality: ' high ',
         style: ' editorial ',
         strength: 0.65
       },
@@ -35,11 +33,9 @@ describe('image generation metadata.payload', () => {
     expect(params).toEqual({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
-      input: {
+      params: {
         size: '1536x1024',
-        quality: 'high'
-      },
-      controls: {
+        quality: 'high',
         style: 'editorial',
         strength: 0.65
       },
@@ -61,13 +57,13 @@ describe('image generation metadata.payload', () => {
     ).toThrow('Generation payload is not configured')
   })
 
-  test('renders default image payload template from grouped context', () => {
+  test('renders default image payload template from unified params', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     const configured = buildConfiguredImageGenerationPayload(
       {
         model: IMAGE_MODEL_ID,
         prompt: 'generate a clean product render',
-        input: {
+        params: {
           size: '1536x1024',
           quality: 'high'
         },
@@ -82,10 +78,10 @@ describe('image generation metadata.payload', () => {
     )
 
     expect(configured.config).toEqual(payload)
-    expect(configured.params).toMatchObject({
+    expect(configured.runtime).toMatchObject({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
-      input: {
+      params: {
         size: '1536x1024',
         n: 1,
         quality: 'high'
@@ -104,7 +100,7 @@ describe('image generation metadata.payload', () => {
     expect(configured.payload).not.toHaveProperty('projectId')
   })
 
-  test('renders custom image controls from grouped controls', () => {
+  test('renders custom image controls from unified params', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.controls.push(
       {
@@ -130,8 +126,8 @@ describe('image generation metadata.payload', () => {
       model: '{{model}}',
       prompt: '{{prompt}}',
       image: '{{references.images}}',
-      style: '{{controls.style}}',
-      strength: '{{controls.strength}}'
+      style: '{{params.style}}',
+      strength: '{{params.strength}}'
     }
 
     const configured = buildConfiguredImageGenerationPayload(
@@ -141,7 +137,7 @@ describe('image generation metadata.payload', () => {
         references: {
           images: ['https://example.com/reference.png']
         },
-        controls: {
+        params: {
           style: 'editorial',
           strength: 0.8
         }
@@ -149,13 +145,13 @@ describe('image generation metadata.payload', () => {
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.params).toMatchObject({
+    expect(configured.runtime).toMatchObject({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
       references: {
         images: ['https://example.com/reference.png']
       },
-      controls: {
+      params: {
         style: 'editorial',
         strength: 0.8
       }
@@ -201,7 +197,7 @@ describe('image generation metadata.payload', () => {
     })
   })
 
-  test('does not expose legacy params template namespace', () => {
+  test('uses params as the only control-value template namespace', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.request.body = {
       model: '{{model}}',
@@ -214,7 +210,7 @@ describe('image generation metadata.payload', () => {
       {
         model: IMAGE_MODEL_ID,
         prompt: 'generate a clean product render',
-        input: {
+        params: {
           size: '1536x1024',
           n: 2
         }
@@ -224,8 +220,58 @@ describe('image generation metadata.payload', () => {
 
     expect(configured.payload).toEqual({
       model: IMAGE_MODEL_ID,
-      prompt: 'generate a clean product render'
+      prompt: 'generate a clean product render',
+      size: '1536x1024',
+      n: 2
     })
+  })
+
+  test('canonicalizes legacy namespaces and snake-case aliases', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.controls = payload.controls.map((control) =>
+      control.key === 'outputFormat'
+        ? { ...control, key: 'output_format' }
+        : control
+    )
+    payload.request.body = {
+      format: '{{input.outputFormat}}',
+      compression: '{{controls.output_compression}}'
+    }
+
+    const configured = buildGenerationPayloadFromConfig(payload, {
+      model: IMAGE_MODEL_ID,
+      params: {
+        output_format: 'webp',
+        output_compression: 72
+      }
+    })
+
+    expect(configured.config.controls).toContainEqual(
+      expect.objectContaining({ key: 'outputFormat' })
+    )
+    expect(configured.config.request.body).toEqual({
+      format: '{{params.outputFormat}}',
+      compression: '{{params.outputCompression}}'
+    })
+    expect(configured.payload).toEqual({ format: 'webp', compression: 72 })
+  })
+
+  test('validates runtime values against the configured control', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+
+    expect(() =>
+      buildGenerationPayloadFromConfig(payload, {
+        model: IMAGE_MODEL_ID,
+        params: { n: '2' }
+      })
+    ).toThrow('Generation payload control "n" must be a number')
+
+    expect(() =>
+      buildGenerationPayloadFromConfig(payload, {
+        model: IMAGE_MODEL_ID,
+        params: { outputFormat: 'gif' }
+      })
+    ).toThrow('Generation payload control "outputFormat" has an unsupported')
   })
 
   test('supports provider-specific image helpers', () => {
@@ -236,8 +282,8 @@ describe('image generation metadata.payload', () => {
         messages: '{{helpers.qwen.inputMessages}}'
       },
       parameters: {
-        size: '{{input.size}}',
-        n: '{{input.n}}'
+        size: '{{params.size}}',
+        n: '{{params.n}}'
       }
     }
 

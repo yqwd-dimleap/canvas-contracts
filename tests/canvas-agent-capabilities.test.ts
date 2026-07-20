@@ -62,6 +62,15 @@ describe('default Canvas2D agent capabilities', () => {
     ).toBe(false)
   })
 
+  test('defines localized activity titles for every runtime tool', () => {
+    const manifest = createDefaultCanvasAgentCapabilityManifest()
+    expect(
+      manifest.tools.every(
+        (tool) => tool.activityTitle?.['zh-CN'] && tool.activityTitle['en-US']
+      )
+    ).toBe(true)
+  })
+
   test('rejects the retired storyboard and script-split capabilities', () => {
     expect(canvasAgentCommandKindSchema.safeParse('storyboard').success).toBe(
       false

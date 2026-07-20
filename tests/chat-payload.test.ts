@@ -19,7 +19,7 @@ describe('chat generation metadata.payload', () => {
         { role: 'system', content: 'You are concise.' },
         { role: 'user', content: 'Describe the scene.' }
       ],
-      input: {
+      params: {
         temperature: 0.2,
         maxTokens: 256,
         reasoningEffort: 'medium',

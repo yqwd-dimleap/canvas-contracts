@@ -51,6 +51,10 @@ export const generationPayloadConfigSchema = z
   })
   .strict()
 
+export const generationPayloadConfigJsonSchema = z.toJSONSchema(
+  generationPayloadConfigSchema
+)
+
 export type GenerationPayloadMediaType = z.infer<
   typeof generationPayloadMediaTypeSchema
 >
@@ -67,18 +71,17 @@ export type GenerationPayloadConfig = z.infer<
   typeof generationPayloadConfigSchema
 >
 
-type RuntimeParams = Record<string, unknown> & {
+export type GenerationRuntimeParams = Record<string, unknown> & {
   model: string
   prompt?: string
   messages?: unknown
-  input?: Record<string, unknown>
-  controls?: Record<string, unknown>
+  params?: Record<string, unknown>
   references?: Record<string, unknown>
   system?: Record<string, unknown>
 }
 
 export type ConfiguredGenerationPayload = {
-  params: RuntimeParams
+  runtime: GenerationRuntimeParams
   payload: Record<string, unknown>
   config: GenerationPayloadConfig
   templateContext: GenerationTemplateContext
@@ -88,8 +91,7 @@ export type GenerationTemplateContext = Record<string, unknown> & {
   model: string
   prompt: string
   messages: unknown[]
-  input: Record<string, unknown>
-  controls: Record<string, unknown>
+  params: Record<string, unknown>
   references: Record<string, unknown>
   system: Record<string, unknown>
   helpers: Record<string, unknown>
@@ -114,7 +116,7 @@ const VIDEO_SIZE_OPTIONS = ['480P', '720P', '1080P']
 const VIDEO_ASPECT_OPTIONS = ['16:9', '9:16', '1:1']
 const DEFAULT_VIDEO_GENERATION_ENDPOINT = '/v1/videos'
 const DEFAULT_CHAT_GENERATION_ENDPOINT = '/chat/completions'
-const IMAGE_INPUT_CONTROL_KEY_MAP = new Map([
+const IMAGE_PARAM_KEY_MAP = new Map([
   ['size', 'size'],
   ['n', 'n'],
   ['quality', 'quality'],
@@ -127,18 +129,22 @@ const IMAGE_INPUT_CONTROL_KEY_MAP = new Map([
   ['negativePrompt', 'negativePrompt'],
   ['seed', 'seed']
 ])
-const VIDEO_INPUT_CONTROL_KEY_MAP = new Map([
+const VIDEO_PARAM_KEY_MAP = new Map([
   ['duration', 'duration'],
-  ['seconds', 'seconds'],
+  ['seconds', 'duration'],
   ['size', 'resolution'],
   ['resolution', 'resolution'],
   ['mergeVideoAspectRatio', 'aspectRatio'],
   ['aspectRatio', 'aspectRatio'],
   ['ratio', 'aspectRatio'],
   ['quality', 'quality'],
-  ['seed', 'seed']
+  ['seed', 'seed'],
+  ['generate_audio', 'generateAudio'],
+  ['generateAudio', 'generateAudio'],
+  ['callback_url', 'callbackUrl'],
+  ['callbackUrl', 'callbackUrl']
 ])
-const CHAT_INPUT_CONTROL_KEY_MAP = new Map([
+const CHAT_PARAM_KEY_MAP = new Map([
   ['temperature', 'temperature'],
   ['max_tokens', 'maxTokens'],
   ['maxTokens', 'maxTokens'],
@@ -151,22 +157,58 @@ const CHAT_INPUT_CONTROL_KEY_MAP = new Map([
   ['streamOptions', 'streamOptions']
 ])
 
+const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
+const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
+
+export function canonicalGenerationParamKey(
+  mediaType: GenerationPayloadMediaType,
+  key: string
+): string {
+  const trimmed = key.trim()
+  if (mediaType === 'image') return IMAGE_PARAM_KEY_MAP.get(trimmed) ?? trimmed
+  if (mediaType === 'video') return VIDEO_PARAM_KEY_MAP.get(trimmed) ?? trimmed
+  return CHAT_PARAM_KEY_MAP.get(trimmed) ?? trimmed
+}
+
+function canonicalTemplatePath(
+  mediaType: GenerationPayloadMediaType,
+  path: string
+): string {
+  const [root, key, ...rest] = path.split('.')
+  if (!key || !['input', 'controls', 'params'].includes(root ?? '')) {
+    return path
+  }
+  return ['params', canonicalGenerationParamKey(mediaType, key), ...rest].join(
+    '.'
+  )
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
 }
 
-function sanitizeGenerationPayloadBodyValue(value: unknown): unknown {
+function sanitizeGenerationPayloadBodyValue(
+  value: unknown,
+  mediaType: GenerationPayloadMediaType
+): unknown {
+  if (typeof value === 'string') {
+    return value.replace(TEMPLATE_RE, (_match, path: string) => {
+      return `{{${canonicalTemplatePath(mediaType, path)}}}`
+    })
+  }
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeGenerationPayloadBodyValue(item))
+    return value.map((item) =>
+      sanitizeGenerationPayloadBodyValue(item, mediaType)
+    )
   }
   if (value && typeof value === 'object') {
     const next: Record<string, unknown> = {}
     for (const [key, item] of Object.entries(
       value as Record<string, unknown>
     )) {
-      next[key] = sanitizeGenerationPayloadBodyValue(item)
+      next[key] = sanitizeGenerationPayloadBodyValue(item, mediaType)
     }
     return next
   }
@@ -174,9 +216,33 @@ function sanitizeGenerationPayloadBodyValue(value: unknown): unknown {
 }
 
 function sanitizeGenerationPayloadBody(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  mediaType: GenerationPayloadMediaType
 ): Record<string, unknown> {
-  return sanitizeGenerationPayloadBodyValue(body) as Record<string, unknown>
+  return sanitizeGenerationPayloadBodyValue(body, mediaType) as Record<
+    string,
+    unknown
+  >
+}
+
+function canonicalControls(
+  mediaType: GenerationPayloadMediaType,
+  controls: GenerationPayloadControl[]
+): GenerationPayloadControl[] {
+  const result: GenerationPayloadControl[] = []
+  const indexByKey = new Map<string, number>()
+  for (const control of controls) {
+    const key = canonicalGenerationParamKey(mediaType, control.key)
+    const next = { ...control, key }
+    const existingIndex = indexByKey.get(key)
+    if (existingIndex === undefined) {
+      indexByKey.set(key, result.length)
+      result.push(next)
+    } else {
+      result[existingIndex] = { ...result[existingIndex], ...next }
+    }
+  }
+  return result
 }
 
 export function sanitizeGenerationPayloadConfig(
@@ -184,10 +250,10 @@ export function sanitizeGenerationPayloadConfig(
 ): GenerationPayloadConfig {
   return {
     ...config,
-    controls: config.controls,
+    controls: canonicalControls(config.mediaType, config.controls),
     request: {
       ...config.request,
-      body: sanitizeGenerationPayloadBody(config.request.body)
+      body: sanitizeGenerationPayloadBody(config.request.body, config.mediaType)
     }
   }
 }
@@ -236,7 +302,7 @@ function objectArray(value: unknown): Record<string, unknown>[] {
   )
 }
 
-function referenceImagesFromParams(params: RuntimeParams): string[] {
+function referenceImagesFromParams(params: GenerationRuntimeParams): string[] {
   const references = record(params.references)
   const mediaUrls = objectArray(references.media)
     .filter((item) => {
@@ -259,7 +325,7 @@ function referenceImagesFromParams(params: RuntimeParams): string[] {
   ].filter((value, index, all) => all.indexOf(value) === index)
 }
 
-function qwenInputMessages(params: RuntimeParams): unknown {
+function qwenInputMessages(params: GenerationRuntimeParams): unknown {
   const content: Array<Record<string, string>> = referenceImagesFromParams(
     params
   ).map((image) => ({ image }))
@@ -286,7 +352,7 @@ function seedanceContentItemFromMedia(
   return { type: 'image_url', image_url: { url } }
 }
 
-function seedanceContent(params: RuntimeParams): unknown {
+function seedanceContent(params: GenerationRuntimeParams): unknown {
   const content: Array<Record<string, unknown>> = []
   const references = record(params.references)
   const media = objectArray(references.media)
@@ -312,19 +378,19 @@ function seedanceContent(params: RuntimeParams): unknown {
   })
 }
 
-function referenceImageMedia(params: RuntimeParams): unknown {
+function referenceImageMedia(params: GenerationRuntimeParams): unknown {
   return referenceImagesFromParams(params).map((url) => ({
     type: 'reference_image',
     url
   }))
 }
 
-function firstFrameMedia(params: RuntimeParams): unknown {
+function firstFrameMedia(params: GenerationRuntimeParams): unknown {
   const [url] = referenceImagesFromParams(params)
   return url ? [{ type: 'first_frame', url }] : []
 }
 
-function imageMedia(params: RuntimeParams): unknown {
+function imageMedia(params: GenerationRuntimeParams): unknown {
   return referenceImagesFromParams(params).map((url, index) => ({
     type: index === 0 ? 'first_frame' : 'reference_image',
     url
@@ -343,92 +409,98 @@ function defaultsFromControls(
   return defaults
 }
 
-function inputControlKey(
+export function canonicalizeGenerationParams(
   mediaType: GenerationPayloadMediaType,
-  key: string
-): string | undefined {
-  if (mediaType === 'image') return IMAGE_INPUT_CONTROL_KEY_MAP.get(key)
-  if (mediaType === 'video') return VIDEO_INPUT_CONTROL_KEY_MAP.get(key)
-  return CHAT_INPUT_CONTROL_KEY_MAP.get(key)
-}
-
-function splitControlDefaults(
-  mediaType: GenerationPayloadMediaType,
-  controls: GenerationPayloadControl[]
-): {
-  input: Record<string, unknown>
-  controls: Record<string, unknown>
-} {
-  const input: Record<string, unknown> = {}
-  const controlDefaults: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(defaultsFromControls(controls))) {
-    const inputKey = inputControlKey(mediaType, key)
-    if (inputKey) {
-      input[inputKey] = value
-    } else {
-      controlDefaults[key] = value
-    }
+  params: Record<string, unknown>
+): Record<string, unknown> {
+  const canonical: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(params)) {
+    canonical[canonicalGenerationParamKey(mediaType, key)] = value
   }
-  return { input, controls: controlDefaults }
+  return canonical
 }
 
 function normalizeRuntimeParams(
   config: GenerationPayloadConfig,
-  params: RuntimeParams
-): RuntimeParams {
-  const defaults = splitControlDefaults(config.mediaType, config.controls)
-  const input = {
-    ...defaults.input,
-    ...record(params.input)
-  }
-  const controls = {
-    ...defaults.controls,
-    ...record(params.controls)
-  }
-  for (const [key, value] of Object.entries({ ...controls })) {
-    const inputKey = inputControlKey(config.mediaType, key)
-    if (!inputKey) continue
-    input[inputKey] = value
-    delete controls[key]
-  }
+  params: GenerationRuntimeParams
+): GenerationRuntimeParams {
+  const runtimeParams = canonicalizeGenerationParams(
+    config.mediaType,
+    record(params.params)
+  )
   const messages = compactGenerationValue(params.messages)
   return {
     model: params.model,
     prompt: params.prompt,
     messages: Array.isArray(messages) ? messages : [],
-    input: compactGenerationRecord(input),
-    controls: compactGenerationRecord(controls),
+    params: compactGenerationRecord({
+      ...defaultsFromControls(config.controls),
+      ...runtimeParams
+    }),
     references: compactGenerationRecord(record(params.references)),
     system: compactGenerationRecord(record(params.system))
   }
 }
 
-function assertRequiredControlValues(
-  mediaType: GenerationPayloadMediaType,
+function assertControlValues(
   controls: GenerationPayloadControl[],
-  params: RuntimeParams
+  params: GenerationRuntimeParams
 ): void {
-  const runtimeControls = record(params.controls)
-  const runtimeInput = record(params.input)
+  const runtimeParams = record(params.params)
   for (const control of controls) {
-    if (!control.enabled || !control.required) continue
+    if (!control.enabled) continue
     if (control.type === 'referenceImages') {
-      if (referenceImagesFromParams(params).length > 0) continue
+      if (control.required && referenceImagesFromParams(params).length === 0) {
+        throw new Error(
+          `Generation payload control "${control.key}" is required.`
+        )
+      }
+      continue
+    }
+    const value = compactGenerationValue(runtimeParams[control.key])
+    if (value === undefined) {
+      if (!control.required) continue
       throw new Error(
         `Generation payload control "${control.key}" is required.`
       )
     }
-    const inputKey = inputControlKey(mediaType, control.key)
+    if (control.type === 'number') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error(
+          `Generation payload control "${control.key}" must be a number.`
+        )
+      }
+      if (control.min !== undefined && value < control.min) {
+        throw new Error(
+          `Generation payload control "${control.key}" must be at least ${control.min}.`
+        )
+      }
+      if (control.max !== undefined && value > control.max) {
+        throw new Error(
+          `Generation payload control "${control.key}" must be at most ${control.max}.`
+        )
+      }
+      continue
+    }
+    if (control.type === 'boolean' && typeof value !== 'boolean') {
+      throw new Error(
+        `Generation payload control "${control.key}" must be a boolean.`
+      )
+    }
+    if (control.type === 'text' && typeof value !== 'string') {
+      throw new Error(
+        `Generation payload control "${control.key}" must be text.`
+      )
+    }
     if (
-      inputKey &&
-      compactGenerationValue(runtimeInput[inputKey]) !== undefined
+      (control.type === 'select' || control.type === 'size') &&
+      control.options.length > 0 &&
+      !control.options.some((option) => Object.is(option, value))
     ) {
-      continue
+      throw new Error(
+        `Generation payload control "${control.key}" has an unsupported value.`
+      )
     }
-    if (compactGenerationValue(runtimeControls[control.key]) !== undefined) {
-      continue
-    }
-    throw new Error(`Generation payload control "${control.key}" is required.`)
   }
 }
 
@@ -489,6 +561,139 @@ export function generationPayloadTemplateUsesParams(
   )
 }
 
+export type GenerationTemplateVariable = {
+  path: string
+  group: 'direct' | 'params' | 'references' | 'system' | 'helpers'
+  description: string
+}
+
+const REFERENCE_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
+  {
+    path: 'references.images',
+    group: 'references',
+    description: 'reference image URLs'
+  },
+  {
+    path: 'references.firstImage',
+    group: 'references',
+    description: 'first reference image URL'
+  },
+  {
+    path: 'references.media',
+    group: 'references',
+    description: 'typed reference media'
+  },
+  {
+    path: 'references.clips',
+    group: 'references',
+    description: 'source clip URLs'
+  },
+  {
+    path: 'references.sourceVideo',
+    group: 'references',
+    description: 'source video URL'
+  },
+  {
+    path: 'references.drivingAudio',
+    group: 'references',
+    description: 'driving audio URL'
+  }
+]
+
+const SYSTEM_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
+  {
+    path: 'system.projectId',
+    group: 'system',
+    description: 'workspace project id'
+  },
+  {
+    path: 'system.canvasTarget.source',
+    group: 'system',
+    description: 'generation source'
+  },
+  {
+    path: 'system.canvasTarget.documentId',
+    group: 'system',
+    description: 'canvas document id'
+  },
+  {
+    path: 'system.canvasTarget.elementId',
+    group: 'system',
+    description: 'canvas element id'
+  },
+  {
+    path: 'system.canvasTarget.resourceId',
+    group: 'system',
+    description: 'canvas resource id'
+  },
+  {
+    path: 'system.canvasTarget.actionId',
+    group: 'system',
+    description: 'agent action id'
+  }
+]
+
+const HELPER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
+  {
+    path: 'helpers.references.imageMedia',
+    group: 'helpers',
+    description: 'first frame + reference image media[]'
+  },
+  {
+    path: 'helpers.references.firstFrameMedia',
+    group: 'helpers',
+    description: 'first frame media[]'
+  },
+  {
+    path: 'helpers.references.referenceImageMedia',
+    group: 'helpers',
+    description: 'reference image media[]'
+  },
+  {
+    path: 'helpers.qwen.inputMessages',
+    group: 'helpers',
+    description: 'Qwen image messages'
+  },
+  {
+    path: 'helpers.seedance.content',
+    group: 'helpers',
+    description: 'Seedance multimodal content[]'
+  }
+]
+
+export function generationPayloadTemplateVariables(
+  config: GenerationPayloadConfig
+): GenerationTemplateVariable[] {
+  const payload = sanitizeGenerationPayloadConfig(config)
+  const direct: GenerationTemplateVariable[] = [
+    { path: 'model', group: 'direct', description: 'model id' },
+    { path: 'prompt', group: 'direct', description: 'prompt text' },
+    ...(payload.mediaType === 'chat'
+      ? [
+          {
+            path: 'messages',
+            group: 'direct' as const,
+            description: 'chat messages[]'
+          }
+        ]
+      : [])
+  ]
+  const params = payload.controls
+    .filter((control) => control.enabled && control.type !== 'referenceImages')
+    .map((control) => ({
+      path: `params.${control.key}`,
+      group: 'params' as const,
+      description: control.label?.trim() || control.type
+    }))
+  return [
+    ...direct,
+    ...params,
+    ...REFERENCE_TEMPLATE_VARIABLES,
+    ...SYSTEM_TEMPLATE_VARIABLES,
+    ...HELPER_TEMPLATE_VARIABLES
+  ]
+}
+
 function valueAtPath(value: unknown, path: string): unknown {
   const parts = path.split('.').filter(Boolean)
   let current = value
@@ -500,7 +705,7 @@ function valueAtPath(value: unknown, path: string): unknown {
 }
 
 export function buildGenerationTemplateContext(
-  params: RuntimeParams
+  params: GenerationRuntimeParams
 ): GenerationTemplateContext {
   const images = referenceImagesFromParams(params)
   const rawReferences = record(params.references)
@@ -513,16 +718,14 @@ export function buildGenerationTemplateContext(
         ? rawReferences.firstImage.trim()
         : images[0]
   })
-  const input = compactGenerationRecord(record(params.input))
+  const runtimeParams = compactGenerationRecord(record(params.params))
   const messages = compactGenerationValue(params.messages)
-  const controls = compactGenerationRecord(record(params.controls))
   const system = compactGenerationRecord(record(params.system))
   return {
     model: params.model,
     prompt: typeof params.prompt === 'string' ? params.prompt : '',
     messages: Array.isArray(messages) ? messages : [],
-    input,
-    controls,
+    params: runtimeParams,
     references,
     system,
     helpers: {
@@ -540,9 +743,6 @@ export function buildGenerationTemplateContext(
     }
   }
 }
-
-const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
-const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
 
 function renderTemplateValue(
   value: unknown,
@@ -573,24 +773,20 @@ function renderTemplateValue(
 
 export function buildGenerationPayloadFromConfig(
   config: GenerationPayloadConfig,
-  params: RuntimeParams
+  params: GenerationRuntimeParams
 ): ConfiguredGenerationPayload {
   const normalizedConfig = sanitizeGenerationPayloadConfig(
     generationPayloadConfigSchema.parse(config)
   )
   const mergedParams = normalizeRuntimeParams(normalizedConfig, params)
-  assertRequiredControlValues(
-    normalizedConfig.mediaType,
-    normalizedConfig.controls,
-    mergedParams
-  )
+  assertControlValues(normalizedConfig.controls, mergedParams)
   const templateContext = buildGenerationTemplateContext(mergedParams)
   const rendered = renderTemplateValue(
     normalizedConfig.request.body,
     templateContext
   )
   return {
-    params: mergedParams,
+    runtime: mergedParams,
     payload:
       normalizedConfig.request.omitEmpty === false
         ? record(rendered)
@@ -667,14 +863,14 @@ export function createDefaultGenerationPayloadConfig(
               options: IMAGE_BACKGROUND_OPTIONS
             },
             {
-              key: 'output_format',
+              key: 'outputFormat',
               label: 'Output format',
               type: 'select',
               defaultValue: 'png',
               options: IMAGE_OUTPUT_FORMAT_OPTIONS
             },
             {
-              key: 'output_compression',
+              key: 'outputCompression',
               label: 'Output compression',
               type: 'number',
               defaultValue: 90,
@@ -698,14 +894,14 @@ export function createDefaultGenerationPayloadConfig(
             body: {
               model: '{{model}}',
               prompt: '{{prompt}}',
-              size: '{{input.size}}',
-              n: '{{input.n}}',
+              size: '{{params.size}}',
+              n: '{{params.n}}',
               image: '{{references.images}}',
-              quality: '{{input.quality}}',
-              background: '{{input.background}}',
-              output_format: '{{input.outputFormat}}',
-              output_compression: '{{input.outputCompression}}',
-              seed: '{{input.seed}}'
+              quality: '{{params.quality}}',
+              background: '{{params.background}}',
+              output_format: '{{params.outputFormat}}',
+              output_compression: '{{params.outputCompression}}',
+              seed: '{{params.seed}}'
             }
           }
         }
@@ -722,14 +918,14 @@ export function createDefaultGenerationPayloadConfig(
                 options: VIDEO_DURATION_OPTIONS
               },
               {
-                key: 'size',
+                key: 'resolution',
                 label: 'Resolution',
                 type: 'select',
                 defaultValue: '720P',
                 options: VIDEO_SIZE_OPTIONS
               },
               {
-                key: 'mergeVideoAspectRatio',
+                key: 'aspectRatio',
                 label: 'Aspect ratio',
                 type: 'select',
                 defaultValue: '16:9',
@@ -753,7 +949,7 @@ export function createDefaultGenerationPayloadConfig(
                 min: 0
               },
               {
-                key: 'generate_audio',
+                key: 'generateAudio',
                 label: 'Generate audio',
                 type: 'boolean'
               }
@@ -763,19 +959,18 @@ export function createDefaultGenerationPayloadConfig(
               body: {
                 model: '{{model}}',
                 prompt: '{{prompt}}',
-                duration: '{{input.duration}}',
-                seconds: '{{input.seconds}}',
-                size: '{{input.resolution}}',
+                duration: '{{params.duration}}',
+                size: '{{params.resolution}}',
                 imgUrl: '{{references.firstImage}}',
                 mergeReferenceImageUrls: '{{references.images}}',
                 referenceMedia: '{{references.media}}',
                 mergeClipUrls: '{{references.clips}}',
-                mergeVideoAspectRatio: '{{input.aspectRatio}}',
+                mergeVideoAspectRatio: '{{params.aspectRatio}}',
                 videoEditVideoUrl: '{{references.sourceVideo}}',
                 drivingAudioUrl: '{{references.drivingAudio}}',
-                frames: '{{controls.frames}}',
-                seed: '{{input.seed}}',
-                generate_audio: '{{controls.generate_audio}}'
+                frames: '{{params.frames}}',
+                seed: '{{params.seed}}',
+                generate_audio: '{{params.generateAudio}}'
               }
             }
           }
@@ -814,11 +1009,11 @@ export function createDefaultGenerationPayloadConfig(
               body: {
                 model: '{{model}}',
                 messages: '{{messages}}',
-                temperature: '{{input.temperature}}',
-                max_tokens: '{{input.maxTokens}}',
-                reasoning_effort: '{{input.reasoningEffort}}',
-                stream: '{{input.stream}}',
-                stream_options: '{{input.streamOptions}}'
+                temperature: '{{params.temperature}}',
+                max_tokens: '{{params.maxTokens}}',
+                reasoning_effort: '{{params.reasoningEffort}}',
+                stream: '{{params.stream}}',
+                stream_options: '{{params.streamOptions}}'
               }
             }
           }
