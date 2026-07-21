@@ -867,7 +867,7 @@ export function createDefaultGenerationPayloadConfig(
               key: 'outputCompression',
               label: 'Output compression',
               type: 'number',
-              defaultValue: 90,
+              defaultValue: 100,
               min: 1,
               max: 100
             },
