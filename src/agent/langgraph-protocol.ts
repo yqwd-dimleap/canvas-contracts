@@ -127,7 +127,19 @@ export const canvasAgentArtifactRefSchema = z
     id: z.string().trim().min(1),
     type: z.string().trim().min(1),
     status: z.string().trim().min(1),
-    title: z.string().trim().min(1).optional()
+    title: z.string().trim().min(1).optional(),
+    // The run that produced this artifact. A thread snapshot aggregates refs
+    // across every run, so a card must carry its own run id to attach to the
+    // right assistant message and to avoid one run's snapshot dropping another
+    // run's cards. Optional for back-compat with pre-existing thin rows.
+    runId: z.string().trim().min(1).optional(),
+    // Full artifact body so a completed run's cards (e.g. the web-search
+    // briefing) survive a reload. Snapshots replay refs, not live frames, so a
+    // ref without content cannot re-render a media/reference card. Kept optional
+    // and unconstrained: only card-bearing artifacts populate it, and the shape
+    // is owned by the artifacts contract, not this transport schema.
+    content: z.unknown().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
 

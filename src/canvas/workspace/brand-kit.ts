@@ -56,22 +56,10 @@ export const workspaceBrandKitApiResponseSchema = apiSuccessResponseSchema(
 export const workspaceBrandKitDeleteApiResponseSchema =
   apiSuccessResponseSchema(workspaceBrandKitDeleteResponseSchema)
 
-export type WorkspaceBrandKitTokens = z.infer<
-  typeof workspaceBrandKitTokensSchema
->
 export type WorkspaceBrandKit = z.infer<typeof workspaceBrandKitSchema>
 export type WorkspaceBrandKitDocument = z.infer<
   typeof workspaceBrandKitDocumentSchema
 >
 export type WorkspaceBrandKitRequest = z.infer<
   typeof workspaceBrandKitRequestSchema
->
-export type ListWorkspaceBrandKitsResponse = z.infer<
-  typeof listWorkspaceBrandKitsResponseSchema
->
-export type WorkspaceBrandKitResponse = z.infer<
-  typeof workspaceBrandKitResponseSchema
->
-export type WorkspaceBrandKitDeleteResponse = z.infer<
-  typeof workspaceBrandKitDeleteResponseSchema
 >

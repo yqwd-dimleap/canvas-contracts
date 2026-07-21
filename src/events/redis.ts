@@ -23,8 +23,6 @@ export function normalizeCanvasRedisEnv(
   return normalized || undefined
 }
 
-export const normalizeRedisEventBusEnv = normalizeCanvasRedisEnv
-
 function normalizePrefix(value: string): string {
   return value.endsWith(':') ? value : `${value}:`
 }

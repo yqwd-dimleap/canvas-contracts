@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { apiSuccessResponseSchema } from '../api/response.js'
 
 /**
  * 公开作品（featured works）DTO —— 单一真相源。
@@ -113,29 +112,5 @@ export const workSchema = z.object({
 })
 
 export type WorkMedium = z.infer<typeof workMediumSchema>
-export type WorkSource = z.infer<typeof workSourceSchema>
-export type WorkQuality = z.infer<typeof workQualitySchema>
-export type WorkMediaSource = z.infer<typeof workMediaSourceSchema>
-export type AgentActionId = z.infer<typeof agentActionIdSchema>
-export type AgentAction = z.infer<typeof agentActionSchema>
-export type WorkCoverMotion = z.infer<typeof workCoverMotionSchema>
 export type WorkMedia = z.infer<typeof workMediaSchema>
-export type WorkAuthor = z.infer<typeof workAuthorSchema>
 export type Work = z.infer<typeof workSchema>
-
-/** GET /api/public/works —— 首页公开作品列表。 */
-export const publicWorksApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ works: z.array(workSchema) })
-)
-
-/** GET /api/public/works/:id —— 作品详情 + 相关作品（完整作品，非 id）。 */
-export const publicWorkDetailApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ work: workSchema, related: z.array(workSchema) })
-)
-
-export type PublicWorksResponse = z.infer<
-  typeof publicWorksApiResponseSchema
->['data']
-export type PublicWorkDetailResponse = z.infer<
-  typeof publicWorkDetailApiResponseSchema
->['data']

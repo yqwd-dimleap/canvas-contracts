@@ -186,52 +186,6 @@ function generateImgproxyDerivativePaths(input: {
 }
 
 /**
- * 生成 imgproxy 衍生图 URL（无签名）
- */
-export function generateImgproxyDerivativeUrls(input: {
-  source: ImgproxySource
-  originalWidth?: number | null
-  originalHeight?: number | null
-  baseUrl: string
-  previewMaxWidth?: number
-  thumbnailMaxWidth?: number
-  format?: string
-  quality?: number
-}): {
-  original: string
-  preview: string
-  thumb: string
-  thumbnails: Record<(typeof IMGPROXY_THUMBNAIL_WIDTHS)[number], string>
-  modelReference: string
-  previewSize: { width: number; height: number }
-  thumbnailSize: { width: number; height: number }
-  modelReferenceSize: { width: number; height: number }
-} {
-  const baseUrl = input.baseUrl.replace(/\/+$/, '')
-  const paths = generateImgproxyDerivativePaths(input)
-
-  // 响应式缩略图（不同宽度）
-  const thumbnails = {} as Record<
-    (typeof IMGPROXY_THUMBNAIL_WIDTHS)[number],
-    string
-  >
-  for (const width of IMGPROXY_THUMBNAIL_WIDTHS) {
-    thumbnails[width] = `${baseUrl}${paths.thumbnailPaths[width]}`
-  }
-
-  return {
-    original: `${baseUrl}${paths.originalPath}`,
-    preview: `${baseUrl}${paths.previewPath}`,
-    thumb: `${baseUrl}${paths.thumbPath}`,
-    thumbnails,
-    modelReference: `${baseUrl}${paths.modelReferencePath}`,
-    previewSize: paths.previewSize,
-    thumbnailSize: paths.thumbnailSize,
-    modelReferenceSize: paths.modelReferenceSize
-  }
-}
-
-/**
  * 生成带签名的 imgproxy 衍生图 URL
  */
 export async function generateSignedImgproxyDerivatives(input: {

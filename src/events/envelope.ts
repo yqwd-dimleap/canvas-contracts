@@ -31,4 +31,3 @@ export const eventEnvelopeBaseSchema = z.object({
 })
 
 export type EventSource = z.infer<typeof eventSourceSchema>
-export type EventEnvelopeBase = z.infer<typeof eventEnvelopeBaseSchema>

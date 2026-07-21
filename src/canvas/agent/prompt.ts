@@ -90,10 +90,6 @@ export const processPromptTextResponseSchema = apiSuccessResponseSchema(
 )
 
 export type PromptTextOperation = z.infer<typeof promptTextOperationSchema>
-export type PromptTextContentKind = z.infer<typeof promptTextContentKindSchema>
-export type PromptTextFieldContext = z.infer<
-  typeof promptTextFieldContextSchema
->
 export type ProcessPromptTextRequest = z.infer<
   typeof processPromptTextRequestSchema
 >

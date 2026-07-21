@@ -32,15 +32,5 @@ export const setPasswordRequestSchema = z
   })
   .strict()
 
-export type AuthUser = z.infer<typeof authUserSchema>
 export type AuthSession = z.infer<typeof authSessionSchema>
 export type AuthSessionPayload = z.infer<typeof authSessionPayloadSchema>
-export type SetPasswordRequest = z.infer<typeof setPasswordRequestSchema>
-
-export function parseAuthUser(value: unknown) {
-  return authUserSchema.parse(value)
-}
-
-export function parseAuthSessionPayload(value: unknown) {
-  return authSessionPayloadSchema.parse(value)
-}

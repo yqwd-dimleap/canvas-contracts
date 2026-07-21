@@ -84,17 +84,4 @@ export const featuredWorkDocumentSchema = z.object({
   searchText: z.string().optional()
 })
 
-export type FeaturedWorkGeneration = z.infer<
-  typeof featuredWorkGenerationSchema
->
-export type FeaturedWorkCoverMotion = z.infer<
-  typeof featuredWorkCoverMotionSchema
->
-export type FeaturedWorkMediaDocument = z.infer<
-  typeof featuredWorkMediaDocumentSchema
->
-export type FeaturedWorkAuthorDocument = z.infer<
-  typeof featuredWorkAuthorDocumentSchema
->
-export type FeaturedWorkTaxonomy = z.infer<typeof featuredWorkTaxonomySchema>
 export type FeaturedWorkDocument = z.infer<typeof featuredWorkDocumentSchema>

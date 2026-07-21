@@ -40,7 +40,3 @@ export const agentChatResponseSchema = apiSuccessResponseSchema(
     messages: z.array(agentChatMessageSchema)
   })
 )
-
-export type AgentChatRequest = z.infer<typeof agentChatRequestSchema>
-export type AgentChatMessage = z.infer<typeof agentChatMessageSchema>
-export type AgentChatResponse = z.infer<typeof agentChatResponseSchema>

@@ -71,10 +71,6 @@ export const modelProviderResponseSchema = z.object({
   provider: modelProviderSchema
 })
 
-export const modelProviderDeleteResponseSchema = z.object({
-  success: z.literal(true)
-})
-
 export const importGatewayModelsRequestSchema = z
   .object({
     provider: z.string().trim().min(1).optional(),
@@ -224,10 +220,6 @@ export const modelProviderApiResponseSchema = apiSuccessResponseSchema(
   modelProviderResponseSchema
 )
 
-export const modelProviderDeleteApiResponseSchema = apiSuccessResponseSchema(
-  modelProviderDeleteResponseSchema
-)
-
 export const gatewayModelsApiResponseSchema = apiSuccessResponseSchema(
   gatewayModelsResponseSchema
 )
@@ -240,7 +232,6 @@ export const importGatewayModelsApiResponseSchema = apiSuccessResponseSchema(
   importGatewayModelsResponseSchema
 )
 
-export type AdminModel = z.infer<typeof adminModelSchema>
 export type UpdateAdminModelRequest = z.infer<
   typeof updateAdminModelRequestSchema
 >
@@ -260,9 +251,6 @@ export type UpdateModelProviderRequest = z.infer<
   typeof updateModelProviderRequestSchema
 >
 export type ModelProviderResponse = z.infer<typeof modelProviderResponseSchema>
-export type ModelProviderDeleteResponse = z.infer<
-  typeof modelProviderDeleteResponseSchema
->
 export type ImportGatewayModelsRequest = z.infer<
   typeof importGatewayModelsRequestSchema
 >

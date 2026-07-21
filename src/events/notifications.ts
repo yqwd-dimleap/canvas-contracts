@@ -95,13 +95,6 @@ export const markUserNotificationsReadApiResponseSchema =
     })
   )
 
-export type ListUserNotificationsResponse = z.infer<
-  typeof listUserNotificationsApiResponseSchema
->['data']
-export type MarkUserNotificationsReadResponse = z.infer<
-  typeof markUserNotificationsReadApiResponseSchema
->['data']
-
 /**
  * 系统公告（announcement）DTO。
  *
@@ -125,14 +118,9 @@ export const announcementSchema = z.object({
   updatedAt: z.string()
 })
 
-export type AnnouncementPriority = z.infer<typeof announcementPrioritySchema>
 export type Announcement = z.infer<typeof announcementSchema>
 
 /** GET /api/announcements 响应：活跃公告列表（标准 { ok, data } 信封）。 */
 export const publicAnnouncementsApiResponseSchema = apiSuccessResponseSchema(
   z.object({ announcements: z.array(announcementSchema) })
 )
-
-export type PublicAnnouncementsResponse = z.infer<
-  typeof publicAnnouncementsApiResponseSchema
->['data']

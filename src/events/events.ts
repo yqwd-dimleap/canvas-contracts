@@ -153,20 +153,6 @@ export const canvasEventTypeSchema = z.enum([
   'notification.updated'
 ])
 
-export type GenerationCompletedEvent = z.infer<
-  typeof generationCompletedEventSchema
->
-export type GenerationFailedEvent = z.infer<typeof generationFailedEventSchema>
-export type GenerationProgressEvent = z.infer<
-  typeof generationProgressEventSchema
->
-export type AgentRunCompletedEvent = z.infer<
-  typeof agentRunCompletedEventSchema
->
-export type AgentRunFailedEvent = z.infer<typeof agentRunFailedEventSchema>
-export type AgentRunCancelledEvent = z.infer<
-  typeof agentRunCancelledEventSchema
->
 export type BillingUpdatedEvent = z.infer<typeof billingUpdatedEventSchema>
 export type NotificationUpdatedEvent = z.infer<
   typeof notificationUpdatedEventSchema

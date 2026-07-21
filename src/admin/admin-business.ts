@@ -231,21 +231,6 @@ export const adminAnalyticsResponseSchema = z.object({
   analytics: adminAnalyticsSchema
 })
 
-export const adminOverviewSchema = z.object({
-  days: z.number(),
-  users: z.number(),
-  enabledModels: z.number(),
-  usage: z.object({
-    credits: z.number(),
-    costCents: z.number(),
-    events: z.number()
-  })
-})
-
-export const adminOverviewResponseSchema = z.object({
-  overview: adminOverviewSchema
-})
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Announcements
 // ──────────────────────────────────────────────────────────────────────────────
@@ -388,9 +373,6 @@ export const adminUsageSummaryApiResponseSchema = apiSuccessResponseSchema(
 export const adminAnalyticsApiResponseSchema = apiSuccessResponseSchema(
   adminAnalyticsResponseSchema
 )
-export const adminOverviewApiResponseSchema = apiSuccessResponseSchema(
-  adminOverviewResponseSchema
-)
 export const adminAnnouncementsApiResponseSchema = apiSuccessResponseSchema(
   adminAnnouncementsResponseSchema
 )
@@ -422,30 +404,7 @@ export const adminPublishReviewApiResponseSchema = apiSuccessResponseSchema(
 // ──────────────────────────────────────────────────────────────────────────────
 
 export type AdminUserRow = z.infer<typeof adminUserRowSchema>
-export type AdminUserPatchRequest = z.infer<typeof adminUserPatchRequestSchema>
-export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>
-export type AdminOrderRow = z.infer<typeof adminOrderRowSchema>
-export type AdminOrdersSummary = z.infer<typeof adminOrdersSummarySchema>
-export type AdminOrdersResponse = z.infer<typeof adminOrdersResponseSchema>
-export type AdminUsageEventRow = z.infer<typeof adminUsageEventRowSchema>
-export type AdminUsageEventsResponse = z.infer<
-  typeof adminUsageEventsResponseSchema
->
-export type AdminAccessSessionRow = z.infer<typeof adminAccessSessionRowSchema>
-export type AdminAccessSessionsResponse = z.infer<
-  typeof adminAccessSessionsResponseSchema
->
 export type AdminUsageSummaryRow = z.infer<typeof adminUsageSummaryRowSchema>
-export type AdminAnalytics = z.infer<typeof adminAnalyticsSchema>
-export type AdminOverview = z.infer<typeof adminOverviewSchema>
-export type AdminAnnouncementRow = z.infer<typeof adminAnnouncementRowSchema>
-export type AdminPaymentConfigRow = z.infer<typeof adminPaymentConfigRowSchema>
 export type AdminPublishItem = z.infer<typeof adminPublishItemSchema>
 export type AdminPublishProject = z.infer<typeof adminPublishProjectSchema>
 export type AdminPublishAction = z.infer<typeof adminPublishActionSchema>
-export type AdminPublishReviewRequest = z.infer<
-  typeof adminPublishReviewRequestSchema
->
-export type AdminPublishReviewResult = z.infer<
-  typeof adminPublishReviewResultSchema
->

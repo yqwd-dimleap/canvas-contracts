@@ -13,7 +13,6 @@ import {
 } from '../canvas/events/operations.js'
 import { type AgentEvent, agentEventSchema } from './agent.js'
 import { type ArtifactEvent, artifactEventSchema } from './artifact.js'
-import { baseEventSchema } from './base.js'
 import { type RuntimeEvent, runtimeEventSchema } from './runtime.js'
 import { type ToolEvent, toolEventSchema } from './tool.js'
 
@@ -38,11 +37,3 @@ export type SystemEvent =
   | CanvasRuntimeEvent
 
 export type SequencedSystemEvent = z.infer<typeof sequencedSystemEventSchema>
-
-export function isSystemEvent(value: unknown): value is SystemEvent {
-  return systemEventSchema.safeParse(value).success
-}
-
-export function isBaseCanvasEvent(value: unknown) {
-  return baseEventSchema.safeParse(value).success
-}

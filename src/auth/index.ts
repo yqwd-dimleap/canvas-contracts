@@ -6,8 +6,6 @@
  * @module auth
  */
 
-// Admin config
-export * from './admin-config.js'
 // Build context
 export * from './build-context.js'
 // Client capabilities

@@ -32,7 +32,6 @@ export type ImgproxyFitDimensions = {
 export const IMGPROXY_THUMBNAIL_WIDTHS = [128, 320, 640, 1280, 2048] as const
 
 export const IMGPROXY_DEFAULT_FORMAT = 'avif' as const
-export const IMGPROXY_FALLBACK_FORMAT = 'webp' as const
 
 export type ImgproxyParsedUrl = {
   signature: string

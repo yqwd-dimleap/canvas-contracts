@@ -83,8 +83,6 @@ export const userGenerationModelPreferencesViewSchema = z.object({
   rows: z.array(userGenerationModelPreferenceRowSchema)
 })
 
-export type UserPreferences = z.infer<typeof userPreferencesSchema>
-export type UserApiSettings = z.infer<typeof userApiSettingsSchema>
 export type UserSettings = z.infer<typeof userSettingsSchema>
 export type UserGenerationModelPreferences = z.infer<
   typeof generationModelPreferencesSchema

@@ -20,35 +20,3 @@ export const baseEventSchema = z.object({
   toolCallId: z.string().optional().describe('工具调用 ID'),
   metadata: z.record(z.string(), z.unknown()).optional().describe('事件元数据')
 })
-
-/**
- * 事件基类接口
- */
-export type BaseEvent = z.infer<typeof baseEventSchema>
-
-/**
- * 事件过滤器
- */
-export const eventFilterSchema = z.object({
-  runId: z.string().optional(),
-  types: z.array(z.string()).optional(),
-  fromSeq: z.number().optional(),
-  toSeq: z.number().optional()
-})
-
-export type EventFilter = z.infer<typeof eventFilterSchema>
-
-/**
- * 事件类型守卫
- */
-export function isEvent(value: unknown): value is BaseEvent {
-  return baseEventSchema.safeParse(value).success
-}
-
-/**
- * 事件序列号包装
- */
-export interface SequencedEvent<T extends BaseEvent = BaseEvent> {
-  seq: number
-  event: T
-}

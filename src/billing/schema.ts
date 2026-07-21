@@ -86,42 +86,6 @@ export const creditOperationConfigSchema = z.object({
 
 export type CreditOperationConfig = z.infer<typeof creditOperationConfigSchema>
 
-/** GET /api/admin/credit-operations —— 全部积分操作配置（管理端，完整字段）。 */
-export const adminCreditOperationsApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ operations: z.array(creditOperationConfigSchema) })
-)
-
-/** PATCH /api/admin/credit-operations —— 更新后的单条配置。 */
-export const adminCreditOperationApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ operation: creditOperationConfigSchema })
-)
-
-/**
- * 积分操作的公开投影：仅暴露展示所需字段，不含 metadata / 时间戳等内部字段。
- * GET /api/credit-operations（无鉴权）用此形状。
- */
-export const creditOperationPublicConfigSchema =
-  creditOperationConfigSchema.pick({
-    id: true,
-    label: true,
-    description: true,
-    credits: true,
-    enabled: true
-  })
-
-export type CreditOperationPublicConfig = z.infer<
-  typeof creditOperationPublicConfigSchema
->
-
-/** GET /api/credit-operations —— 公开积分操作列表（部分字段）。 */
-export const publicCreditOperationsApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ operations: z.array(creditOperationPublicConfigSchema) })
-)
-
-export type PublicCreditOperationsResponse = z.infer<
-  typeof publicCreditOperationsApiResponseSchema
->['data']
-
 /**
  * 计费面向前端的业务端点响应 schema。
  *

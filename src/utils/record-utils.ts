@@ -50,20 +50,6 @@ export function booleanValue(
 }
 
 /**
- * Extract a timestamp (ms since epoch) from various date-like values.
- * Accepts: Date objects, numeric timestamps, ISO strings.
- */
-export function dateMs(value: unknown): number {
-  if (value instanceof Date) return value.getTime()
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return Date.now()
-}
-
-/**
  * Extract a nested record object from a field, or return null.
  */
 export function recordValue(value: unknown): Record<string, unknown> | null {
@@ -73,11 +59,4 @@ export function recordValue(value: unknown): Record<string, unknown> | null {
     !(value instanceof Date)
     ? (value as Record<string, unknown>)
     : null
-}
-
-/**
- * Extract an array from a field, or return empty array.
- */
-export function arrayValue<T = unknown>(value: unknown): T[] {
-  return Array.isArray(value) ? value : []
 }

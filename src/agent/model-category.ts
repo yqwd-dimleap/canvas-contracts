@@ -217,42 +217,6 @@ function isChatLikeModelId(lower: string): boolean {
   )
 }
 
-/** 是否图片生成模型（按网关分类规则判断，不读取静态 registry）。 */
-export function isImageGenerationModelId(modelId: string): boolean {
-  return categorizeGatewayModel(modelId) === 'image'
-}
-
-/** 是否视频生成模型（按网关分类规则判断，不读取静态 registry）。 */
-export function isVideoGenerationModelId(modelId: string): boolean {
-  return categorizeGatewayModel(modelId) === 'video'
-}
-
-/** 是否图生视频（image-to-video）模型。 */
-export function isImageToVideoModelId(modelId: string): boolean {
-  const lower = modelId.toLowerCase()
-  return (
-    lower.includes('i2v') ||
-    lower.includes('r2v') ||
-    lower.includes('image-to-video') ||
-    lower.includes('img2vid')
-  )
-}
-
-/** 是否视频编辑模型。 */
-export function isVideoEditModelId(modelId: string): boolean {
-  const lower = modelId.toLowerCase()
-  return (
-    lower.includes('videoedit') ||
-    lower.includes('video-edit') ||
-    lower.includes('video_edit')
-  )
-}
-
-/** 公开包装：无 hints 的纯 id 分类。 */
-export function categorizeModelId(modelId: string): ModelCategoryId {
-  return categorizeGatewayModel(modelId)
-}
-
 /** metadata 中存的覆盖值是否合法 modelCategory。 */
 export function isStoredModelKind(value: unknown): value is ModelCategoryId {
   return typeof value === 'string' && VALID_CATEGORIES.has(value)
@@ -298,15 +262,6 @@ export function readSupportedEndpointTypesFromMetadata(
         .filter(Boolean)
     )
   )
-}
-
-export function modelSupportsEndpointType(
-  metadata: Record<string, unknown> | null | undefined,
-  endpointType: string
-): boolean {
-  const normalized = normalizeEndpointType(endpointType)
-  if (!normalized) return false
-  return readSupportedEndpointTypesFromMetadata(metadata).includes(normalized)
 }
 
 export function getConfiguredModelCategory(

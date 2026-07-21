@@ -58,14 +58,8 @@ export const generationPayloadConfigJsonSchema = z.toJSONSchema(
 export type GenerationPayloadMediaType = z.infer<
   typeof generationPayloadMediaTypeSchema
 >
-export type GenerationPayloadControlType = z.infer<
-  typeof generationPayloadControlTypeSchema
->
 export type GenerationPayloadControl = z.infer<
   typeof generationPayloadControlSchema
->
-export type GenerationPayloadRequest = z.infer<
-  typeof generationPayloadRequestSchema
 >
 export type GenerationPayloadConfig = z.infer<
   typeof generationPayloadConfigSchema

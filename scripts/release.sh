@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # Release automation script for canvas-contracts
-# Usage:
-#   ./scripts/release.sh [prepare] [--with-changelog]
-#   ./scripts/release.sh publish
-#   ./scripts/release.sh retry-publish
+#
+# Two-phase, recoverable release flow:
+#   ./scripts/release.sh [prepare] [--with-changelog]   # bump version + commit (NO tag yet)
+#   ./scripts/release.sh publish                        # tag current HEAD + push -> triggers Actions
+#   ./scripts/release.sh retry-publish                  # re-trigger publish for the current version
+#   ./scripts/release.sh status                         # show where the release currently stands
+#   ./scripts/release.sh abort                          # safely undo a local, unpushed prepared release
+#
+# Design notes:
+#   - The git tag is created at PUBLISH time against the current HEAD, never at prepare time.
+#     This removes the classic dead-end where a tag baked in during prepare points at a stale
+#     commit after more work lands on top.
+#   - `prepare` detects an already-prepared / stuck release instead of blindly bumping again.
+#   - `abort` gives a supported way back out of a prepared-but-unpushed release, preserving any
+#     unrelated working-tree changes.
 
 set -euo pipefail
 
@@ -23,20 +34,24 @@ show_usage() {
   echo "  ./scripts/release.sh [prepare] [--with-changelog]"
   echo "  ./scripts/release.sh publish"
   echo "  ./scripts/release.sh retry-publish"
+  echo "  ./scripts/release.sh status"
+  echo "  ./scripts/release.sh abort"
   echo ""
   echo "Commands:"
-  echo "  prepare        Bump version, run checks, commit, and create a local tag (default)"
-  echo "  publish        Push the prepared release commit and tag to trigger GitHub Actions"
+  echo "  prepare        Bump version, run checks, and create a local release commit (default)"
+  echo "  publish        Tag current HEAD and push to trigger GitHub Actions publishing"
   echo "  retry-publish  Re-trigger publishing for the current package.json version without bumping"
+  echo "  status         Print the current release state and the recommended next step"
+  echo "  abort          Undo a local, unpushed prepared release (keeps unrelated changes)"
   echo ""
   echo "Options:"
-  echo "  --with-changelog  Open CHANGELOG.md and include it in the release commit"
+  echo "  --with-changelog  Open CHANGELOG.md and include it in the release commit (prepare only)"
   echo "  -h, --help        Show this help message"
 }
 
 for arg in "$@"; do
   case "$arg" in
-    prepare|publish|retry-publish)
+    prepare|publish|retry-publish|status|abort)
       if [[ "$COMMAND_SET" == "1" ]]; then
         echo -e "${RED}Error: Multiple commands provided${NC}"
         show_usage
@@ -70,6 +85,8 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${BLUE}  Canvas Contracts Release Script${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+
+# ───────────────────────────── generic guards ─────────────────────────────
 
 require_git_repo() {
   if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -111,8 +128,12 @@ confirm_main_branch() {
   fi
 }
 
+worktree_dirty() {
+  [[ -n $(git status --porcelain) ]]
+}
+
 ensure_clean_worktree() {
-  if [[ -n $(git status -s) ]]; then
+  if worktree_dirty; then
     echo -e "${RED}Error: Working directory is not clean.${NC}"
     echo "Please commit or stash your changes first:"
     git status -s
@@ -123,6 +144,13 @@ ensure_clean_worktree() {
 fetch_origin() {
   echo -e "${GREEN}Fetching latest changes and tags...${NC}"
   git fetch origin --tags
+}
+
+fetch_origin_soft() {
+  echo -e "${GREEN}Fetching latest changes and tags...${NC}"
+  if ! git fetch origin --tags 2>/dev/null; then
+    echo -e "${YELLOW}Warning: could not reach origin; showing local state only${NC}"
+  fi
 }
 
 origin_branch_exists() {
@@ -149,6 +177,24 @@ maybe_pull_latest() {
   fi
 }
 
+warn_if_branch_behind_for_publish() {
+  local branch="$1"
+
+  if ! origin_branch_exists "$branch"; then
+    return
+  fi
+
+  local behind
+  behind=$(git rev-list --count "HEAD..origin/${branch}" 2>/dev/null || echo "0")
+  if [[ "$behind" != "0" ]]; then
+    echo -e "${RED}Error: Your branch is ${behind} commits behind origin/${branch}.${NC}"
+    echo "Resolve that first before publishing this release commit."
+    exit 1
+  fi
+}
+
+# ───────────────────────────── version / tag helpers ─────────────────────────────
+
 current_version() {
   node -p "require('./package.json').version"
 }
@@ -156,6 +202,11 @@ current_version() {
 release_tag_for_version() {
   local version="$1"
   echo "v${version}"
+}
+
+release_commit_subject() {
+  local version="$1"
+  echo "chore(release): v${version}"
 }
 
 local_tag_target() {
@@ -168,21 +219,14 @@ remote_tag_target() {
   local peeled
   local direct
 
-  peeled=$(git ls-remote origin "refs/tags/${tag}^{}" | awk '{print $1}')
+  peeled=$(git ls-remote origin "refs/tags/${tag}^{}" 2>/dev/null | awk '{print $1}')
   if [[ -n "$peeled" ]]; then
     echo "$peeled"
     return
   fi
 
-  direct=$(git ls-remote origin "refs/tags/${tag}" | awk '{print $1}')
+  direct=$(git ls-remote origin "refs/tags/${tag}" 2>/dev/null | awk '{print $1}')
   echo "$direct"
-}
-
-tag_points_to_head() {
-  local target="$1"
-  local head
-  head=$(git rev-parse HEAD)
-  [[ -n "$target" && "$target" == "$head" ]]
 }
 
 assert_valid_semver() {
@@ -191,6 +235,57 @@ assert_valid_semver() {
     echo -e "${RED}Error: package.json version '${version}' is not a plain semver X.Y.Z version${NC}"
     exit 1
   fi
+}
+
+# Subject of HEAD equals the release marker for the given version.
+head_is_release_commit() {
+  local version="$1"
+  [[ "$(git log -1 --format='%s' 2>/dev/null)" == "$(release_commit_subject "$version")" ]]
+}
+
+# First commit (from HEAD downward) whose subject is the release marker for the version.
+find_release_commit() {
+  local version="$1"
+  git log --format='%H|%s' 2>/dev/null \
+    | awk -F'|' -v s="$(release_commit_subject "$version")" '$2==s{print $1; exit}' || true
+}
+
+commit_is_pushed() {
+  local sha="$1"
+  local branch="$2"
+  origin_branch_exists "$branch" || return 1
+  git merge-base --is-ancestor "$sha" "origin/${branch}" 2>/dev/null
+}
+
+# Classify the current release situation for `status` and the self-heal logic in `prepare`.
+# Echoes one of: PUBLISHED | PREPARED_CLEAN | PREPARED_DIRTY | STACKED | FRESH
+release_state() {
+  local version tag remote_tag rel_sha
+  version=$(current_version)
+  tag=$(release_tag_for_version "$version")
+  remote_tag=$(remote_tag_target "$tag")
+
+  if [[ -n "$remote_tag" ]]; then
+    echo "PUBLISHED"
+    return
+  fi
+
+  if head_is_release_commit "$version"; then
+    if worktree_dirty; then
+      echo "PREPARED_DIRTY"
+    else
+      echo "PREPARED_CLEAN"
+    fi
+    return
+  fi
+
+  rel_sha=$(find_release_commit "$version")
+  if [[ -n "$rel_sha" ]]; then
+    echo "STACKED"
+    return
+  fi
+
+  echo "FRESH"
 }
 
 print_commit_history_since_last_tag() {
@@ -216,74 +311,6 @@ print_commit_history_since_last_tag() {
   echo ""
 }
 
-detect_prepared_current_release() {
-  local version="$1"
-  local tag
-  local local_target
-  local remote_target
-
-  tag=$(release_tag_for_version "$version")
-  local_target=$(local_tag_target "$tag")
-  remote_target=$(remote_tag_target "$tag")
-
-  if tag_points_to_head "$local_target" || tag_points_to_head "$remote_target"; then
-    echo ""
-    echo -e "${YELLOW}Current HEAD is already prepared as ${tag}.${NC}"
-    echo "No version bump was performed."
-    echo ""
-    if [[ -n "$remote_target" ]]; then
-      echo "The tag already exists on origin. If the publish Action failed, use:"
-      echo ""
-      echo "  ./scripts/release.sh retry-publish"
-    else
-      echo "The tag exists locally but has not been pushed. To trigger publishing, use:"
-      echo ""
-      echo "  ./scripts/release.sh publish"
-    fi
-    echo ""
-    exit 0
-  fi
-}
-
-ensure_prepared_release() {
-  local version="$1"
-  local tag
-  local local_target
-  local head
-
-  tag=$(release_tag_for_version "$version")
-  local_target=$(local_tag_target "$tag")
-  head=$(git rev-parse HEAD)
-
-  if [[ -z "$local_target" ]]; then
-    echo -e "${RED}Error: Local tag ${tag} does not exist.${NC}"
-    echo "Run './scripts/release.sh prepare' first, or fetch tags if another machine prepared the release."
-    exit 1
-  fi
-
-  if [[ "$local_target" != "$head" ]]; then
-    echo -e "${RED}Error: Local tag ${tag} points to ${local_target}, not current HEAD ${head}.${NC}"
-    echo "Checkout the release commit before publishing, or fix the tag manually."
-    exit 1
-  fi
-}
-
-warn_if_branch_behind_for_publish() {
-  local branch="$1"
-
-  if ! origin_branch_exists "$branch"; then
-    return
-  fi
-
-  local behind
-  behind=$(git rev-list --count "HEAD..origin/${branch}" 2>/dev/null || echo "0")
-  if [[ "$behind" != "0" ]]; then
-    echo -e "${RED}Error: Your branch is ${behind} commits behind origin/${branch}.${NC}"
-    echo "Resolve that first before publishing this release commit."
-    exit 1
-  fi
-}
-
 print_publish_success() {
   local version="$1"
 
@@ -299,27 +326,129 @@ print_publish_success() {
   echo ""
 }
 
+# ───────────────────────────── status ─────────────────────────────
+
+show_status() {
+  local branch version tag local_tag remote_tag state
+  local ahead="0" behind="0"
+
+  require_node
+  branch=$(current_branch)
+  [[ -z "$branch" ]] && branch="(detached HEAD)"
+  fetch_origin_soft
+
+  version=$(current_version)
+  tag=$(release_tag_for_version "$version")
+  local_tag=$(local_tag_target "$tag")
+  remote_tag=$(remote_tag_target "$tag")
+  state=$(release_state)
+
+  if origin_branch_exists "$branch"; then
+    ahead=$(git rev-list --count "origin/${branch}..HEAD" 2>/dev/null || echo "0")
+    behind=$(git rev-list --count "HEAD..origin/${branch}" 2>/dev/null || echo "0")
+  fi
+
+  echo -e "${BLUE}Release status${NC}"
+  echo -e "  Branch          : ${branch}"
+  echo -e "  package.json    : ${version}  (tag ${tag})"
+  if worktree_dirty; then
+    echo -e "  Working tree    : ${YELLOW}dirty (uncommitted changes)${NC}"
+  else
+    echo -e "  Working tree    : ${GREEN}clean${NC}"
+  fi
+  echo -e "  vs origin       : ${ahead} ahead, ${behind} behind"
+  if [[ -n "$local_tag" ]]; then
+    echo -e "  Local tag ${tag} : ${local_tag:0:9}"
+  else
+    echo -e "  Local tag ${tag} : (none)"
+  fi
+  if [[ -n "$remote_tag" ]]; then
+    echo -e "  Origin tag ${tag}: ${remote_tag:0:9}"
+  else
+    echo -e "  Origin tag ${tag}: (none)"
+  fi
+  echo ""
+
+  case "$state" in
+    PUBLISHED)
+      echo -e "${GREEN}State: v${version} is already published on origin.${NC}"
+      echo "Next: run './scripts/release.sh prepare' to start the next version."
+      ;;
+    PREPARED_CLEAN)
+      echo -e "${YELLOW}State: v${version} is prepared locally but not published.${NC}"
+      echo "Next: './scripts/release.sh publish'  (or 'abort' to undo the bump)."
+      ;;
+    PREPARED_DIRTY)
+      echo -e "${YELLOW}State: v${version} is prepared, but you have new uncommitted changes.${NC}"
+      echo "Pick one:"
+      echo "  • './scripts/release.sh abort'   → undo the bump, fold these changes into the next release"
+      echo "  • commit/stash the changes, then './scripts/release.sh publish' to ship v${version} as-is"
+      ;;
+    STACKED)
+      echo -e "${YELLOW}State: v${version} was bumped, but new commits landed on top of its release commit.${NC}"
+      echo "The release commit is buried and cannot be published cleanly."
+      echo "Next: './scripts/release.sh abort'  (rewinds the version bump, keeps the commits on top)."
+      ;;
+    FRESH)
+      echo -e "${GREEN}State: no pending release. package.json is v${version}.${NC}"
+      echo "Next: './scripts/release.sh prepare' to bump and prepare a release."
+      ;;
+  esac
+  echo ""
+}
+
+# ───────────────────────────── prepare ─────────────────────────────
+
 prepare_release() {
   local branch
   local current
-  local major
-  local minor
-  local patch
-  local bump_type
-  local choice
-  local new_version
-  local tag
+  local state
+  local major minor patch
+  local bump_type choice new_version new_tag
 
   branch=$(require_branch)
   confirm_main_branch "$branch"
-  ensure_clean_worktree
-  fetch_origin
-  maybe_pull_latest "$branch"
   require_node
+  fetch_origin
 
   current=$(current_version)
   assert_valid_semver "$current"
-  detect_prepared_current_release "$current"
+
+  # Self-heal: detect an already-prepared / stuck release before touching anything.
+  state=$(release_state)
+  case "$state" in
+    PREPARED_CLEAN)
+      echo -e "${YELLOW}v${current} is already prepared locally and not yet published.${NC}"
+      echo "No version bump was performed."
+      echo ""
+      echo "To ship it:      ./scripts/release.sh publish"
+      echo "To undo it:      ./scripts/release.sh abort"
+      exit 0
+      ;;
+    PREPARED_DIRTY)
+      echo -e "${YELLOW}v${current} is already prepared, but the working tree has new changes.${NC}"
+      echo "Preparing again would double-bump. Choose one instead:"
+      echo ""
+      echo "  • ./scripts/release.sh abort   → rewind the bump, then re-run prepare to fold everything in"
+      echo "  • commit/stash the changes, then ./scripts/release.sh publish to ship v${current} as-is"
+      exit 1
+      ;;
+    STACKED)
+      echo -e "${YELLOW}v${current} was bumped, but commits landed on top of its release commit.${NC}"
+      echo "Run './scripts/release.sh abort' first (it keeps the commits on top), then prepare again."
+      exit 1
+      ;;
+    PUBLISHED|FRESH)
+      : # normal path — proceed to bump
+      ;;
+  esac
+
+  ensure_clean_worktree
+  maybe_pull_latest "$branch"
+
+  # current version may have changed after a pull.
+  current=$(current_version)
+  assert_valid_semver "$current"
 
   echo ""
   echo -e "${GREEN}Current version: ${current}${NC}"
@@ -348,20 +477,20 @@ prepare_release() {
   esac
 
   new_version="${major}.${minor}.${patch}"
-  tag=$(release_tag_for_version "$new_version")
+  new_tag=$(release_tag_for_version "$new_version")
 
   echo ""
-  echo -e "${GREEN}New version will be: ${YELLOW}${tag}${NC}"
+  echo -e "${GREEN}New version will be: ${YELLOW}${new_tag}${NC}"
 
-  if [[ -n $(local_tag_target "$tag") || -n $(remote_tag_target "$tag") ]]; then
-    echo -e "${RED}Error: Tag ${tag} already exists locally or on origin.${NC}"
-    echo "Choose a different version or resolve the existing tag first."
+  if [[ -n $(local_tag_target "$new_tag") || -n $(remote_tag_target "$new_tag") ]]; then
+    echo -e "${RED}Error: Tag ${new_tag} already exists locally or on origin.${NC}"
+    echo "That version was already released or half-released. Pick a different bump, or resolve the tag first."
     exit 1
   fi
 
   print_commit_history_since_last_tag
 
-  read -p "Proceed with release ${tag}? [y/N]: " confirm
+  read -p "Proceed with release ${new_tag}? [y/N]: " confirm
   if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     echo "Release cancelled."
     exit 0
@@ -442,35 +571,57 @@ prepare_release() {
     release_files+=(CHANGELOG.md)
   fi
   git add "${release_files[@]}"
-  git commit -m "chore(release): ${tag}"
-
-  echo -e "${GREEN}Creating annotated tag ${tag}...${NC}"
-  git tag -a "$tag" -m "Release ${tag}"
+  git commit -m "$(release_commit_subject "$new_version")"
 
   echo ""
   echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
   echo -e "${YELLOW}  Release prepared${NC}"
   echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
   echo ""
-  echo "The release commit and tag were created locally."
-  echo "No remote publish was triggered."
+  echo "The release commit was created locally. No tag was created and nothing was pushed."
+  echo "The tag ${new_tag} will be created against this commit when you publish."
   echo ""
-  echo "To publish:"
-  echo ""
-  echo "  ./scripts/release.sh publish"
-  echo ""
-  echo "If GitHub Actions publishing fails after the tag is pushed:"
-  echo ""
-  echo "  ./scripts/release.sh retry-publish"
+  echo "To publish:            ./scripts/release.sh publish"
+  echo "Changed your mind:     ./scripts/release.sh abort"
+  echo "If Actions fails later: ./scripts/release.sh retry-publish"
   echo ""
 }
 
-publish_release() {
-  local branch
-  local version
+# ───────────────────────────── publish ─────────────────────────────
+
+# Shared push path: ensure a local tag at HEAD, push branch, then push the tag.
+push_release() {
+  local branch="$1"
+  local version="$2"
   local tag
-  local remote_target
-  local head
+  local local_tag head
+  tag=$(release_tag_for_version "$version")
+  head=$(git rev-parse HEAD)
+  local_tag=$(local_tag_target "$tag")
+
+  if [[ -n "$local_tag" && "$local_tag" != "$head" ]]; then
+    echo -e "${RED}Error: Local tag ${tag} already exists but points to ${local_tag:0:9}, not HEAD.${NC}"
+    echo "Remove it ('git tag -d ${tag}') or run './scripts/release.sh abort', then retry."
+    exit 1
+  fi
+
+  echo ""
+  echo -e "${GREEN}Pushing release commit to origin/${branch}...${NC}"
+  git push origin "$branch"
+
+  if [[ -z "$local_tag" ]]; then
+    echo -e "${GREEN}Creating annotated tag ${tag} at HEAD...${NC}"
+    git tag -a "$tag" -m "Release ${tag}"
+  fi
+
+  echo -e "${GREEN}Pushing ${tag} to trigger publish...${NC}"
+  git push origin "$tag"
+
+  print_publish_success "$version"
+}
+
+publish_release() {
+  local branch version tag remote_target rel_sha
 
   branch=$(require_branch)
   confirm_main_branch "$branch"
@@ -482,20 +633,25 @@ publish_release() {
   version=$(current_version)
   assert_valid_semver "$version"
   tag=$(release_tag_for_version "$version")
-  ensure_prepared_release "$version"
 
   remote_target=$(remote_tag_target "$tag")
-  head=$(git rev-parse HEAD)
   if [[ -n "$remote_target" ]]; then
-    if [[ "$remote_target" == "$head" ]]; then
-      echo -e "${RED}Error: ${tag} already exists on origin and points to current HEAD.${NC}"
-      echo "A normal push will not trigger GitHub Actions again."
-      echo "Use './scripts/release.sh retry-publish' if the publish Action failed."
-      exit 1
-    fi
+    echo -e "${RED}Error: ${tag} already exists on origin.${NC}"
+    echo "That version is already published (or its tag was pushed)."
+    echo "  • If the publish Action failed:  ./scripts/release.sh retry-publish"
+    echo "  • To ship a new version:         ./scripts/release.sh prepare"
+    exit 1
+  fi
 
-    echo -e "${RED}Error: ${tag} already exists on origin but points to ${remote_target}.${NC}"
-    echo "Refusing to publish a different commit under the same version."
+  if ! head_is_release_commit "$version"; then
+    echo -e "${RED}Error: HEAD is not the release commit for v${version}.${NC}"
+    rel_sha=$(find_release_commit "$version")
+    if [[ -n "$rel_sha" ]]; then
+      echo "The v${version} release commit (${rel_sha:0:9}) is buried under later commits."
+      echo "Run './scripts/release.sh abort' to rewind the bump, then prepare again."
+    else
+      echo "Run './scripts/release.sh prepare' first, or check './scripts/release.sh status'."
+    fi
     exit 1
   fi
 
@@ -506,32 +662,20 @@ publish_release() {
   echo ""
   echo "This will:"
   echo "  1. Push current HEAD to origin/${branch}"
-  echo "  2. Push tag ${tag}"
+  echo "  2. Create tag ${tag} at HEAD and push it"
   echo "  3. Trigger GitHub Actions to publish to GitHub Packages"
   echo ""
   read -p "Push and publish? [y/N]: " push_confirm
-
   if [[ ! "$push_confirm" =~ ^[Yy]$ ]]; then
     echo "Publish cancelled."
     exit 0
   fi
 
-  echo ""
-  echo -e "${GREEN}Pushing release commit to origin/${branch}...${NC}"
-  git push origin "$branch"
-
-  echo -e "${GREEN}Pushing ${tag} to trigger publish...${NC}"
-  git push origin "$tag"
-
-  print_publish_success "$version"
+  push_release "$branch" "$version"
 }
 
 retry_publish() {
-  local branch
-  local version
-  local tag
-  local remote_target
-  local head
+  local branch version tag remote_target head
 
   branch=$(require_branch)
   confirm_main_branch "$branch"
@@ -543,33 +687,31 @@ retry_publish() {
   version=$(current_version)
   assert_valid_semver "$version"
   tag=$(release_tag_for_version "$version")
-  ensure_prepared_release "$version"
+
+  if ! head_is_release_commit "$version"; then
+    echo -e "${RED}Error: HEAD is not the release commit for v${version}.${NC}"
+    echo "retry-publish re-triggers the CURRENT prepared version; run './scripts/release.sh status'."
+    exit 1
+  fi
 
   remote_target=$(remote_tag_target "$tag")
   head=$(git rev-parse HEAD)
 
+  # Not pushed yet -> this is really a first publish.
   if [[ -z "$remote_target" ]]; then
-    echo -e "${YELLOW}${tag} does not exist on origin yet.${NC}"
-    echo "This will use the normal publish flow and push the prepared tag."
+    echo -e "${YELLOW}${tag} does not exist on origin yet; using the normal publish flow.${NC}"
     echo ""
     read -p "Push and publish ${tag}? [y/N]: " publish_confirm
-
     if [[ ! "$publish_confirm" =~ ^[Yy]$ ]]; then
       echo "Publish cancelled."
       exit 0
     fi
-
-    echo ""
-    echo -e "${GREEN}Pushing release commit to origin/${branch}...${NC}"
-    git push origin "$branch"
-    echo -e "${GREEN}Pushing ${tag} to trigger publish...${NC}"
-    git push origin "$tag"
-    print_publish_success "$version"
+    push_release "$branch" "$version"
     return
   fi
 
   if [[ "$remote_target" != "$head" ]]; then
-    echo -e "${RED}Error: Origin tag ${tag} points to ${remote_target}, not current HEAD ${head}.${NC}"
+    echo -e "${RED}Error: Origin tag ${tag} points to ${remote_target:0:9}, not current HEAD ${head:0:9}.${NC}"
     echo "Refusing to retry publishing a mismatched version tag."
     exit 1
   fi
@@ -584,7 +726,6 @@ retry_publish() {
   echo "at the same commit to trigger GitHub Actions again."
   echo ""
   read -p "Re-trigger publish for ${tag}? [y/N]: " retry_confirm
-
   if [[ ! "$retry_confirm" =~ ^[Yy]$ ]]; then
     echo "Retry cancelled."
     exit 0
@@ -595,11 +736,109 @@ retry_publish() {
   git push origin "$branch"
 
   echo -e "${GREEN}Recreating origin tag ${tag} at current HEAD...${NC}"
+  git tag -f -a "$tag" -m "Release ${tag}" > /dev/null
   git push origin ":refs/tags/${tag}"
   git push origin "$tag"
 
   print_publish_success "$version"
 }
+
+# ───────────────────────────── abort ─────────────────────────────
+
+abort_release() {
+  local branch version tag rel_sha head local_tag remote_tag
+
+  branch=$(require_branch)
+  require_node
+  fetch_origin
+
+  version=$(current_version)
+  assert_valid_semver "$version"
+  tag=$(release_tag_for_version "$version")
+
+  remote_tag=$(remote_tag_target "$tag")
+  if [[ -n "$remote_tag" ]]; then
+    echo -e "${RED}Error: ${tag} already exists on origin — v${version} is (being) published.${NC}"
+    echo "You cannot abort a published release. To supersede it, prepare a new version instead."
+    exit 1
+  fi
+
+  rel_sha=$(find_release_commit "$version")
+  if [[ -z "$rel_sha" ]]; then
+    echo -e "${YELLOW}No local 'chore(release): v${version}' commit found — nothing to abort.${NC}"
+    echo "Run './scripts/release.sh status' to see the current state."
+    exit 0
+  fi
+
+  if commit_is_pushed "$rel_sha" "$branch"; then
+    echo -e "${RED}Error: the v${version} release commit is already on origin/${branch}.${NC}"
+    echo "Aborting would rewrite pushed history. Prepare a new version instead."
+    exit 1
+  fi
+
+  head=$(git rev-parse HEAD)
+  local_tag=$(local_tag_target "$tag")
+
+  echo -e "${YELLOW}About to abort the prepared release v${version}:${NC}"
+  echo "  • release commit : ${rel_sha:0:9}  ($(release_commit_subject "$version"))"
+  if [[ "$rel_sha" != "$head" ]]; then
+    local stacked
+    stacked=$(git rev-list --count "${rel_sha}..HEAD")
+    echo "  • ${stacked} commit(s) sit on top of it and will be replayed onto the parent"
+  fi
+  if [[ -n "$local_tag" ]]; then
+    echo "  • local tag ${tag} (${local_tag:0:9}) will be deleted"
+  fi
+  echo "  • the version bump is undone; every other change is kept, staged or in the worktree"
+  echo ""
+  read -p "Proceed with abort? [y/N]: " abort_confirm
+  if [[ ! "$abort_confirm" =~ ^[Yy]$ ]]; then
+    echo "Abort cancelled."
+    exit 0
+  fi
+
+  # Drop the local tag first so it can never dangle onto the wrong commit.
+  if [[ -n "$local_tag" ]]; then
+    git tag -d "$tag" > /dev/null
+  fi
+
+  if [[ "$rel_sha" == "$head" ]]; then
+    # The release commit is HEAD. Un-commit it, then undo ONLY the version bump.
+    #
+    # IMPORTANT: never run 'git restore --worktree' across the whole commit — a release commit
+    # that was amended with real code changes would then have those changes wiped from the
+    # working tree (uncommitted edits on those files are unrecoverable). Instead we revert just
+    # package.json and merely UNSTAGE everything else, leaving the working tree untouched so no
+    # work can be lost.
+    git reset --soft "HEAD~1"
+    git restore --source=HEAD --staged --worktree -- package.json
+    git restore --staged -- . > /dev/null 2>&1 || true
+  else
+    # Stacked case: drop the release commit from the middle, replaying later commits.
+    # Everything from rel_sha up is unpushed (verified above), so this rewrite is local-only,
+    # and the dropped commit stays reachable via reflog if you need it back.
+    if worktree_dirty; then
+      echo -e "${RED}Error: working tree must be clean to rewind commits stacked on the release.${NC}"
+      echo "Commit or stash your changes, then run abort again."
+      # Re-create the tag we optimistically deleted so state is unchanged on this failure path.
+      if [[ -n "$local_tag" ]]; then
+        git tag -a "$tag" -m "Release ${tag}" "$local_tag" > /dev/null
+      fi
+      exit 1
+    fi
+    if ! git rebase --onto "${rel_sha}^" "$rel_sha"; then
+      echo -e "${RED}✗ Rebase hit a conflict.${NC}"
+      echo "Resolve it and run 'git rebase --continue', or 'git rebase --abort' to bail out."
+      exit 1
+    fi
+  fi
+
+  echo ""
+  echo -e "${GREEN}✓ Aborted. package.json is back to $(current_version).${NC}"
+  echo "Your other changes are preserved. Re-run './scripts/release.sh prepare' when ready."
+}
+
+# ───────────────────────────── dispatch ─────────────────────────────
 
 require_git_repo
 
@@ -612,6 +851,12 @@ case "$COMMAND" in
     ;;
   retry-publish)
     retry_publish
+    ;;
+  status)
+    show_status
+    ;;
+  abort)
+    abort_release
     ;;
   *)
     echo -e "${RED}Error: Unknown command '${COMMAND}'${NC}"

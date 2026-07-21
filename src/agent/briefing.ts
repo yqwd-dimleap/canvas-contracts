@@ -48,7 +48,6 @@ export const canvasBriefingArtifactContentSchema = z.object({
   groups: z.array(canvasBriefingGroupSchema).default([])
 })
 
-export type CanvasBriefingSource = z.infer<typeof canvasBriefingSourceSchema>
 export type CanvasBriefingImage = z.infer<typeof canvasBriefingImageSchema>
 export type CanvasBriefingGroup = z.infer<typeof canvasBriefingGroupSchema>
 export type CanvasBriefingArtifactContent = z.infer<

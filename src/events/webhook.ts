@@ -46,13 +46,6 @@ export const webhookEndpointSchema = z.object({
   updatedAt: timestampSchema
 })
 
-export const webhookRetryPolicySchema = z.object({
-  maxAttempts: z.number().int().min(1).default(6),
-  /** 退避基数（毫秒）：第 n 次重试延迟 ≈ baseDelayMs * 2^(n-1)。 */
-  baseDelayMs: z.number().int().min(100).default(2000),
-  maxDelayMs: z.number().int().min(1000).default(600_000)
-})
-
 /** 一条投递记录。 */
 export const webhookDeliverySchema = z.object({
   id: z.string().min(1),
@@ -79,5 +72,4 @@ export const webhookDeliverySchema = z.object({
 
 export type WebhookDeliveryStatus = z.infer<typeof webhookDeliveryStatusSchema>
 export type WebhookEndpoint = z.infer<typeof webhookEndpointSchema>
-export type WebhookRetryPolicy = z.infer<typeof webhookRetryPolicySchema>
 export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>

@@ -35,14 +35,6 @@ export const canvasAgentSuggestionsSchema = z
 
 export type CanvasAgentSuggestion = z.infer<typeof canvasAgentSuggestionSchema>
 
-export type CanvasAgentSuggestionKind = z.infer<
-  typeof canvasAgentSuggestionKindSchema
->
-
-export type CanvasAgentSuggestionPriority = z.infer<
-  typeof canvasAgentSuggestionPrioritySchema
->
-
 export type CanvasAgentSuggestionChoice = CanvasAgentSuggestion & {
   value: string
 }

@@ -105,19 +105,3 @@ export function aggregateRolePermissions(
   )
   return Array.from(new Set(allPermissions))
 }
-
-/**
- * 检查角色是否有特定权限
- * @param role - 角色名称
- * @param permission - 需要检查的权限
- * @param customPermissions - 自定义角色权限映射（可选）
- * @returns 该角色是否有此权限
- */
-export function roleHasPermission(
-  role: Role,
-  permission: Permission,
-  customPermissions?: RolePermissions[]
-): boolean {
-  const permissions = getRolePermissions(role, customPermissions)
-  return permissions.includes(permission)
-}

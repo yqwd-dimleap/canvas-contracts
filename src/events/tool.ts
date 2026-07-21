@@ -2,48 +2,6 @@ import { z } from 'zod'
 import { baseEventSchema } from './base.js'
 
 /**
- * Runtime tool event metadata.
- *
- * This describes emitted `tool.*` runtime events only. It is not the Canvas
- * Agent capability manifest and is not used to register LangChain tools.
- */
-export const runtimeToolCategorySchema = z.enum([
-  'search',
-  'browser',
-  'filesystem',
-  'code',
-  'image',
-  'canvas',
-  'video',
-  'other'
-])
-
-export const runtimeToolMetadataSchema = z.object({
-  name: z.string(),
-  title: z.string(),
-  category: runtimeToolCategorySchema,
-  version: z.string(),
-  streaming: z.boolean(),
-  interruptible: z.boolean(),
-  parallel: z.boolean(),
-  dangerous: z.boolean(),
-  timeout: z.number(),
-  retry: z.number()
-})
-
-export const runtimeToolContextSchema = z.object({
-  sessionId: z.string(),
-  taskId: z.string(),
-  toolCallId: z.string(),
-  agentId: z.string(),
-  parentAgentId: z.string().optional()
-})
-
-export type RuntimeToolCategory = z.infer<typeof runtimeToolCategorySchema>
-export type RuntimeToolMetadata = z.infer<typeof runtimeToolMetadataSchema>
-export type RuntimeToolContext = z.infer<typeof runtimeToolContextSchema>
-
-/**
  * 工具开始事件
  */
 export const toolStartEventSchema = baseEventSchema.extend({

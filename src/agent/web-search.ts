@@ -36,7 +36,6 @@ export const updateWebSearchConfigRequestSchema = z
   })
   .strict()
 
-export type WebSearchProvider = z.infer<typeof webSearchProviderSchema>
 export type WebSearchConfig = z.infer<typeof webSearchConfigSchema>
 export type WebSearchConfigView = z.infer<typeof webSearchConfigViewSchema>
 export type UpdateWebSearchConfigRequest = z.infer<

@@ -186,22 +186,11 @@ export const canvasDocumentSchema = z.object({
 export type CanvasDocumentElementType = z.infer<
   typeof canvasDocumentElementTypeSchema
 >
-export type CanvasDocumentBlendMode = z.infer<
-  typeof canvasDocumentBlendModeSchema
->
 export type CanvasRasterElement = z.infer<typeof canvasRasterElementSchema>
 export type CanvasTextElement = z.infer<typeof canvasTextElementSchema>
 export type CanvasShapeElement = z.infer<typeof canvasShapeElementSchema>
 export type CanvasVectorElement = z.infer<typeof canvasVectorElementSchema>
 export type CanvasPathPoint = z.infer<typeof canvasPathPointSchema>
 export type CanvasPathElement = z.infer<typeof canvasPathElementSchema>
-export type CanvasGroupElement = z.infer<typeof canvasGroupElementSchema>
-export type CanvasMaskElement = z.infer<typeof canvasMaskElementSchema>
-export type CanvasAdjustmentElement = z.infer<
-  typeof canvasAdjustmentElementSchema
->
 export type CanvasDocumentElement = z.infer<typeof canvasDocumentElementSchema>
-export type CanvasDocumentAiAnnotation = z.infer<
-  typeof canvasDocumentAiAnnotationSchema
->
 export type CanvasDocument = z.infer<typeof canvasDocumentSchema>

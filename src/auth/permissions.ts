@@ -84,19 +84,6 @@ export function matchPermission(
 }
 
 /**
- * 批量权限匹配
- * @param required - 需要的权限列表
- * @param granted - 用户拥有的权限列表
- * @returns 每个权限的匹配结果
- */
-export function matchPermissions(
-  required: Permission[],
-  granted: Permission[]
-): boolean[] {
-  return required.map((p) => matchPermission(p, granted))
-}
-
-/**
  * 检查是否拥有任一权限
  * @param required - 需要的权限列表（满足其一即可）
  * @param granted - 用户拥有的权限列表

@@ -77,13 +77,6 @@ export const artifactPatchSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 })
 
-export type ArtifactStatus = z.infer<typeof artifactStatusSchema>
 export type ArtifactType = z.infer<typeof artifactTypeSchema>
 export type Artifact = z.infer<typeof artifactSchema>
-export type TextArtifact = z.infer<typeof textArtifactSchema>
-export type CanvasTransactionArtifact = z.infer<
-  typeof canvasTransactionArtifactSchema
->
-export type MediaArtifact = z.infer<typeof mediaArtifactSchema>
-export type GenericArtifact = z.infer<typeof genericArtifactSchema>
 export type ArtifactPatch = z.infer<typeof artifactPatchSchema>

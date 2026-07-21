@@ -44,8 +44,5 @@ export const canvasResourceSchema = z.object({
 })
 
 export type CanvasResourceType = z.infer<typeof canvasResourceTypeSchema>
-export type CanvasResourceMetadata = z.infer<
-  typeof canvasResourceMetadataSchema
->
 export type CanvasResourceStorage = z.infer<typeof canvasResourceStorageSchema>
 export type CanvasResource = z.infer<typeof canvasResourceSchema>

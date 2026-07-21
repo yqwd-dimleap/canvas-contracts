@@ -24,7 +24,6 @@ export type ApiSuccessResponse<TData> = {
   ok: true
   data: TData
 }
-export type ApiResponse<TData> = ApiSuccessResponse<TData> | ApiErrorResponse
 
 export function apiSuccess<TData>(data: TData): ApiSuccessResponse<TData> {
   return {

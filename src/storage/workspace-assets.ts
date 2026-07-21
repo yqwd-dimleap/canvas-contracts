@@ -331,18 +331,11 @@ export type WorkspaceAssetOriginKind = z.infer<
   typeof workspaceAssetOriginKindSchema
 >
 export type WorkspaceAssetStorage = z.infer<typeof workspaceAssetStorageSchema>
-export type WorkspaceAssetOrigin = z.infer<typeof workspaceAssetOriginSchema>
 export type WorkspaceImageDerivatives = z.infer<
   typeof workspaceImageDerivativesSchema
 >
 export type WorkspaceImageDerivativeMetadata = z.infer<
   typeof workspaceImageDerivativeMetadataSchema
->
-export type WorkspaceAssetImageMedia = z.infer<
-  typeof workspaceAssetImageMediaSchema
->
-export type WorkspaceAssetVideoMedia = z.infer<
-  typeof workspaceAssetVideoMediaSchema
 >
 export type WorkspaceAssetMediaMetadata = z.infer<
   typeof workspaceAssetMediaMetadataSchema
@@ -353,11 +346,6 @@ export type WorkspaceAssetMetadata = z.infer<
 export type WorkspaceAsset = z.infer<typeof workspaceAssetSchema>
 export type WorkspaceAssetMediaSources = z.infer<
   typeof workspaceAssetMediaSourcesSchema
->
-export type WorkspaceUploadMode = z.infer<typeof workspaceUploadModeSchema>
-export type WorkspaceUploadKind = z.infer<typeof workspaceUploadKindSchema>
-export type WorkspaceUploadAssetMetadata = z.infer<
-  typeof workspaceUploadAssetMetadataSchema
 >
 export type WorkspaceUploadCreateRequest = z.infer<
   typeof workspaceUploadCreateRequestSchema
@@ -371,12 +359,6 @@ export type WorkspaceUploadPartRequest = z.infer<
 export type WorkspaceUploadPartResponse = z.infer<
   typeof workspaceUploadPartResponseSchema
 >
-export type WorkspaceUploadMultipartPart = z.infer<
-  typeof workspaceUploadMultipartPartSchema
->
-export type WorkspaceUploadMultipartCompleteRequest = z.infer<
-  typeof workspaceUploadMultipartCompleteRequestSchema
->
 export type WorkspaceUploadAbortRequest = z.infer<
   typeof workspaceUploadAbortRequestSchema
 >
@@ -388,15 +370,6 @@ export type WorkspaceUploadCompleteResult = z.infer<
 >
 export type WorkspaceAssetPatchRequest = z.infer<
   typeof workspaceAssetPatchRequestSchema
->
-export type ListWorkspaceAssetsResponse = z.infer<
-  typeof listWorkspaceAssetsResponseSchema
->
-export type WorkspaceAssetResponse = z.infer<
-  typeof workspaceAssetResponseSchema
->
-export type WorkspaceAssetDeleteResponse = z.infer<
-  typeof workspaceAssetDeleteResponseSchema
 >
 
 export type WorkspaceAssetMediaContext =
@@ -518,12 +491,6 @@ function canvasResourceMetadataNumber(
   key: 'width' | 'height' | 'duration'
 ): number | null {
   return positiveNumberValue(recordValue(resource.metadata)?.[key])
-}
-
-function mediaResourceType(
-  resource: WorkspaceMediaResourceLike | null | undefined
-): 'image' | 'video' | null {
-  return mediaAssetTypeValue(resource?.type)
 }
 
 export function workspaceAssetFromUnknown(row: unknown): WorkspaceAsset {
@@ -764,18 +731,7 @@ export function canvasMediaResourceThumbnailUrl(
   return canvasMediaResourceUrl(resource, 'thumbnail')
 }
 
-export function canvasMediaResourcePreviewUrl(
-  resource: WorkspaceMediaResourceLike | null | undefined
-): string | null {
-  if (!resource) return null
-  return mediaResourceType(resource) === 'video'
-    ? canvasMediaResourceThumbnailUrl(resource)
-    : canvasMediaResourceUrl(resource, 'preview')
-}
-
 export const canvasResourceModelUrl = canvasMediaResourceModelUrl
-export const canvasResourcePlayableUrl = canvasMediaResourcePlayableUrl
-export const canvasResourcePreviewUrl = canvasMediaResourcePreviewUrl
 export const canvasResourceThumbnailUrl = canvasMediaResourceThumbnailUrl
 
 function firstCanvasMediaOutputResource(
@@ -846,25 +802,6 @@ export function canvasMediaResourceMetadata(
   return workspaceAssetMediaFromMetadata(resource.metadata)
 }
 
-export function canvasMediaResourceDimensions(
-  resource: WorkspaceMediaResourceLike | null | undefined
-): { width: number; height: number } | null {
-  const media = canvasMediaResourceMetadata(resource)
-  const width =
-    media?.type === 'image'
-      ? media.original.width
-      : media?.type === 'video'
-        ? media.original.width
-        : undefined
-  const height =
-    media?.type === 'image'
-      ? media.original.height
-      : media?.type === 'video'
-        ? media.original.height
-        : undefined
-  return width && height ? { width, height } : null
-}
-
 export function canvasMediaResourceVideoPosterUrl(
   resource: WorkspaceMediaResourceLike | null | undefined
 ): string | null {
@@ -890,19 +827,10 @@ export function canvasMediaResourceModelReferenceUrl(
   return url || null
 }
 
-export function isAnimatedCanvasImageResource(
-  resource: WorkspaceMediaResourceLike | null | undefined
-): boolean {
-  const media = canvasMediaResourceMetadata(resource)
-  return Boolean(media?.type === 'image' && media.image?.isAnimated)
-}
-
 export const getResourceUrl = canvasMediaResourceUrl
-export const getResourceDimensions = canvasMediaResourceDimensions
 export const getVideoPosterUrl = canvasMediaResourceVideoPosterUrl
 export const getImageDerivatives = canvasMediaResourceImageDerivatives
 export const getImageModelReferenceUrl = canvasMediaResourceModelReferenceUrl
-export const isAnimatedImageResource = isAnimatedCanvasImageResource
 
 export function readCanvasImageOutputResource(
   resources: CanvasResource[] | undefined,
@@ -955,24 +883,6 @@ export function readCanvasVideoOutputResource(
     mediaMetadata: canvasMediaResourceMetadata(output)
   }
 }
-
-export function readCanvasVideoPosterUrl(
-  resources: CanvasResource[] | undefined,
-  createdBy: string,
-  input?: ReadCanvasMediaOutputResourceInput
-): string | null {
-  const resolvedResources = resolveCanvasMediaOutputResources(resources, input)
-  const resource = firstCanvasMediaOutputResource(
-    resolvedResources,
-    'video',
-    createdBy
-  )
-  return canvasMediaResourceThumbnailUrl(resource)
-}
-
-export const readImageOutputResource = readCanvasImageOutputResource
-export const readVideoOutputResource = readCanvasVideoOutputResource
-export const readVideoPosterUrl = readCanvasVideoPosterUrl
 
 export function resolveCanvasResourceAssetReference<T>(
   resource: T,

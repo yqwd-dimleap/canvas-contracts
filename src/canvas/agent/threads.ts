@@ -67,21 +67,11 @@ export const canvasAgentActiveThreadRequestSchema = z
 export const canvasAgentActiveThreadResponseSchema =
   canvasAgentActiveThreadRequestSchema
 
-export type CanvasAgentThreadStatus = z.infer<
-  typeof canvasAgentThreadStatusSchema
->
 export type CanvasAgentThread = z.infer<typeof canvasAgentThreadSchema>
 export type CanvasAgentMessage = z.infer<typeof canvasAgentMessageSchema>
-export type CanvasAgentMessagePage = z.infer<
-  typeof canvasAgentMessagePageSchema
->
-export type CanvasAgentThreadPage = z.infer<typeof canvasAgentThreadPageSchema>
 export type CanvasAgentThreadPatch = z.infer<
   typeof canvasAgentThreadPatchSchema
 >
 export type CanvasAgentActiveThreadRequest = z.infer<
   typeof canvasAgentActiveThreadRequestSchema
->
-export type CanvasAgentActiveThreadResponse = z.infer<
-  typeof canvasAgentActiveThreadResponseSchema
 >

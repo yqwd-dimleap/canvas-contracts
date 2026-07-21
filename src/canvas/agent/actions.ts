@@ -40,12 +40,6 @@ export const canvasActionCostSchema = z.object({
   estimated: z.boolean().optional()
 })
 
-export const canvasActionRefSchema = z.object({
-  ref: z.string().min(1).optional(),
-  elementId: z.string().min(1).optional(),
-  actionId: z.string().min(1).optional()
-})
-
 export const canvasIntentKindSchema = z.enum([
   'conversation', // 纯对话：用户在提问、讨论、寻求解释，不需要立即执行操作
   'chat', // 简单回复：需要快速回答或确认
@@ -287,25 +281,9 @@ export const canvasAgentRunInputSchema = z
   .strict()
 
 export type CanvasAgentAction = z.infer<typeof canvasAgentActionSchema>
-export type CanvasActionStatus = z.infer<typeof canvasActionStatusSchema>
-export type CanvasActionError = z.infer<typeof canvasActionErrorSchema>
-export type CanvasActionCost = z.infer<typeof canvasActionCostSchema>
-export type CanvasActionRef = z.infer<typeof canvasActionRefSchema>
 export type CanvasIntentKind = z.infer<typeof canvasIntentKindSchema>
-export type CanvasAgentCommandKind = z.infer<
-  typeof canvasAgentCommandKindSchema
->
-export type CanvasAgentCommandSource = z.infer<
-  typeof canvasAgentCommandSourceSchema
->
 export type CanvasAgentCommand = z.infer<typeof canvasAgentCommandSchema>
 export type CanvasAgentConversationMessage = z.infer<
   typeof canvasAgentConversationMessageSchema
->
-export type CanvasAgentBaseRequest = z.infer<
-  typeof canvasAgentBaseRequestSchema
->
-export type CanvasAgentRunAttachment = z.infer<
-  typeof canvasAgentRunAttachmentSchema
 >
 export type CanvasAgentRunInput = z.infer<typeof canvasAgentRunInputSchema>

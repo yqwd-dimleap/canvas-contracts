@@ -67,7 +67,6 @@ export const CANVAS2D_DEFAULT_WORKSPACE_VIEW = {
   assetPanelOpen: false
 } as const
 
-export type Canvas2dViewMode = z.infer<typeof canvas2dViewModeSchema>
 export type Canvas2dInteractionTool = z.infer<
   typeof canvas2dInteractionToolSchema
 >

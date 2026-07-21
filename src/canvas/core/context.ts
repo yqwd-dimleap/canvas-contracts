@@ -29,4 +29,3 @@ export const canvasSelectionSchema = z
   })
 
 export type CanvasContext = z.infer<typeof canvasContextSchema>
-export type CanvasSelection = z.infer<typeof canvasSelectionSchema>

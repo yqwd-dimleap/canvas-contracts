@@ -44,25 +44,6 @@ export const imageGenerationParamsSchema = z
   })
   .strict()
 
-export const chatGenerationMessagesSchema = z
-  .array(z.object({}).passthrough())
-  .default([])
-
-export const chatGenerationReferencesSchema = z
-  .record(z.string(), z.unknown())
-  .default({})
-
-export const chatGenerationParamsSchema = z
-  .object({
-    messages: chatGenerationMessagesSchema.default([]),
-    prompt: z.string().optional(),
-    model: z.string().min(1),
-    params: generationParamsSchema.default({}),
-    references: chatGenerationReferencesSchema,
-    system: generationSystemSchema.default({})
-  })
-  .strict()
-
 /** 视频参考媒体 */
 export const videoReferenceMediaSchema = z
   .object({

@@ -1,14 +1,6 @@
 import { z } from 'zod'
 import { timestampSchema } from '../shared/timestamp.js'
 
-export const agentModelProviderSchema = z.enum([
-  'openai',
-  'gateway',
-  'anthropic',
-  'azure',
-  'custom'
-])
-
 /**
  * 模型类别（按网关返回的模型列表做归类）。
  * 后台用于将导入的模型分到 image / video / chat / embedding / audio / other，
@@ -136,11 +128,9 @@ export const modelProviderSchema = z.object({
   updatedAt: timestampSchema
 })
 
-export type AgentModelProvider = z.infer<typeof agentModelProviderSchema>
 export type ModelCategory = z.infer<typeof modelCategorySchema>
 export type ModelReasoningEffort = z.infer<typeof modelReasoningEffortSchema>
 export type ModelPricingUnit = z.infer<typeof modelPricingUnitSchema>
-export type ModelPricingTierMode = z.infer<typeof modelPricingTierModeSchema>
 export type ModelPricingTier = z.infer<typeof modelPricingTierSchema>
 export type ModelPricingRate = z.infer<typeof modelPricingRateSchema>
 export type ModelPricingRates = z.infer<typeof modelPricingRatesSchema>

@@ -134,9 +134,3 @@ export type UpdateGenerationTaskRequest = z.infer<
 export type ListGenerationTasksResponse = z.infer<
   typeof listGenerationTasksResponseSchema
 >
-export type ListGenerationTasksQuery = z.infer<
-  typeof listGenerationTasksQuerySchema
->
-export type UpdateGenerationTaskResponse = z.infer<
-  typeof updateGenerationTaskResponseSchema
->

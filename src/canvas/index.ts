@@ -1,6 +1,5 @@
 export * from './agent/index.js'
 export * from './core/index.js'
 export * from './resources/index.js'
-export * from './snapshot/index.js'
 export * from './view/index.js'
 export * from './workspace/index.js'

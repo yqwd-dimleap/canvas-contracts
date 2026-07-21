@@ -767,18 +767,6 @@ export type CanvasAgentToolRuntime = z.infer<
 export type CanvasAgentToolPermission = z.infer<
   typeof canvasAgentToolPermissionSchema
 >
-export type CanvasAgentToolCategory = z.infer<
-  typeof canvasAgentToolCategorySchema
->
-export type CanvasAgentElementCapability = z.infer<
-  typeof canvasAgentElementCapabilitySchema
->
-export type CanvasAgentActionCapability = z.infer<
-  typeof canvasAgentActionCapabilitySchema
->
-export type CanvasAgentRecipeCapability = z.infer<
-  typeof canvasAgentRecipeCapabilitySchema
->
 export type CanvasAgentToolCapability = z.infer<
   typeof canvasAgentToolCapabilitySchema
 >

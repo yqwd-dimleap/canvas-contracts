@@ -319,44 +319,15 @@ export function parseWorkspaceProjectCanvas(
   return workspaceProjectCanvasSchema.parse(value)
 }
 
-export function safeParseWorkspaceProjectCanvas(
-  value: unknown
-): WorkspaceProjectCanvas | null {
-  const result = workspaceProjectCanvasSchema.safeParse(value)
-  return result.success ? result.data : null
-}
-
-export type WorkspaceProjectSummaryMediaSource = z.infer<
-  typeof workspaceProjectSummaryMediaSourceSchema
->
-export type WorkspaceProjectTitleSource = z.infer<
-  typeof workspaceProjectTitleSourceSchema
->
-export type WorkspaceProjectSummaryMedia = z.infer<
-  typeof workspaceProjectSummaryMediaSchema
->
-export type WorkspaceProjectSummaryCover = z.infer<
-  typeof workspaceProjectSummaryCoverSchema
->
 export type WorkspaceProjectSummary = z.infer<
   typeof workspaceProjectSummarySchema
->
-export type WorkspaceProjectPreviewDimensions = z.infer<
-  typeof workspaceProjectPreviewDimensionsSchema
 >
 export type WorkspaceProjectPublishStatus = z.infer<
   typeof workspaceProjectPublishStatusSchema
 >
-export type WorkspaceProjectPublishAgentStatus = z.infer<
-  typeof workspaceProjectPublishAgentStatusSchema
->
 export type WorkspaceProjectPublishReview = z.infer<
   typeof workspaceProjectPublishReviewSchema
 >
-export type WorkspaceProjectSession = z.infer<
-  typeof workspaceProjectSessionSchema
->
-export type WorkspaceProjectRun = z.infer<typeof workspaceProjectRunSchema>
 export type RecentWorkspaceProject = z.infer<
   typeof recentWorkspaceProjectSchema
 >
@@ -378,19 +349,4 @@ export type WorkspaceProjectUpdateRequest = z.infer<
 >
 export type WorkspaceProjectPublishRequest = z.infer<
   typeof workspaceProjectPublishRequestSchema
->
-export type ListWorkspaceProjectsResponse = z.infer<
-  typeof listWorkspaceProjectsResponseSchema
->
-export type GetWorkspaceProjectResponse = z.infer<
-  typeof getWorkspaceProjectResponseSchema
->
-export type RecentWorkspaceProjectsResponse = z.infer<
-  typeof recentWorkspaceProjectsResponseSchema
->
-export type WorkspaceProjectDeleteResponse = z.infer<
-  typeof workspaceProjectDeleteResponseSchema
->
-export type WorkspaceProjectPublishWithdrawResponse = z.infer<
-  typeof workspaceProjectPublishWithdrawResponseSchema
 >

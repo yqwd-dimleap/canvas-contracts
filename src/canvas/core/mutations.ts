@@ -65,57 +65,6 @@ const adjustmentPatchSchema = canvasAdjustmentElementSchema
   .partial()
   .strict()
 
-export const canvasElementPatchSchema = z.discriminatedUnion('elementType', [
-  z
-    .object({
-      elementType: z.literal('raster'),
-      patch: rasterPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('text'),
-      patch: textPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('shape'),
-      patch: shapePatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('vector'),
-      patch: vectorPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('path'),
-      patch: pathPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('group'),
-      patch: groupPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('mask'),
-      patch: maskPatchSchema
-    })
-    .strict(),
-  z
-    .object({
-      elementType: z.literal('adjustment'),
-      patch: adjustmentPatchSchema
-    })
-    .strict()
-])
-
 export const canvasDocumentPatchSchema = canvasDocumentSchema
   .omit({
     id: true,
@@ -390,22 +339,12 @@ export const canvasTransientEffectSchema = z.discriminatedUnion('type', [
   })
 ])
 
-export const canvasConflictResolutionSchema = z
-  .object({
-    conflictId: z.string().trim().min(1),
-    choice: z.enum(['keep_user', 'apply_agent'])
-  })
-  .strict()
-
-export type CanvasMutationOrigin = z.infer<typeof canvasMutationOriginSchema>
 export type CanvasOperationStatus = z.infer<typeof canvasOperationStatusSchema>
 export type CanvasOperationHighlightStyle = z.infer<
   typeof canvasOperationHighlightStyleSchema
 >
 export type CanvasPoint = z.infer<typeof canvasPointSchema>
 export type CanvasBounds = z.infer<typeof canvasBoundsSchema>
-export type CanvasElementPatch = z.infer<typeof canvasElementPatchSchema>
-export type CanvasDocumentPatch = z.infer<typeof canvasDocumentPatchSchema>
 export type CanvasMutation = z.infer<typeof canvasMutationSchema>
 export type CanvasMutationTransaction = z.infer<
   typeof canvasMutationTransactionSchema
@@ -415,6 +354,3 @@ export type CanvasMutationConflict = z.infer<
 >
 export type CanvasMutationReceipt = z.infer<typeof canvasMutationReceiptSchema>
 export type CanvasTransientEffect = z.infer<typeof canvasTransientEffectSchema>
-export type CanvasConflictResolution = z.infer<
-  typeof canvasConflictResolutionSchema
->
