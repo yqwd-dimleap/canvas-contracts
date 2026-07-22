@@ -226,7 +226,7 @@ describe('image generation metadata.payload', () => {
     })
   })
 
-  test('canonicalizes legacy namespaces and snake-case aliases', () => {
+  test('passes param keys through verbatim without canonical rewriting', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.controls = payload.controls.map((control) =>
       control.key === 'outputFormat'
@@ -234,8 +234,8 @@ describe('image generation metadata.payload', () => {
         : control
     )
     payload.request.body = {
-      format: '{{input.outputFormat}}',
-      compression: '{{controls.output_compression}}'
+      format: '{{params.output_format}}',
+      compression: '{{params.output_compression}}'
     }
 
     const configured = buildGenerationPayloadFromConfig(payload, {
@@ -247,11 +247,11 @@ describe('image generation metadata.payload', () => {
     })
 
     expect(configured.config.controls).toContainEqual(
-      expect.objectContaining({ key: 'outputFormat' })
+      expect.objectContaining({ key: 'output_format' })
     )
     expect(configured.config.request.body).toEqual({
-      format: '{{params.outputFormat}}',
-      compression: '{{params.outputCompression}}'
+      format: '{{params.output_format}}',
+      compression: '{{params.output_compression}}'
     })
     expect(configured.payload).toEqual({ format: 'webp', compression: 72 })
   })
@@ -274,12 +274,12 @@ describe('image generation metadata.payload', () => {
     ).toThrow('Generation payload control "outputFormat" has an unsupported')
   })
 
-  test('supports provider-specific image helpers', () => {
+  test('supports generic multimodal message helpers', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.request.body = {
       model: '{{model}}',
       input: {
-        messages: '{{helpers.qwen.inputMessages}}'
+        messages: '{{helpers.messages.userMultimodal}}'
       },
       parameters: {
         size: '{{params.size}}',

@@ -133,6 +133,38 @@ export const publicPaymentMethodSchema = z.object({
 
 export type PublicPaymentMethod = z.infer<typeof publicPaymentMethodSchema>
 
+/** Backend-owned subscription product catalog item. */
+export const billingPlanCatalogItemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  monthlyCredits: z.number().int().nonnegative(),
+  monthlyPriceUsd: z.number().nonnegative(),
+  yearlyPriceUsd: z.number().nonnegative(),
+  monthlyPriceCnyFen: z.number().int().nonnegative(),
+  yearlyPriceCnyFen: z.number().int().nonnegative()
+})
+
+export type BillingPlanCatalogItem = z.infer<
+  typeof billingPlanCatalogItemSchema
+>
+
+/** Backend-owned one-time credit top-up catalog item. */
+export const creditPackCatalogItemSchema = z.object({
+  id: z.string().min(1),
+  credits: z.number().int().positive(),
+  priceUsd: z.number().nonnegative(),
+  cnyFen: z.number().int().nonnegative()
+})
+
+export type CreditPackCatalogItem = z.infer<typeof creditPackCatalogItemSchema>
+
+export const billingCatalogSchema = z.object({
+  plans: z.array(billingPlanCatalogItemSchema),
+  creditPacks: z.array(creditPackCatalogItemSchema)
+})
+
+export type BillingCatalog = z.infer<typeof billingCatalogSchema>
+
 /** 订单状态（展示型枚举，容忍未知取值降级为 unknown）。 */
 export const paymentOrderStatusSchema = z
   .enum([
@@ -191,6 +223,10 @@ export const paymentOptionsApiResponseSchema = apiSuccessResponseSchema(
     localSubscribeEnabled: z.boolean()
   })
 )
+
+/** GET /api/billing/catalog —— public backend-owned product catalog. */
+export const billingCatalogApiResponseSchema =
+  apiSuccessResponseSchema(billingCatalogSchema)
 
 /** GET /api/billing/orders —— 用户订单列表。 */
 export const billingOrdersApiResponseSchema = apiSuccessResponseSchema(

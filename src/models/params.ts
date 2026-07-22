@@ -27,12 +27,15 @@ export const generationSystemSchema = z
   })
   .strict()
 
-export const imageGenerationReferencesSchema = z
-  .object({
-    images: z.array(z.string()).optional(),
-    firstImage: z.string().optional()
-  })
-  .strict()
+/**
+ * 参考媒体字段是开放集合：不同厂商可能引入 mask / styleRef 等新字段。
+ * 用 loose 透传扩展字段，避免每加一种参考媒体都要改契约；已知字段仍显式声明
+ * 以获得类型提示。
+ */
+export const imageGenerationReferencesSchema = z.looseObject({
+  images: z.array(z.string()).optional(),
+  firstImage: z.string().optional()
+})
 
 export const imageGenerationParamsSchema = z
   .object({
@@ -66,16 +69,14 @@ export const videoReferenceMediaSchema = z
   })
   .loose()
 
-export const videoGenerationReferencesSchema = z
-  .object({
-    images: z.array(z.string()).optional(),
-    firstImage: z.string().optional(),
-    media: z.array(videoReferenceMediaSchema).optional(),
-    clips: z.array(z.string()).optional(),
-    sourceVideo: z.string().optional(),
-    drivingAudio: z.string().optional()
-  })
-  .strict()
+export const videoGenerationReferencesSchema = z.looseObject({
+  images: z.array(z.string()).optional(),
+  firstImage: z.string().optional(),
+  media: z.array(videoReferenceMediaSchema).optional(),
+  clips: z.array(z.string()).optional(),
+  sourceVideo: z.string().optional(),
+  drivingAudio: z.string().optional()
+})
 
 export const videoGenerationParamsSchema = z
   .object({
@@ -83,6 +84,29 @@ export const videoGenerationParamsSchema = z
     model: z.string().min(1),
     params: generationParamsSchema.default({}),
     references: videoGenerationReferencesSchema.default({}),
+    system: generationSystemSchema.default({})
+  })
+  .strict()
+
+/** Chat 消息（front-end → agent 的结构化消息数组）。 */
+export const chatGenerationMessageSchema = z.looseObject({
+  role: z.string().min(1),
+  content: z.unknown()
+})
+
+export const chatGenerationReferencesSchema = z.looseObject({
+  images: z.array(z.string()).optional(),
+  firstImage: z.string().optional(),
+  media: z.array(videoReferenceMediaSchema).optional()
+})
+
+export const chatGenerationParamsSchema = z
+  .object({
+    model: z.string().min(1),
+    prompt: z.string().default(''),
+    messages: z.array(chatGenerationMessageSchema).default([]),
+    params: generationParamsSchema.default({}),
+    references: chatGenerationReferencesSchema.default({}),
     system: generationSystemSchema.default({})
   })
   .strict()

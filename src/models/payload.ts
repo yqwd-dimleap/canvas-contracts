@@ -6,13 +6,33 @@ export const generationPayloadMediaTypeSchema = z.enum([
   'chat'
 ])
 
+/**
+ * Control 类型。参数键名映射完全交给 request.body 模板，这里只描述控件的
+ * 值类型与校验，不再隐式规范化键名。
+ * - text/number/boolean/select：标量。
+ * - stringList：字符串数组（如参考图 URL 列表、clips）。
+ * - json：任意 JSON 值（承载 messages[]、content[] 等结构化数组）。
+ * - referenceImages：运行时参考图上传开关（值来自 references，不进 params）。
+ */
 export const generationPayloadControlTypeSchema = z.enum([
   'text',
   'number',
   'boolean',
   'select',
-  'size',
+  'stringList',
+  'json',
   'referenceImages'
+])
+
+/**
+ * 呈现提示：仅影响运行时控件的 UI 形态，不改变值语义。
+ * 例如 select + ui:'size' 渲染为尺寸网格，select + ui:'segment' 渲染为分段选择。
+ */
+export const generationPayloadControlUiSchema = z.enum([
+  'default',
+  'size',
+  'segment',
+  'grid'
 ])
 
 export const generationPayloadControlSchema = z
@@ -20,6 +40,7 @@ export const generationPayloadControlSchema = z
     key: z.string().min(1),
     label: z.string().optional(),
     type: generationPayloadControlTypeSchema.default('text'),
+    ui: generationPayloadControlUiSchema.optional(),
     enabled: z.boolean().default(true),
     required: z.boolean().default(false),
     defaultValue: z.unknown().optional(),
@@ -32,12 +53,49 @@ export const generationPayloadControlSchema = z
   })
   .strict()
 
+export const generationPayloadRequestEncodingSchema = z.enum([
+  'json',
+  'multipart'
+])
+
 export const generationPayloadRequestSchema = z
   .object({
     body: z.record(z.string(), z.unknown()).default({}),
-    omitEmpty: z.boolean().default(true)
+    omitEmpty: z.boolean().default(true),
+    /**
+     * 带参考图（图生图/编辑）请求的上游传输编码：multipart 走 form-data 并把
+     * 参考图作为文件字节上传（OpenAI /images/edits 风格）；json 则参考图 URL 已
+     * 由 body 模板承载。纯文生图/文生视频始终走 JSON，不受此项影响。
+     */
+    encoding: generationPayloadRequestEncodingSchema.default('json'),
+    /** 附加请求头（如异步网关的 X-DashScope-Async）。全部为字符串。 */
+    headers: z.record(z.string(), z.string()).default({}),
+    /**
+     * 存在参考图时使用的端点覆盖（图生图）。为空则始终用顶层 endpoint。
+     * 替代此前硬编码的 /v1/images/edits。
+     */
+    referenceEndpoint: z.string().trim().min(1).optional(),
+    /** multipart 编码时承载参考图文件的字段名，默认 image。 */
+    multipartImageField: z.string().trim().min(1).default('image')
   })
   .strict()
+
+/**
+ * 定价维度到 control 键的绑定。解开定价与已删除的 canonical KEY_MAP 的耦合：
+ * 计费从 params 里按这里声明的键取值，而非写死 size/quality/duration 等。
+ * 未声明的维度回退到与维度同名的键，保持默认模板的直觉行为。
+ */
+export const generationPayloadPricingBindingsSchema = z
+  .object({
+    count: z.string().min(1).optional(),
+    size: z.string().min(1).optional(),
+    quality: z.string().min(1).optional(),
+    duration: z.string().min(1).optional(),
+    resolution: z.string().min(1).optional(),
+    aspectRatio: z.string().min(1).optional()
+  })
+  .strict()
+  .default({})
 
 export const generationPayloadConfigSchema = z
   .object({
@@ -46,8 +104,12 @@ export const generationPayloadConfigSchema = z
     controls: z.array(generationPayloadControlSchema).default([]),
     request: generationPayloadRequestSchema.default({
       body: {},
-      omitEmpty: true
-    })
+      omitEmpty: true,
+      encoding: 'json',
+      headers: {},
+      multipartImageField: 'image'
+    }),
+    pricingBindings: generationPayloadPricingBindingsSchema
   })
   .strict()
 
@@ -58,12 +120,27 @@ export const generationPayloadConfigJsonSchema = z.toJSONSchema(
 export type GenerationPayloadMediaType = z.infer<
   typeof generationPayloadMediaTypeSchema
 >
+export type GenerationPayloadControlType = z.infer<
+  typeof generationPayloadControlTypeSchema
+>
+export type GenerationPayloadControlUi = z.infer<
+  typeof generationPayloadControlUiSchema
+>
 export type GenerationPayloadControl = z.infer<
   typeof generationPayloadControlSchema
+>
+export type GenerationPayloadRequestEncoding = z.infer<
+  typeof generationPayloadRequestEncodingSchema
+>
+export type GenerationPayloadPricingBindings = z.infer<
+  typeof generationPayloadPricingBindingsSchema
 >
 export type GenerationPayloadConfig = z.infer<
   typeof generationPayloadConfigSchema
 >
+
+/** 定价维度键；billed-generation 依此从 params 取计费维度值。 */
+export type GenerationPricingDimension = keyof GenerationPayloadPricingBindings
 
 export type GenerationRuntimeParams = Record<string, unknown> & {
   model: string
@@ -108,74 +185,13 @@ const IMAGE_OUTPUT_FORMAT_OPTIONS = ['png', 'jpeg', 'webp']
 const VIDEO_DURATION_OPTIONS = [5, 8, 10]
 const VIDEO_SIZE_OPTIONS = ['480P', '720P', '1080P']
 const VIDEO_ASPECT_OPTIONS = ['16:9', '9:16', '1:1']
+const DEFAULT_IMAGE_GENERATION_ENDPOINT = '/v1/images/generations'
+const DEFAULT_IMAGE_REFERENCE_ENDPOINT = '/v1/images/edits'
 const DEFAULT_VIDEO_GENERATION_ENDPOINT = '/v1/videos'
 const DEFAULT_CHAT_GENERATION_ENDPOINT = '/chat/completions'
-const IMAGE_PARAM_KEY_MAP = new Map([
-  ['size', 'size'],
-  ['n', 'n'],
-  ['quality', 'quality'],
-  ['background', 'background'],
-  ['output_format', 'outputFormat'],
-  ['outputFormat', 'outputFormat'],
-  ['output_compression', 'outputCompression'],
-  ['outputCompression', 'outputCompression'],
-  ['negative_prompt', 'negativePrompt'],
-  ['negativePrompt', 'negativePrompt'],
-  ['seed', 'seed']
-])
-const VIDEO_PARAM_KEY_MAP = new Map([
-  ['duration', 'duration'],
-  ['seconds', 'duration'],
-  ['size', 'resolution'],
-  ['resolution', 'resolution'],
-  ['mergeVideoAspectRatio', 'aspectRatio'],
-  ['aspectRatio', 'aspectRatio'],
-  ['ratio', 'aspectRatio'],
-  ['quality', 'quality'],
-  ['seed', 'seed'],
-  ['generate_audio', 'generateAudio'],
-  ['generateAudio', 'generateAudio'],
-  ['callback_url', 'callbackUrl'],
-  ['callbackUrl', 'callbackUrl']
-])
-const CHAT_PARAM_KEY_MAP = new Map([
-  ['temperature', 'temperature'],
-  ['max_tokens', 'maxTokens'],
-  ['maxTokens', 'maxTokens'],
-  ['max_completion_tokens', 'maxTokens'],
-  ['maxCompletionTokens', 'maxTokens'],
-  ['reasoning_effort', 'reasoningEffort'],
-  ['reasoningEffort', 'reasoningEffort'],
-  ['stream', 'stream'],
-  ['stream_options', 'streamOptions'],
-  ['streamOptions', 'streamOptions']
-])
 
-const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
 const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
-
-export function canonicalGenerationParamKey(
-  mediaType: GenerationPayloadMediaType,
-  key: string
-): string {
-  const trimmed = key.trim()
-  if (mediaType === 'image') return IMAGE_PARAM_KEY_MAP.get(trimmed) ?? trimmed
-  if (mediaType === 'video') return VIDEO_PARAM_KEY_MAP.get(trimmed) ?? trimmed
-  return CHAT_PARAM_KEY_MAP.get(trimmed) ?? trimmed
-}
-
-function canonicalTemplatePath(
-  mediaType: GenerationPayloadMediaType,
-  path: string
-): string {
-  const [root, key, ...rest] = path.split('.')
-  if (!key || !['input', 'controls', 'params'].includes(root ?? '')) {
-    return path
-  }
-  return ['params', canonicalGenerationParamKey(mediaType, key), ...rest].join(
-    '.'
-  )
-}
+const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -183,50 +199,17 @@ function record(value: unknown): Record<string, unknown> {
     : {}
 }
 
-function sanitizeGenerationPayloadBodyValue(
-  value: unknown,
-  mediaType: GenerationPayloadMediaType
-): unknown {
-  if (typeof value === 'string') {
-    return value.replace(TEMPLATE_RE, (_match, path: string) => {
-      return `{{${canonicalTemplatePath(mediaType, path)}}}`
-    })
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) =>
-      sanitizeGenerationPayloadBodyValue(item, mediaType)
-    )
-  }
-  if (value && typeof value === 'object') {
-    const next: Record<string, unknown> = {}
-    for (const [key, item] of Object.entries(
-      value as Record<string, unknown>
-    )) {
-      next[key] = sanitizeGenerationPayloadBodyValue(item, mediaType)
-    }
-    return next
-  }
-  return value
-}
-
-function sanitizeGenerationPayloadBody(
-  body: Record<string, unknown>,
-  mediaType: GenerationPayloadMediaType
-): Record<string, unknown> {
-  return sanitizeGenerationPayloadBodyValue(body, mediaType) as Record<
-    string,
-    unknown
-  >
-}
-
-function canonicalControls(
-  mediaType: GenerationPayloadMediaType,
+/**
+ * De-duplicate control keys, keeping the last definition's overrides.
+ * Keys are used verbatim — no canonical rewriting.
+ */
+function dedupeControls(
   controls: GenerationPayloadControl[]
 ): GenerationPayloadControl[] {
   const result: GenerationPayloadControl[] = []
   const indexByKey = new Map<string, number>()
   for (const control of controls) {
-    const key = canonicalGenerationParamKey(mediaType, control.key)
+    const key = control.key.trim()
     const next = { ...control, key }
     const existingIndex = indexByKey.get(key)
     if (existingIndex === undefined) {
@@ -244,11 +227,7 @@ export function sanitizeGenerationPayloadConfig(
 ): GenerationPayloadConfig {
   return {
     ...config,
-    controls: canonicalControls(config.mediaType, config.controls),
-    request: {
-      ...config.request,
-      body: sanitizeGenerationPayloadBody(config.request.body, config.mediaType)
-    }
+    controls: dedupeControls(config.controls)
   }
 }
 
@@ -319,7 +298,11 @@ function referenceImagesFromParams(params: GenerationRuntimeParams): string[] {
   ].filter((value, index, all) => all.indexOf(value) === index)
 }
 
-function qwenInputMessages(params: GenerationRuntimeParams): unknown {
+/**
+ * 生成 OpenAI 风格的多模态消息（图片在前、文本在后）。
+ * 通用命名（不绑定具体厂商），用于 {{helpers.messages.userMultimodal}}。
+ */
+function userMultimodalMessages(params: GenerationRuntimeParams): unknown {
   const content: Array<Record<string, string>> = referenceImagesFromParams(
     params
   ).map((image) => ({ image }))
@@ -327,7 +310,7 @@ function qwenInputMessages(params: GenerationRuntimeParams): unknown {
   return [{ role: 'user', content }]
 }
 
-function seedanceContentItemFromMedia(
+function openaiPartFromMedia(
   item: Record<string, unknown>
 ): Record<string, unknown> | null {
   const type = typeof item.type === 'string' ? item.type : ''
@@ -346,11 +329,15 @@ function seedanceContentItemFromMedia(
   return { type: 'image_url', image_url: { url } }
 }
 
-function seedanceContent(params: GenerationRuntimeParams): unknown {
+/**
+ * 生成 OpenAI 风格的 content[]（image_url/video_url/audio_url + text）。
+ * 通用命名，用于 {{helpers.content.openaiParts}}。
+ */
+function openaiContentParts(params: GenerationRuntimeParams): unknown {
   const content: Array<Record<string, unknown>> = []
   const references = record(params.references)
   const media = objectArray(references.media)
-    .map(seedanceContentItemFromMedia)
+    .map(openaiPartFromMedia)
     .filter((item): item is Record<string, unknown> => item !== null)
   if (media.length > 0) {
     content.push(...media)
@@ -403,25 +390,10 @@ function defaultsFromControls(
   return defaults
 }
 
-export function canonicalizeGenerationParams(
-  mediaType: GenerationPayloadMediaType,
-  params: Record<string, unknown>
-): Record<string, unknown> {
-  const canonical: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(params)) {
-    canonical[canonicalGenerationParamKey(mediaType, key)] = value
-  }
-  return canonical
-}
-
 function normalizeRuntimeParams(
   config: GenerationPayloadConfig,
   params: GenerationRuntimeParams
 ): GenerationRuntimeParams {
-  const runtimeParams = canonicalizeGenerationParams(
-    config.mediaType,
-    record(params.params)
-  )
   const messages = compactGenerationValue(params.messages)
   return {
     model: params.model,
@@ -429,7 +401,7 @@ function normalizeRuntimeParams(
     messages: Array.isArray(messages) ? messages : [],
     params: compactGenerationRecord({
       ...defaultsFromControls(config.controls),
-      ...runtimeParams
+      ...record(params.params)
     }),
     references: compactGenerationRecord(record(params.references)),
     system: compactGenerationRecord(record(params.system))
@@ -486,8 +458,17 @@ function assertControlValues(
         `Generation payload control "${control.key}" must be text.`
       )
     }
+    if (control.type === 'stringList') {
+      const list = Array.isArray(value) ? value : null
+      if (!list || list.some((item) => typeof item !== 'string')) {
+        throw new Error(
+          `Generation payload control "${control.key}" must be a list of strings.`
+        )
+      }
+      continue
+    }
     if (
-      (control.type === 'select' || control.type === 'size') &&
+      control.type === 'select' &&
       control.options.length > 0 &&
       !control.options.some((option) => Object.is(option, value))
     ) {
@@ -550,8 +531,8 @@ export function generationPayloadTemplateUsesParams(
   const allowedParamKeys = paramKeys.map((key) => key.trim()).filter(Boolean)
   if (allowedParamKeys.length === 0) return false
   return templateValueUsesParam(
-    sanitizeGenerationPayloadConfig(config).request.body,
-    new Set(allowedParamKeys)
+    config.request.body,
+    new Set(allowedParamKeys.map((key) => `params.${key}`))
   )
 }
 
@@ -644,25 +625,24 @@ const HELPER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
     description: 'reference image media[]'
   },
   {
-    path: 'helpers.qwen.inputMessages',
+    path: 'helpers.messages.userMultimodal',
     group: 'helpers',
-    description: 'Qwen image messages'
+    description: 'user message with image + text parts'
   },
   {
-    path: 'helpers.seedance.content',
+    path: 'helpers.content.openaiParts',
     group: 'helpers',
-    description: 'Seedance multimodal content[]'
+    description: 'OpenAI-style multimodal content[]'
   }
 ]
 
 export function generationPayloadTemplateVariables(
   config: GenerationPayloadConfig
 ): GenerationTemplateVariable[] {
-  const payload = sanitizeGenerationPayloadConfig(config)
   const direct: GenerationTemplateVariable[] = [
     { path: 'model', group: 'direct', description: 'model id' },
     { path: 'prompt', group: 'direct', description: 'prompt text' },
-    ...(payload.mediaType === 'chat'
+    ...(config.mediaType === 'chat'
       ? [
           {
             path: 'messages',
@@ -672,7 +652,7 @@ export function generationPayloadTemplateVariables(
         ]
       : [])
   ]
-  const params = payload.controls
+  const params = config.controls
     .filter((control) => control.enabled && control.type !== 'referenceImages')
     .map((control) => ({
       path: `params.${control.key}`,
@@ -728,11 +708,11 @@ export function buildGenerationTemplateContext(
         firstFrameMedia: firstFrameMedia({ ...params, references }),
         referenceImageMedia: referenceImageMedia({ ...params, references })
       },
-      qwen: {
-        inputMessages: qwenInputMessages({ ...params, references })
+      messages: {
+        userMultimodal: userMultimodalMessages({ ...params, references })
       },
-      seedance: {
-        content: seedanceContent({ ...params, references })
+      content: {
+        openaiParts: openaiContentParts({ ...params, references })
       }
     }
   }
@@ -790,6 +770,20 @@ export function buildGenerationPayloadFromConfig(
   }
 }
 
+/**
+ * 从 params 里按定价绑定取某个计费维度的值。未绑定时回退到同名键。
+ * 计费不再依赖已删除的 canonical KEY_MAP。
+ */
+export function readPricingDimension(
+  config: GenerationPayloadConfig,
+  params: Record<string, unknown>,
+  dimension: GenerationPricingDimension
+): unknown {
+  const boundKey = config.pricingBindings[dimension]
+  const key = boundKey ?? dimension
+  return params[key]
+}
+
 export function readGenerationPayloadConfig(
   metadata: Record<string, unknown> | null | undefined
 ): GenerationPayloadConfig | null {
@@ -825,12 +819,18 @@ export function createDefaultGenerationPayloadConfig(
     mediaType === 'image'
       ? {
           mediaType: 'image',
-          endpoint: '/v1/images/generations',
+          endpoint: DEFAULT_IMAGE_GENERATION_ENDPOINT,
+          pricingBindings: {
+            count: 'n',
+            size: 'size',
+            quality: 'quality'
+          },
           controls: [
             {
               key: 'size',
               label: 'Size',
-              type: 'size',
+              type: 'select',
+              ui: 'size',
               defaultValue: '1024x1024',
               options: IMAGE_SIZE_OPTIONS
             },
@@ -885,6 +885,10 @@ export function createDefaultGenerationPayloadConfig(
           ],
           request: {
             omitEmpty: true,
+            encoding: 'multipart',
+            headers: {},
+            referenceEndpoint: DEFAULT_IMAGE_REFERENCE_ENDPOINT,
+            multipartImageField: 'image',
             body: {
               model: '{{model}}',
               prompt: '{{prompt}}',
@@ -903,11 +907,17 @@ export function createDefaultGenerationPayloadConfig(
         ? {
             mediaType: 'video',
             endpoint: DEFAULT_VIDEO_GENERATION_ENDPOINT,
+            pricingBindings: {
+              duration: 'duration',
+              resolution: 'resolution',
+              aspectRatio: 'aspectRatio'
+            },
             controls: [
               {
                 key: 'duration',
                 label: 'Duration',
                 type: 'select',
+                ui: 'segment',
                 defaultValue: 5,
                 options: VIDEO_DURATION_OPTIONS
               },
@@ -915,6 +925,7 @@ export function createDefaultGenerationPayloadConfig(
                 key: 'resolution',
                 label: 'Resolution',
                 type: 'select',
+                ui: 'segment',
                 defaultValue: '720P',
                 options: VIDEO_SIZE_OPTIONS
               },
@@ -922,6 +933,7 @@ export function createDefaultGenerationPayloadConfig(
                 key: 'aspectRatio',
                 label: 'Aspect ratio',
                 type: 'select',
+                ui: 'segment',
                 defaultValue: '16:9',
                 options: VIDEO_ASPECT_OPTIONS
               },
@@ -950,6 +962,9 @@ export function createDefaultGenerationPayloadConfig(
             ],
             request: {
               omitEmpty: true,
+              encoding: 'json',
+              headers: {},
+              multipartImageField: 'image',
               body: {
                 model: '{{model}}',
                 prompt: '{{prompt}}',
@@ -971,6 +986,7 @@ export function createDefaultGenerationPayloadConfig(
         : {
             mediaType: 'chat',
             endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
+            pricingBindings: {},
             controls: [
               {
                 key: 'temperature',
@@ -1000,6 +1016,9 @@ export function createDefaultGenerationPayloadConfig(
             ],
             request: {
               omitEmpty: true,
+              encoding: 'json',
+              headers: {},
+              multipartImageField: 'image',
               body: {
                 model: '{{model}}',
                 messages: '{{messages}}',

@@ -85,11 +85,11 @@ describe('video generation metadata.payload', () => {
     })
   })
 
-  test('supports provider-specific seedance body templates', () => {
+  test('supports provider multimodal content body templates', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.request.body = {
       model: '{{model}}',
-      content: '{{helpers.seedance.content}}',
+      content: '{{helpers.content.openaiParts}}',
       resolution: '{{params.resolution}}',
       ratio: '{{params.aspectRatio}}',
       duration: '{{params.duration}}',
