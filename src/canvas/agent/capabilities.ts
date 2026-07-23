@@ -331,6 +331,7 @@ export const CANVAS_AGENT_TOOL_NAMES = {
   searchCanvas2dRecipes: 'canvas2d_search_recipes',
   searchPromptTemplates: 'prompt_search_templates',
   webSearch: 'web_search',
+  mediaSearch: 'media_search',
   submitPlan: 'canvas2d_submit_plan',
   requestUserInput: 'canvas2d_request_user_input',
   executeActions: 'canvas2d_execute_actions'
@@ -514,6 +515,29 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     },
     description:
       'Search current public web sources when up-to-date external information is required.',
+    category: 'search',
+    runtime: 'langchain',
+    permission: 'reference',
+    enabled: true,
+    visible: true,
+    streaming: false,
+    interruptible: true,
+    requiresConfirmation: false,
+    actionTypes: [],
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'reference'
+    }
+  },
+  {
+    name: CANVAS_AGENT_TOOL_NAMES.mediaSearch,
+    title: 'Find web media',
+    activityTitle: {
+      'zh-CN': '查找网络图片与视频',
+      'en-US': 'Find web images and videos'
+    },
+    description:
+      'Find reference images and videos from public web pages, either by search query or from a given page URL.',
     category: 'search',
     runtime: 'langchain',
     permission: 'reference',

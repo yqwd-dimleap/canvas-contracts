@@ -1,5 +1,6 @@
 export * from './briefing.js'
 export * from './langgraph-protocol.js'
+export * from './media-search.js'
 export * from './model-category.js'
 export * from './model-preferences.js'
 export * from './model-provider.js'

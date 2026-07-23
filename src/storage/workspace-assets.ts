@@ -328,6 +328,30 @@ export const workspaceUploadAbortApiResponseSchema = apiSuccessResponseSchema(
 export const workspaceUploadCompleteApiResponseSchema =
   apiSuccessResponseSchema(workspaceUploadCompleteResultSchema)
 
+/**
+ * Import an external http(s) media URL into a workspace asset.
+ *
+ * Unlike the presigned upload flow (which requires a local file), this lets the
+ * server download a remote reference image/video — e.g. one surfaced by media
+ * search — and persist it as an owned asset so it can be placed on the canvas
+ * with a durable, deduped URL instead of a fragile external link.
+ */
+export const workspaceAssetImportUrlRequestSchema = z
+  .object({
+    url: z.string().url().max(4096),
+    mediaKind: z.enum(['image', 'video']),
+    projectId: z.string().min(1).max(128).nullable().optional(),
+    name: z.string().max(512).optional()
+  })
+  .strict()
+
+export const workspaceAssetImportUrlResultSchema = z.object({
+  assetId: z.string().min(1),
+  url: z.string().min(1),
+  mediaKind: z.enum(['image', 'video']),
+  asset: workspaceAssetSchema
+})
+
 export const listWorkspaceAssetsApiResponseSchema = apiSuccessResponseSchema(
   listWorkspaceAssetsResponseSchema
 )
@@ -339,6 +363,9 @@ export const workspaceAssetApiResponseSchema = apiSuccessResponseSchema(
 export const workspaceAssetDeleteApiResponseSchema = apiSuccessResponseSchema(
   workspaceAssetDeleteResponseSchema
 )
+
+export const workspaceAssetImportUrlApiResponseSchema =
+  apiSuccessResponseSchema(workspaceAssetImportUrlResultSchema)
 
 export type WorkspaceAssetType = z.infer<typeof workspaceAssetTypeSchema>
 export type WorkspaceAssetOriginKind = z.infer<
@@ -358,6 +385,12 @@ export type WorkspaceAssetMetadata = z.infer<
   typeof workspaceAssetMetadataSchema
 >
 export type WorkspaceAsset = z.infer<typeof workspaceAssetSchema>
+export type WorkspaceAssetImportUrlRequest = z.infer<
+  typeof workspaceAssetImportUrlRequestSchema
+>
+export type WorkspaceAssetImportUrlResult = z.infer<
+  typeof workspaceAssetImportUrlResultSchema
+>
 export type WorkspaceAssetMediaSources = z.infer<
   typeof workspaceAssetMediaSourcesSchema
 >
