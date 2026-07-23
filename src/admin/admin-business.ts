@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../api/response.js'
 import { userBillingSchema } from '../billing/schema.js'
 import {
-  workspaceProjectPublishReviewSchema,
-  workspaceProjectPublishStatusSchema,
+  workspaceProjectPublicationSchema,
+  workspaceProjectPublicationStatusSchema,
   workspaceProjectSchema
 } from '../canvas/workspace/project.js'
 
@@ -293,23 +293,11 @@ export const adminPublishItemSchema = z.object({
   id: z.string(),
   userId: z.string(),
   title: z.string(),
-  status: z.string(),
-  previewImage: z.string(),
-  previewImageDimensions: z
-    .object({ width: z.number(), height: z.number() })
-    .nullish(),
   coverUrl: z.string(),
   prompt: z.string(),
   mediaCount: z.number(),
-  createdAt: z.string(),
   updatedAt: z.string(),
-  publishStatus: workspaceProjectPublishStatusSchema.optional(),
-  publishSubmittedAt: z.string().nullish(),
-  publishReview: workspaceProjectPublishReviewSchema.nullish(),
-  publishCoverMediaId: z.string().nullish(),
-  publishCoverDimensions: z
-    .object({ width: z.number(), height: z.number() })
-    .nullish()
+  publication: workspaceProjectPublicationSchema
 })
 
 export const adminPublishQueueResponseSchema = z.object({
@@ -319,8 +307,7 @@ export const adminPublishQueueResponseSchema = z.object({
 export const adminPublishActionSchema = z.enum([
   'approve',
   'reject',
-  'unpublish',
-  'reset'
+  'unpublish'
 ])
 
 export const adminPublishReviewRequestSchema = z
@@ -332,7 +319,8 @@ export const adminPublishReviewRequestSchema = z
   .strict()
 
 export const adminPublishProjectSchema = workspaceProjectSchema.extend({
-  userId: z.string().min(1)
+  userId: z.string().min(1),
+  publication: workspaceProjectPublicationSchema
 })
 
 export const adminPublishDetailResponseSchema = z.object({
@@ -341,7 +329,7 @@ export const adminPublishDetailResponseSchema = z.object({
 
 export const adminPublishReviewResultSchema = z.object({
   ok: z.boolean(),
-  status: z.string()
+  status: workspaceProjectPublicationStatusSchema.or(z.literal('none'))
 })
 
 export const adminPublishReviewResponseSchema = z.object({

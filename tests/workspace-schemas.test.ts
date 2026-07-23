@@ -27,7 +27,7 @@ describe('shared workspace schemas', () => {
     ).toBe(false)
   })
 
-  test('keeps project session, run, and publish review fields typed', () => {
+  test('keeps project session, runs, and publication snapshot typed', () => {
     const project = workspaceProjectSchema.parse({
       id: 'project-1',
       title: 'Project',
@@ -47,14 +47,36 @@ describe('shared workspace schemas', () => {
       session: { prompt: 'prompt', quality: 'high' },
       createdAt: 1,
       updatedAt: 1,
-      publishStatus: 'pending_review',
-      publishReview: { agentStatus: 'pass', humanNote: null }
+      publication: {
+        status: 'pending_review',
+        submittedAt: '2026-07-22T00:00:00.000Z',
+        snapshot: {
+          schemaVersion: 1,
+          title: 'Project',
+          prompt: 'prompt',
+          model: 'model',
+          media: [
+            {
+              id: 'media-1',
+              type: 'image',
+              url: 'https://example.com/image.png',
+              posterUrl: 'https://example.com/image.png',
+              source: 'run'
+            }
+          ]
+        },
+        automatedReview: {
+          status: 'pass',
+          notes: 'Automatic checks passed.',
+          reviewedAt: '2026-07-22T00:00:00.000Z'
+        }
+      }
     })
 
     expect(project.session.quality).toBe('high')
     expect(project.runs[0]?.id).toBe('run-1')
-    expect(project.publishReview?.agentStatus).toBe('pass')
-    expect(project.publishReview?.humanNote).toBeUndefined()
+    expect(project.publication?.status).toBe('pending_review')
+    expect(project.publication?.snapshot.media[0]?.id).toBe('media-1')
   })
 
   test('uses canvas as the only project snapshot field', () => {
@@ -82,9 +104,15 @@ describe('shared workspace schemas', () => {
         id: 'work-1',
         title: 'Work',
         author: { name: 'Creator', handle: '@creator' },
-        cover: media,
-        media: [media],
-        generation: { prompt: 'prompt', modelId: 'model', size: '1024x1024' },
+        cover: {
+          ...media,
+          generation: {
+            prompt: 'prompt',
+            modelId: 'model',
+            size: '1024x1024'
+          }
+        },
+        media: [],
         taxonomy: { categories: [], tags: [], styleTags: [] },
         actions: [],
         relatedIds: [],

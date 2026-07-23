@@ -45,6 +45,11 @@ export const featuredWorkMediaDocumentSchema = z.object({
   motion: featuredWorkCoverMotionSchema.optional()
 })
 
+export const featuredWorkCoverDocumentSchema =
+  featuredWorkMediaDocumentSchema.extend({
+    generation: featuredWorkGenerationSchema
+  })
+
 export const featuredWorkAuthorDocumentSchema = z.object({
   userId: z.string().optional(),
   name: z.string(),
@@ -63,18 +68,13 @@ export const featuredWorkDocumentSchema = z.object({
   schemaVersion: z.literal(2).default(2),
   id: z.string().min(1),
   status: z.enum(['draft', 'published', 'hidden']).default('published'),
-  published: z.boolean().default(true),
   sortOrder: z.number().default(0),
   source: workSourceSchema.default('curated'),
-  projectId: z.string().optional(),
-  ownerUserId: z.string().optional(),
-  snapshotVersion: z.string().optional(),
   title: z.string(),
-  description: z.string().optional(),
   author: featuredWorkAuthorDocumentSchema,
-  cover: featuredWorkMediaDocumentSchema,
+  cover: featuredWorkCoverDocumentSchema,
+  /** Additional media only; the cover is not duplicated in this array. */
   media: z.array(featuredWorkMediaDocumentSchema).default([]),
-  generation: featuredWorkGenerationSchema,
   taxonomy: featuredWorkTaxonomySchema,
   actions: z.array(agentActionSchema).default([]),
   relatedIds: z.array(z.string()).default([]),

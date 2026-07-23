@@ -36,13 +36,16 @@ describe('HTTP response envelopes', () => {
   test('treats the project identifier as a path parameter for publishing', () => {
     expect(
       workspaceProjectPublishRequestSchema.parse({
-        useAgentReview: true,
         coverMediaId: 'asset-1'
       })
-    ).toEqual({ useAgentReview: true, coverMediaId: 'asset-1' })
+    ).toEqual({ coverMediaId: 'asset-1' })
     expect(
       workspaceProjectPublishRequestSchema.safeParse({
-        projectId: 'another-project',
+        projectId: 'another-project'
+      }).success
+    ).toBe(false)
+    expect(
+      workspaceProjectPublishRequestSchema.safeParse({
         useAgentReview: true
       }).success
     ).toBe(false)

@@ -102,16 +102,25 @@ LangGraph/Deep Agents state.
 
 ## Versioning and release
 
-- Package semver, persisted schema versions, and wire protocol versions are
+- Package versions, persisted schema versions, and wire protocol versions are
   independent version spaces. Never copy a package major into a schema or
   protocol version.
 - The current baselines are package `2.0.x`, CanvasDocument schema `1`,
   workspace Canvas schema `2`, and Canvas Agent application protocol `v2`.
 - Schema and protocol versions advance only with an explicit migration plan;
   ordinary package releases must not change them.
-- Patch: documentation, comments and non-behavioral refinements.
-- Minor: additive backward-compatible schemas or fields.
-- Major: removed/renamed fields, changed requiredness or changed semantics.
+- Do not change the package version while implementing a feature or fix. A
+  version bump happens only when a release is explicitly being prepared.
+- Patch (`2.0.11 -> 2.0.12`): small fixes, documentation, and routine
+  compatible maintenance. Increment the last number by one.
+- Minor (`2.0.x -> 2.1.0`): regular large releases, cross-module features, or
+  coordinated contract/data migrations. Increment the middle number by one.
+- Major (`2.x.x -> 3.0.0`): reserved for an explicitly approved,
+  generation-scale architecture or product-platform upgrade.
+- Removed or renamed fields, requiredness changes, and semantic changes do not
+  by themselves authorize a major bump. Never jump from `2.0.0` to `3.0.0`
+  for an ordinary change; document the migration and let the release owner
+  choose the version using the scale rules above.
 
 Any API-shape change must be checked against both consumers. Releases use:
 

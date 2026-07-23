@@ -10,20 +10,12 @@ import { canvasMutationReceiptSchema } from '../core/mutations.js'
 /** Persisted project Canvas schema baseline; independent from package semver. */
 export const WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION = 2 as const
 
-export const workspaceProjectSummaryMediaSourceSchema = z.enum([
+export const workspaceProjectMediaSourceSchema = z.enum([
   'cover',
   'session',
   'run',
   'resource',
   'asset'
-])
-
-export const workspaceProjectTitleSourceSchema = z.enum([
-  'manual',
-  'agent',
-  'prompt',
-  'run',
-  'fallback'
 ])
 
 export const workspaceProjectSummaryMediaSchema = z.object({
@@ -34,29 +26,14 @@ export const workspaceProjectSummaryMediaSchema = z.object({
   width: z.number().positive().optional(),
   height: z.number().positive().optional(),
   durationSec: z.number().positive().optional(),
-  source: workspaceProjectSummaryMediaSourceSchema,
+  source: workspaceProjectMediaSourceSchema,
   label: z.string().optional(),
   createdAt: z.string().optional()
 })
 
-export const workspaceProjectSummaryCoverSchema = z.object({
-  url: z.string().min(1),
-  posterUrl: z.string().default(''),
-  width: z.number().positive().optional(),
-  height: z.number().positive().optional(),
-  sourceMediaId: z.string().optional()
-})
-
 export const workspaceProjectSummarySchema = z.object({
-  schemaVersion: z.literal(1),
-  title: z.string(),
-  titleSource: workspaceProjectTitleSourceSchema,
-  cover: workspaceProjectSummaryCoverSchema.nullable(),
-  media: z.array(workspaceProjectSummaryMediaSchema).default([]),
-  mediaCount: z.number().int().nonnegative(),
-  prompt: z.string().default(''),
-  model: z.string().default(''),
-  updatedAt: z.number()
+  schemaVersion: z.literal(2),
+  media: z.array(workspaceProjectSummaryMediaSchema).default([])
 })
 
 export const workspaceProjectPreviewDimensionsSchema = z.object({
@@ -64,50 +41,62 @@ export const workspaceProjectPreviewDimensionsSchema = z.object({
   height: z.number().positive()
 })
 
-export const workspaceProjectPublishStatusSchema = z.enum([
-  'none',
+export const workspaceProjectPublicationStatusSchema = z.enum([
   'pending_review',
   'published',
   'rejected'
 ])
 
-export const workspaceProjectPublishAgentStatusSchema = z.enum([
+export const workspaceProjectPublicationCheckStatusSchema = z.enum([
   'pass',
-  'flag',
-  'skipped'
+  'flag'
 ])
 
-export const workspaceProjectPublishReviewSchema = z
-  .object({
-    agentStatus: workspaceProjectPublishAgentStatusSchema
-      .nullish()
-      .transform((value) => value ?? undefined),
-    agentNotes: z
-      .string()
-      .nullish()
-      .transform((value) => value ?? undefined),
-    agentAt: z
-      .string()
-      .nullish()
-      .transform((value) => value ?? undefined),
-    humanStatus: z
-      .enum(['approved', 'rejected'])
-      .nullish()
-      .transform((value) => value ?? undefined),
-    humanNote: z
-      .string()
-      .nullish()
-      .transform((value) => value ?? undefined),
-    humanBy: z
-      .string()
-      .nullish()
-      .transform((value) => value ?? undefined),
-    humanAt: z
-      .string()
-      .nullish()
-      .transform((value) => value ?? undefined)
+export const workspaceProjectPublicationMediaSchema =
+  workspaceProjectSummaryMediaSchema.extend({
+    prompt: z.string().optional(),
+    model: z.string().optional(),
+    size: z.string().optional(),
+    quality: z.enum(['auto', 'high', 'medium', 'low']).optional(),
+    runId: z.string().optional()
   })
-  .loose()
+
+export const workspaceProjectPublicationSnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    title: z.string(),
+    prompt: z.string(),
+    model: z.string(),
+    media: z.array(workspaceProjectPublicationMediaSchema).min(1)
+  })
+  .strict()
+
+export const workspaceProjectPublicationAutomatedReviewSchema = z
+  .object({
+    status: workspaceProjectPublicationCheckStatusSchema,
+    notes: z.string(),
+    reviewedAt: z.string()
+  })
+  .strict()
+
+export const workspaceProjectPublicationHumanReviewSchema = z
+  .object({
+    status: z.enum(['approved', 'rejected']),
+    note: z.string().optional(),
+    moderatorId: z.string(),
+    reviewedAt: z.string()
+  })
+  .strict()
+
+export const workspaceProjectPublicationSchema = z
+  .object({
+    status: workspaceProjectPublicationStatusSchema,
+    submittedAt: z.string(),
+    snapshot: workspaceProjectPublicationSnapshotSchema,
+    automatedReview: workspaceProjectPublicationAutomatedReviewSchema,
+    humanReview: workspaceProjectPublicationHumanReviewSchema.optional()
+  })
+  .strict()
 
 export const workspaceProjectSessionSchema = z
   .object({
@@ -216,11 +205,7 @@ export const workspaceProjectSchema = z.object({
   canvas: workspaceProjectCanvasSchema.optional(),
   agent: workspaceProjectAgentStateSchema.optional(),
   summary: workspaceProjectSummarySchema.optional(),
-  publishStatus: workspaceProjectPublishStatusSchema.optional(),
-  publishSubmittedAt: z.string().optional(),
-  publishReview: workspaceProjectPublishReviewSchema.optional(),
-  publishCoverMediaId: z.string().optional(),
-  publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
+  publication: workspaceProjectPublicationSchema.optional()
 })
 
 const workspaceProjectRecordSchema = z.record(z.string(), z.unknown())
@@ -249,20 +234,13 @@ export const workspaceProjectUpdateRequestSchema = z
     runs: z.array(workspaceProjectRunSchema).optional(),
     session: workspaceProjectSessionSchema.optional(),
     metadata: workspaceProjectRecordSchema.optional(),
-    assets: z.array(workspaceProjectAssetSchema).optional(),
-    publishStatus: workspaceProjectPublishStatusSchema.optional(),
-    publishSubmittedAt: z.string().optional(),
-    publishReview: workspaceProjectPublishReviewSchema.optional(),
-    publishCoverMediaId: z.string().optional(),
-    publishCoverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
+    assets: z.array(workspaceProjectAssetSchema).optional()
   })
   .strict()
 
 export const workspaceProjectPublishRequestSchema = z
   .object({
-    useAgentReview: z.boolean().optional(),
-    coverMediaId: z.string().trim().min(1).optional(),
-    coverDimensions: workspaceProjectPreviewDimensionsSchema.optional()
+    coverMediaId: z.string().trim().min(1).optional()
   })
   .strict()
 
@@ -322,11 +300,14 @@ export function parseWorkspaceProjectCanvas(
 export type WorkspaceProjectSummary = z.infer<
   typeof workspaceProjectSummarySchema
 >
-export type WorkspaceProjectPublishStatus = z.infer<
-  typeof workspaceProjectPublishStatusSchema
+export type WorkspaceProjectPublicationStatus = z.infer<
+  typeof workspaceProjectPublicationStatusSchema
 >
-export type WorkspaceProjectPublishReview = z.infer<
-  typeof workspaceProjectPublishReviewSchema
+export type WorkspaceProjectPublication = z.infer<
+  typeof workspaceProjectPublicationSchema
+>
+export type WorkspaceProjectPublicationSnapshot = z.infer<
+  typeof workspaceProjectPublicationSnapshotSchema
 >
 export type RecentWorkspaceProject = z.infer<
   typeof recentWorkspaceProjectSchema
