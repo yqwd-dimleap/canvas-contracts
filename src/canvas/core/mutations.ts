@@ -96,7 +96,10 @@ const documentPatchMutationSchema = mutationIdentitySchema
       .object({
         documentId: z.string().min(1),
         expectedRevision: z.number().int().nonnegative(),
-        patch: canvasDocumentPatchSchema
+        patch: canvasDocumentPatchSchema,
+        unset: z
+          .array(z.enum(['title', 'background', 'assetId', 'outputResource']))
+          .optional()
       })
       .strict()
   })
@@ -133,15 +136,17 @@ const elementPatchPreconditionSchema = z.object({
 
 function elementPatchMutationSchema<
   TElementType extends string,
-  TPatch extends z.ZodType
->(elementType: TElementType, patch: TPatch) {
+  TPatch extends z.ZodType,
+  TUnset extends z.ZodType
+>(elementType: TElementType, patch: TPatch, unset: TUnset) {
   return mutationIdentitySchema
     .extend({
       type: z.literal('element.patch'),
       payload: elementPatchPreconditionSchema
         .extend({
           elementType: z.literal(elementType),
-          patch
+          patch,
+          unset: z.array(unset).optional()
         })
         .strict()
     })
@@ -149,14 +154,69 @@ function elementPatchMutationSchema<
 }
 
 const elementPatchMutationSchemas = [
-  elementPatchMutationSchema('raster', rasterPatchSchema),
-  elementPatchMutationSchema('text', textPatchSchema),
-  elementPatchMutationSchema('shape', shapePatchSchema),
-  elementPatchMutationSchema('vector', vectorPatchSchema),
-  elementPatchMutationSchema('path', pathPatchSchema),
-  elementPatchMutationSchema('group', groupPatchSchema),
-  elementPatchMutationSchema('mask', maskPatchSchema),
-  elementPatchMutationSchema('adjustment', adjustmentPatchSchema)
+  elementPatchMutationSchema(
+    'raster',
+    rasterPatchSchema,
+    z.enum(['parentId', 'maskElementId', 'metadata', 'assetId'])
+  ),
+  elementPatchMutationSchema(
+    'text',
+    textPatchSchema,
+    z.enum([
+      'parentId',
+      'maskElementId',
+      'metadata',
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'color',
+      'align'
+    ])
+  ),
+  elementPatchMutationSchema(
+    'shape',
+    shapePatchSchema,
+    z.enum([
+      'parentId',
+      'maskElementId',
+      'metadata',
+      'fill',
+      'stroke',
+      'strokeWidth',
+      'radius'
+    ])
+  ),
+  elementPatchMutationSchema(
+    'vector',
+    vectorPatchSchema,
+    z.enum(['parentId', 'maskElementId', 'metadata', 'viewBox'])
+  ),
+  elementPatchMutationSchema(
+    'path',
+    pathPatchSchema,
+    z.enum(['parentId', 'maskElementId', 'metadata'])
+  ),
+  elementPatchMutationSchema(
+    'group',
+    groupPatchSchema,
+    z.enum(['parentId', 'maskElementId', 'metadata'])
+  ),
+  elementPatchMutationSchema(
+    'mask',
+    maskPatchSchema,
+    z.enum([
+      'parentId',
+      'maskElementId',
+      'metadata',
+      'assetId',
+      'targetElementId'
+    ])
+  ),
+  elementPatchMutationSchema(
+    'adjustment',
+    adjustmentPatchSchema,
+    z.enum(['parentId', 'maskElementId', 'metadata'])
+  )
 ] as const
 
 const elementDeleteMutationSchema = mutationIdentitySchema

@@ -9,6 +9,16 @@ function withDocumentRevision(document: CanvasDocument, now: number) {
   }
 }
 
+function applyPatchWithUnset<T extends object>(
+  value: T,
+  patch: object,
+  unset: readonly string[] | undefined
+) {
+  const next = { ...value, ...patch } as Record<string, unknown>
+  for (const key of unset ?? []) delete next[key]
+  return next as T
+}
+
 /** Pure authoritative mutation reducer with document/element preconditions. */
 export function applyCanvasMutationToDocument(
   document: CanvasDocument | null,
@@ -29,7 +39,11 @@ export function applyCanvasMutationToDocument(
         return document
       }
       return withDocumentRevision(
-        { ...document, ...mutation.payload.patch },
+        applyPatchWithUnset(
+          document,
+          mutation.payload.patch,
+          mutation.payload.unset
+        ),
         now
       )
     case 'document.delete':
@@ -67,8 +81,11 @@ export function applyCanvasMutationToDocument(
         return document
       }
       const nextElement = {
-        ...element,
-        ...mutation.payload.patch,
+        ...applyPatchWithUnset(
+          element,
+          mutation.payload.patch,
+          mutation.payload.unset
+        ),
         id: element.id,
         type: element.type,
         revision: element.revision + 1
