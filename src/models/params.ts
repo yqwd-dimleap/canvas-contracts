@@ -16,7 +16,11 @@ export const canvasGenerationTargetSchema = z
   })
   .strict()
 
-export const generationParamsSchema = z.record(z.string(), z.unknown())
+export const generationParamsSchema = z
+  .record(z.string(), z.unknown())
+  .describe(
+    'Model control values. Keys must match metadata.payload.controls; metadata.payload.request.body maps them to the provider request.'
+  )
 
 export const generationSystemSchema = z
   .object({
@@ -33,17 +37,30 @@ export const generationSystemSchema = z
  * 以获得类型提示。
  */
 export const imageGenerationReferencesSchema = z.looseObject({
-  images: z.array(z.string()).optional(),
-  firstImage: z.string().optional()
+  images: z
+    .array(z.string())
+    .optional()
+    .describe('Ordered reference image URLs.'),
+  firstImage: z
+    .string()
+    .optional()
+    .describe('Primary reference image URL; defaults to images[0].')
 })
 
 export const imageGenerationParamsSchema = z
   .object({
-    prompt: z.string(),
-    model: z.string().min(1),
+    prompt: z.string().describe('Generation prompt.'),
+    model: z
+      .string()
+      .min(1)
+      .describe('Configured model id from GET /api/ai-image/models.'),
     params: generationParamsSchema.default({}),
-    references: imageGenerationReferencesSchema.default({}),
-    system: generationSystemSchema.default({})
+    references: imageGenerationReferencesSchema
+      .default({})
+      .describe('Reference media; kept separate from model controls.'),
+    system: generationSystemSchema
+      .default({})
+      .describe('Canvas persistence context; omit for standalone API tests.')
   })
   .strict()
 
@@ -60,8 +77,11 @@ export const videoReferenceMediaSchema = z
       'audio',
       'video'
     ]),
-    url: z.string(),
-    reference_voice: z.string().optional(),
+    url: z.string().describe('Publicly fetchable media URL.'),
+    reference_voice: z
+      .string()
+      .optional()
+      .describe('Optional voice URL paired with this reference item.'),
     image_url: z
       .union([z.string(), z.object({ url: z.string().optional() })])
       .optional(),
@@ -70,9 +90,20 @@ export const videoReferenceMediaSchema = z
   .loose()
 
 export const videoGenerationReferencesSchema = z.looseObject({
-  images: z.array(z.string()).optional(),
-  firstImage: z.string().optional(),
-  media: z.array(videoReferenceMediaSchema).optional(),
+  images: z
+    .array(z.string())
+    .optional()
+    .describe('Ordered shorthand for reference image URLs.'),
+  firstImage: z
+    .string()
+    .optional()
+    .describe('Primary image shorthand; defaults to images[0].'),
+  media: z
+    .array(videoReferenceMediaSchema)
+    .optional()
+    .describe(
+      'Typed provider-neutral reference media. Use this for mixed/multiple images, video, and reference_voice.'
+    ),
   clips: z.array(z.string()).optional(),
   sourceVideo: z.string().optional(),
   drivingAudio: z.string().optional()
@@ -80,11 +111,18 @@ export const videoGenerationReferencesSchema = z.looseObject({
 
 export const videoGenerationParamsSchema = z
   .object({
-    prompt: z.string(),
-    model: z.string().min(1),
+    prompt: z.string().describe('Generation prompt.'),
+    model: z
+      .string()
+      .min(1)
+      .describe('Configured model id from GET /api/ai-video/models.'),
     params: generationParamsSchema.default({}),
-    references: videoGenerationReferencesSchema.default({}),
-    system: generationSystemSchema.default({})
+    references: videoGenerationReferencesSchema
+      .default({})
+      .describe('Reference media; kept separate from model controls.'),
+    system: generationSystemSchema
+      .default({})
+      .describe('Canvas persistence context; omit for standalone API tests.')
   })
   .strict()
 

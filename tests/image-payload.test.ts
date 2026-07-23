@@ -234,12 +234,15 @@ describe('image generation metadata.payload', () => {
         : control
     )
     payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
       format: '{{params.output_format}}',
       compression: '{{params.output_compression}}'
     }
 
     const configured = buildGenerationPayloadFromConfig(payload, {
       model: IMAGE_MODEL_ID,
+      prompt: 'format an image',
       params: {
         output_format: 'webp',
         output_compression: 72
@@ -250,10 +253,17 @@ describe('image generation metadata.payload', () => {
       expect.objectContaining({ key: 'output_format' })
     )
     expect(configured.config.request.body).toEqual({
+      model: '{{model}}',
+      prompt: '{{prompt}}',
       format: '{{params.output_format}}',
       compression: '{{params.output_compression}}'
     })
-    expect(configured.payload).toEqual({ format: 'webp', compression: 72 })
+    expect(configured.payload).toEqual({
+      model: IMAGE_MODEL_ID,
+      prompt: 'format an image',
+      format: 'webp',
+      compression: 72
+    })
   })
 
   test('validates runtime values against the configured control', () => {
@@ -278,6 +288,7 @@ describe('image generation metadata.payload', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.request.body = {
       model: '{{model}}',
+      prompt: '{{prompt}}',
       input: {
         messages: '{{helpers.messages.userMultimodal}}'
       },
@@ -297,6 +308,7 @@ describe('image generation metadata.payload', () => {
 
     expect(configured.payload).toMatchObject({
       model: 'provider-image-model',
+      prompt: '保留主体姿态，改成更生气的表情',
       input: {
         messages: [
           {

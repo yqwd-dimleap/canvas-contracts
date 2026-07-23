@@ -112,6 +112,17 @@ export const generationPayloadConfigSchema = z
     pricingBindings: generationPayloadPricingBindingsSchema
   })
   .strict()
+  .superRefine((config, context) => {
+    if (config.mediaType !== 'image' && config.mediaType !== 'video') return
+    for (const field of ['model', 'prompt'] as const) {
+      if (typeof config.request.body[field] === 'string') continue
+      context.addIssue({
+        code: 'custom',
+        path: ['request', 'body', field],
+        message: `OpenAI-compatible ${config.mediaType} payload requires top-level ${field}.`
+      })
+    }
+  })
 
 export const generationPayloadConfigJsonSchema = z.toJSONSchema(
   generationPayloadConfigSchema

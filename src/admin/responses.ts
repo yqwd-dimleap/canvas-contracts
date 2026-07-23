@@ -6,6 +6,21 @@ import {
 import { agentRuntimeConfigViewSchema } from '../agent/runtime-config.js'
 import { webSearchConfigViewSchema } from '../agent/web-search.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
+import { generationPayloadConfigSchema } from '../models/payload.js'
+
+function validateGenerationPayloadMetadata(
+  metadata: Record<string, unknown> | undefined,
+  context: z.RefinementCtx
+) {
+  if (!metadata || !Object.hasOwn(metadata, 'payload')) return
+  const parsed = generationPayloadConfigSchema.safeParse(metadata.payload)
+  if (parsed.success) return
+  context.addIssue({
+    code: 'custom',
+    path: ['metadata', 'payload'],
+    message: parsed.error.issues[0]?.message ?? 'Invalid generation payload.'
+  })
+}
 
 export const updateAdminModelRequestSchema = z
   .object({
@@ -23,6 +38,9 @@ export const updateAdminModelRequestSchema = z
     message: 'modelId or id is required',
     path: ['modelId']
   })
+  .superRefine((value, context) =>
+    validateGenerationPayloadMetadata(value.metadata, context)
+  )
 
 export const updateAdminModelResponseSchema = z.object({
   success: z.literal(true)
@@ -39,6 +57,9 @@ export const importGatewayModelsRequestSchema = z
     centsPerCredit: z.number().positive().optional()
   })
   .strict()
+  .superRefine((value, context) =>
+    validateGenerationPayloadMetadata(value.metadata, context)
+  )
 
 export const importGatewayModelsResponseSchema = z.object({
   imported: z.number().int().min(0),

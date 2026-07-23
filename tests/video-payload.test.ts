@@ -89,6 +89,7 @@ describe('video generation metadata.payload', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.request.body = {
       model: '{{model}}',
+      prompt: '{{prompt}}',
       content: '{{helpers.content.openaiParts}}',
       resolution: '{{params.resolution}}',
       ratio: '{{params.aspectRatio}}',
@@ -109,6 +110,7 @@ describe('video generation metadata.payload', () => {
 
     expect(configured.payload).toMatchObject({
       model: 'provider-video-model',
+      prompt: 'make this a dynamic wallpaper',
       resolution: '720P',
       ratio: '16:9',
       duration: 5,
@@ -170,6 +172,152 @@ describe('video generation metadata.payload', () => {
         ]
       }
     })
+  })
+
+  test('renders wan2.7-r2v mixed references as an OpenAI-compatible body', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    payload.endpoint = '/v1/videos'
+    payload.controls = [
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        enabled: true,
+        required: true,
+        defaultValue: '720P',
+        options: ['720P']
+      },
+      {
+        key: 'ratio',
+        label: 'Ratio',
+        type: 'select',
+        enabled: true,
+        required: true,
+        defaultValue: '16:9',
+        options: ['16:9', '9:16']
+      },
+      {
+        key: 'duration',
+        label: 'Duration',
+        type: 'number',
+        enabled: true,
+        required: true,
+        defaultValue: 10,
+        options: [],
+        min: 5,
+        max: 10
+      },
+      {
+        key: 'prompt_extend',
+        label: 'Prompt extend',
+        type: 'boolean',
+        enabled: true,
+        required: false,
+        defaultValue: false,
+        options: []
+      },
+      {
+        key: 'watermark',
+        label: 'Watermark',
+        type: 'boolean',
+        enabled: true,
+        required: false,
+        defaultValue: true,
+        options: []
+      },
+      {
+        key: 'referenceImages',
+        label: 'Reference media',
+        type: 'referenceImages',
+        enabled: true,
+        required: true,
+        options: []
+      }
+    ]
+    payload.pricingBindings = {
+      duration: 'duration',
+      resolution: 'resolution',
+      aspectRatio: 'ratio'
+    }
+    payload.request.body = {
+      model: '{{model}}',
+      prompt: '{{prompt}}',
+      size: '{{params.resolution}}',
+      duration: '{{params.duration}}',
+      mergeVideoAspectRatio: '{{params.ratio}}',
+      referenceMedia: '{{references.media}}',
+      prompt_extend: '{{params.prompt_extend}}',
+      watermark: '{{params.watermark}}'
+    }
+
+    const media = [
+      {
+        type: 'reference_image' as const,
+        url: IMAGE_URL,
+        reference_voice: 'https://example.com/voice-1.wav'
+      },
+      {
+        type: 'reference_video' as const,
+        url: 'https://example.com/reference.mp4',
+        reference_voice: 'https://example.com/voice-2.wav'
+      },
+      { type: 'reference_image' as const, url: SECOND_IMAGE_URL }
+    ]
+    const configured = buildConfiguredVideoGenerationPayload(
+      {
+        model: 'wan2.7-r2v-2026-06-12',
+        prompt: 'Continue the village sequence across the references.',
+        params: {
+          resolution: '720P',
+          ratio: '16:9',
+          duration: 10,
+          prompt_extend: false,
+          watermark: true
+        },
+        references: { media },
+        system: {}
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.config.endpoint).toBe('/v1/videos')
+    expect(configured.payload).toEqual({
+      model: 'wan2.7-r2v-2026-06-12',
+      prompt: 'Continue the village sequence across the references.',
+      size: '720P',
+      duration: 10,
+      mergeVideoAspectRatio: '16:9',
+      referenceMedia: media,
+      prompt_extend: false,
+      watermark: true
+    })
+  })
+
+  test('rejects provider-native nested prompt payloads', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
+    payload.request.body = {
+      model: '{{model}}',
+      input: {
+        prompt: '{{prompt}}',
+        media: '{{references.media}}'
+      },
+      parameters: {
+        resolution: '{{params.resolution}}'
+      }
+    }
+
+    expect(() =>
+      buildConfiguredVideoGenerationPayload(
+        {
+          model: 'wan2.7-r2v-2026-06-12',
+          prompt: 'Continue the village sequence.',
+          references: {
+            media: [{ type: 'reference_image', url: IMAGE_URL }]
+          }
+        },
+        mergeGenerationPayloadConfig(null, payload)
+      )
+    ).toThrow('OpenAI-compatible video payload requires top-level prompt')
   })
 
   test('required controls fail before gateway submission', () => {

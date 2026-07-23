@@ -14,8 +14,57 @@ import {
   readCanvasImageOutputResource,
   readCanvasVideoOutputResource,
   resolveCanvasDocumentAssetReferences,
-  workspaceAssetMediaForContext
+  workspaceAssetMediaForContext,
+  workspaceAssetPatchRequestSchema,
+  workspaceAssetVideoMediaSchema,
+  workspaceUploadCompleteRequestSchema
 } from '../src/storage/workspace-assets.js'
+
+describe('workspace asset write contracts', () => {
+  test('keeps storage and media metadata server-owned', () => {
+    expect(
+      workspaceAssetPatchRequestSchema.safeParse({
+        metadata: { media: { type: 'video' } }
+      }).success
+    ).toBe(false)
+  })
+
+  test('requires multipart completion fields together', () => {
+    const base = {
+      key: 'users/user-1/video.mp4',
+      mimeType: 'video/mp4',
+      size: 1024
+    }
+    expect(
+      workspaceUploadCompleteRequestSchema.safeParse({
+        ...base,
+        uploadId: 'upload-1'
+      }).success
+    ).toBe(false)
+    expect(
+      workspaceUploadCompleteRequestSchema.safeParse({
+        ...base,
+        uploadId: 'upload-1',
+        parts: [{ partNumber: 1, etag: 'etag-1' }]
+      }).success
+    ).toBe(true)
+  })
+
+  test('tracks owned video poster objects', () => {
+    expect(
+      workspaceAssetVideoMediaSchema.parse({
+        poster: {
+          url: 'https://cdn.example.com/poster.webp',
+          key: 'users/user-1/poster.webp',
+          mimeType: 'image/webp',
+          size: 2048
+        }
+      })
+    ).toMatchObject({
+      poster: { key: 'users/user-1/poster.webp' }
+    })
+  })
+})
 
 describe('animated image media contexts', () => {
   const animatedImage = {

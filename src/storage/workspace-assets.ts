@@ -128,7 +128,14 @@ export const workspaceAssetImageMediaSchema = z.object({
 })
 
 export const workspaceAssetVideoMediaSchema = z.object({
-  poster: z.object({ url: z.string().min(1) }).optional(),
+  poster: z
+    .object({
+      url: z.string().min(1),
+      key: z.string().min(1).optional(),
+      mimeType: z.string().min(1).optional(),
+      size: z.number().int().nonnegative().optional()
+    })
+    .optional(),
   preview: z.object({ url: z.string().min(1) }).optional()
 })
 
@@ -269,6 +276,14 @@ export const workspaceUploadCompleteRequestSchema = z
     asset: workspaceUploadAssetMetadataSchema.optional()
   })
   .strict()
+  .superRefine((value, context) => {
+    if (Boolean(value.uploadId) !== Boolean(value.parts)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'uploadId and parts must be provided together'
+      })
+    }
+  })
 
 export const workspaceUploadCompleteResultSchema = z.object({
   assetId: z.string().min(1),
@@ -281,8 +296,7 @@ export const workspaceUploadCompleteResultSchema = z.object({
 export const workspaceAssetPatchRequestSchema = z
   .object({
     name: z.string().max(512).optional(),
-    projectId: z.string().min(1).max(128).nullable().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional()
+    projectId: z.string().min(1).max(128).nullable().optional()
   })
   .strict()
 

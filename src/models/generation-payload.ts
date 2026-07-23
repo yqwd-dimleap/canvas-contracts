@@ -51,6 +51,22 @@ function normalizeSystem(value: unknown) {
   })
 }
 
+function assertOpenAiCompatibleMediaPayload(
+  mediaType: 'image' | 'video',
+  payload: Record<string, unknown>
+): void {
+  if (!trimmedString(payload.model)) {
+    throw new Error(
+      `Configured ${mediaType} payload must render a top-level "model" field.`
+    )
+  }
+  if (!trimmedString(payload.prompt)) {
+    throw new Error(
+      `Configured ${mediaType} payload must render a top-level "prompt" field.`
+    )
+  }
+}
+
 /**
  * Normalize frontend -> agent image generation params before rendering the
  * configured metadata.payload template. Params keys are preserved verbatim;
@@ -147,6 +163,7 @@ export function buildConfiguredVideoGenerationPayload(
     )
   }
   const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
+  assertOpenAiCompatibleMediaPayload('video', configured.payload)
 
   return {
     runtime: configured.runtime as VideoGenerationParams,
@@ -173,6 +190,7 @@ export function buildConfiguredImageGenerationPayload(
     )
   }
   const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
+  assertOpenAiCompatibleMediaPayload('image', configured.payload)
 
   return {
     runtime: configured.runtime as ImageGenerationParams,
