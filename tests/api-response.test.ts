@@ -7,7 +7,10 @@ import {
   apiSuccessResponseSchema
 } from '../src/api/response.js'
 import { workspaceProjectPublishRequestSchema } from '../src/canvas/workspace/project.js'
-import { listUserNotificationsApiResponseSchema } from '../src/events/notifications.js'
+import {
+  listUserNotificationsApiResponseSchema,
+  userNotificationUnreadCountApiResponseSchema
+} from '../src/events/notifications.js'
 
 describe('HTTP response envelopes', () => {
   test('accepts only the declared success or error wire shape', () => {
@@ -78,5 +81,18 @@ describe('HTTP response envelopes', () => {
       level: 'info',
       eventType: 'notification.updated'
     })
+  })
+
+  test('validates the lightweight notification unread count response', () => {
+    expect(
+      userNotificationUnreadCountApiResponseSchema.parse(
+        apiSuccess({ unreadCount: 3 })
+      ).data.unreadCount
+    ).toBe(3)
+    expect(
+      userNotificationUnreadCountApiResponseSchema.safeParse(
+        apiSuccess({ unreadCount: -1 })
+      ).success
+    ).toBe(false)
   })
 })

@@ -99,11 +99,6 @@ export type UserGenerationModelPreferencesView = z.infer<
 
 // ── 用户相关端点的标准信封响应 schema ──
 
-/** GET/POST /api/user/settings —— 用户设置。 */
-export const userSettingsApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ settings: userSettingsSchema })
-)
-
 /** GET /api/user/roles —— 当前用户角色列表。 */
 export const userRolesApiResponseSchema = apiSuccessResponseSchema(
   z.object({ roles: z.array(z.string()) })

@@ -5,13 +5,18 @@ export const WEB_SEARCH_CONFIG_ID = 'canvas-agent-web-search' as const
 export const WEB_SEARCH_DEFAULT_BASE_URL = 'https://api.tavily.com' as const
 
 export const webSearchProviderSchema = z.enum(['tavily'])
+const webSearchBaseUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .regex(/^https?:\/\//i, 'Web search base URL must use HTTP or HTTPS')
 
 export const webSearchConfigSchema = z.object({
   id: z.literal(WEB_SEARCH_CONFIG_ID),
   provider: webSearchProviderSchema,
   enabled: z.boolean().default(false),
   apiKey: z.string().trim().min(1).optional(),
-  baseUrl: z.string().url().default(WEB_SEARCH_DEFAULT_BASE_URL),
+  baseUrl: webSearchBaseUrlSchema.default(WEB_SEARCH_DEFAULT_BASE_URL),
   maxResults: z.number().int().min(1).max(10).default(5),
   timeoutMs: z.number().int().min(1000).max(60000).default(10000),
   createdAt: timestampSchema,
@@ -30,7 +35,7 @@ export const updateWebSearchConfigRequestSchema = z
     provider: webSearchProviderSchema.default('tavily'),
     enabled: z.boolean(),
     apiKey: z.string().trim().min(1).optional(),
-    baseUrl: z.string().url().default(WEB_SEARCH_DEFAULT_BASE_URL),
+    baseUrl: webSearchBaseUrlSchema.default(WEB_SEARCH_DEFAULT_BASE_URL),
     maxResults: z.number().int().min(1).max(10).default(5),
     timeoutMs: z.number().int().min(1000).max(60000).default(10000)
   })

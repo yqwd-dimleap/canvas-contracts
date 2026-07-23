@@ -99,19 +99,8 @@ export const listGenerationTasksQuerySchema = z.object({
   limit: z.number().int().positive().max(200).optional()
 })
 
-export const updateGenerationTaskResponseSchema = z.object({
-  task: generationTaskSchema.nullable().optional()
-})
-
-export const createGenerationTaskApiResponseSchema =
-  apiSuccessResponseSchema(generationTaskSchema)
-
 export const listGenerationTasksApiResponseSchema = apiSuccessResponseSchema(
   listGenerationTasksResponseSchema
-)
-
-export const updateGenerationTaskApiResponseSchema = apiSuccessResponseSchema(
-  updateGenerationTaskResponseSchema
 )
 
 // ============================================================================

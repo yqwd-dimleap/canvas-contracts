@@ -87,6 +87,14 @@ export const listUserNotificationsApiResponseSchema = apiSuccessResponseSchema(
   })
 )
 
+/** GET /api/notifications/unread-count 响应：供常驻顶栏使用的轻量未读数。 */
+export const userNotificationUnreadCountApiResponseSchema =
+  apiSuccessResponseSchema(
+    z.object({
+      unreadCount: z.number().int().nonnegative()
+    })
+  )
+
 /** POST /api/notifications/read 响应：更新后的未读数。 */
 export const markUserNotificationsReadApiResponseSchema =
   apiSuccessResponseSchema(

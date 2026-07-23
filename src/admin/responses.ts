@@ -1,15 +1,11 @@
 import { z } from 'zod'
 import {
   modelPricingConfigSchema,
-  modelProviderModelSchema,
   modelProviderSchema
 } from '../agent/model-provider.js'
 import { agentRuntimeConfigViewSchema } from '../agent/runtime-config.js'
+import { webSearchConfigViewSchema } from '../agent/web-search.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
-
-export const adminModelSchema = modelProviderModelSchema.extend({
-  provider: z.string().trim().min(1)
-})
 
 export const updateAdminModelRequestSchema = z
   .object({
@@ -32,45 +28,6 @@ export const updateAdminModelResponseSchema = z.object({
   success: z.literal(true)
 })
 
-export const createAdminModelRequestSchema = z
-  .object({
-    modelId: z.string().trim().min(1),
-    provider: z.string().trim().min(1).default('gateway'),
-    displayName: z.string().optional(),
-    enabled: z.boolean().optional(),
-    pricing: modelPricingConfigSchema,
-    metadata: z.record(z.string(), z.unknown()).optional()
-  })
-  .strict()
-
-export const createAdminModelResponseSchema = z.object({
-  success: z.literal(true),
-  id: z.string().min(1)
-})
-
-export const createModelProviderRequestSchema = modelProviderSchema
-  .omit({
-    createdAt: true,
-    updatedAt: true
-  })
-  .extend({
-    id: z.string().trim().min(1).optional()
-  })
-  .strict()
-
-export const updateModelProviderRequestSchema = modelProviderSchema
-  .omit({
-    id: true,
-    createdAt: true,
-    updatedAt: true
-  })
-  .partial()
-  .strict()
-
-export const modelProviderResponseSchema = z.object({
-  provider: modelProviderSchema
-})
-
 export const importGatewayModelsRequestSchema = z
   .object({
     provider: z.string().trim().min(1).optional(),
@@ -86,14 +43,6 @@ export const importGatewayModelsRequestSchema = z
 export const importGatewayModelsResponseSchema = z.object({
   imported: z.number().int().min(0),
   synced: z.number().int().min(0)
-})
-
-/**
- * Admin - Models List Response
- * 管理后台：模型列表
- */
-export const modelsResponseSchema = z.object({
-  models: z.array(adminModelSchema)
 })
 
 /**
@@ -197,15 +146,8 @@ export const agentRuntimeConfigResponseSchema = z.object({
   config: agentRuntimeConfigViewSchema
 })
 
-export const modelsApiResponseSchema =
-  apiSuccessResponseSchema(modelsResponseSchema)
-
 export const updateAdminModelApiResponseSchema = apiSuccessResponseSchema(
   updateAdminModelResponseSchema
-)
-
-export const createAdminModelApiResponseSchema = apiSuccessResponseSchema(
-  createAdminModelResponseSchema
 )
 
 export const deleteModelsApiResponseSchema = apiSuccessResponseSchema(
@@ -216,16 +158,20 @@ export const modelProvidersApiResponseSchema = apiSuccessResponseSchema(
   modelProvidersResponseSchema
 )
 
-export const modelProviderApiResponseSchema = apiSuccessResponseSchema(
-  modelProviderResponseSchema
-)
-
 export const gatewayModelsApiResponseSchema = apiSuccessResponseSchema(
   gatewayModelsResponseSchema
 )
 
 export const agentRuntimeConfigApiResponseSchema = apiSuccessResponseSchema(
   agentRuntimeConfigResponseSchema
+)
+
+export const webSearchConfigResponseSchema = z.object({
+  config: webSearchConfigViewSchema
+})
+
+export const webSearchConfigApiResponseSchema = apiSuccessResponseSchema(
+  webSearchConfigResponseSchema
 )
 
 export const importGatewayModelsApiResponseSchema = apiSuccessResponseSchema(
@@ -238,26 +184,12 @@ export type UpdateAdminModelRequest = z.infer<
 export type UpdateAdminModelResponse = z.infer<
   typeof updateAdminModelResponseSchema
 >
-export type CreateAdminModelRequest = z.infer<
-  typeof createAdminModelRequestSchema
->
-export type CreateAdminModelResponse = z.infer<
-  typeof createAdminModelResponseSchema
->
-export type CreateModelProviderRequest = z.infer<
-  typeof createModelProviderRequestSchema
->
-export type UpdateModelProviderRequest = z.infer<
-  typeof updateModelProviderRequestSchema
->
-export type ModelProviderResponse = z.infer<typeof modelProviderResponseSchema>
 export type ImportGatewayModelsRequest = z.infer<
   typeof importGatewayModelsRequestSchema
 >
 export type ImportGatewayModelsResponse = z.infer<
   typeof importGatewayModelsResponseSchema
 >
-export type ModelsResponse = z.infer<typeof modelsResponseSchema>
 export type DeleteModelsRequest = z.infer<typeof deleteModelsRequestSchema>
 export type DeleteModelsResponse = z.infer<typeof deleteModelsResponseSchema>
 export type ModelProvidersResponse = z.infer<
@@ -266,4 +198,7 @@ export type ModelProvidersResponse = z.infer<
 export type GatewayModelsResponse = z.infer<typeof gatewayModelsResponseSchema>
 export type AgentRuntimeConfigResponse = z.infer<
   typeof agentRuntimeConfigResponseSchema
+>
+export type WebSearchConfigResponse = z.infer<
+  typeof webSearchConfigResponseSchema
 >
