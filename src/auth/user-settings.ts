@@ -80,7 +80,13 @@ export const userGenerationModelPreferenceRowSchema = z.object({
 
 export const userGenerationModelPreferencesViewSchema = z.object({
   generationModelPreferences: generationModelPreferencesSchema,
-  rows: z.array(userGenerationModelPreferenceRowSchema)
+  rows: z.array(userGenerationModelPreferenceRowSchema),
+  agentRuntimePricing: z
+    .object({
+      modelId: z.string().min(1),
+      pricing: modelPricingConfigSchema
+    })
+    .optional()
 })
 
 export type UserSettings = z.infer<typeof userSettingsSchema>

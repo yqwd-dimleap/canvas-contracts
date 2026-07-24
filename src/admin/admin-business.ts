@@ -208,6 +208,100 @@ export const adminUsageSummaryResponseSchema = z.object({
   summary: z.array(adminUsageSummaryRowSchema)
 })
 
+/**
+ * Operational read model for the admin Usage page.
+ *
+ * `usageEvents` deliberately excludes billing ledger events. Credit grants and
+ * settled payments are accounting facts rather than product activity, so they
+ * are reported separately as `ledgerEvents` and never inflate active users or
+ * consumed credits.
+ */
+export const adminUsageCategorySchema = z.enum(['agent', 'generation', 'other'])
+
+export const adminUsageOverviewSchema = z.object({
+  range: z.object({
+    days: z.number().int().positive(),
+    from: z.string(),
+    to: z.string(),
+    previousFrom: z.string(),
+    previousTo: z.string(),
+    timezone: z.literal('UTC')
+  }),
+  totals: z.object({
+    usageEvents: z.number().int().nonnegative(),
+    ledgerEvents: z.number().int().nonnegative(),
+    activeUsers: z.number().int().nonnegative(),
+    credits: z.number().nonnegative(),
+    costCents: z.number().nonnegative(),
+    averageCreditsPerEvent: z.number().nonnegative(),
+    averageCostCentsPerEvent: z.number().nonnegative()
+  }),
+  comparison: z.object({
+    usageEventsPercent: z.number().nullable(),
+    activeUsersPercent: z.number().nullable(),
+    creditsPercent: z.number().nullable(),
+    costPercent: z.number().nullable()
+  }),
+  series: z.array(
+    z.object({
+      bucket: z.string(),
+      usageEvents: z.number().int().nonnegative(),
+      activeUsers: z.number().int().nonnegative(),
+      credits: z.number().nonnegative(),
+      costCents: z.number().nonnegative()
+    })
+  ),
+  breakdowns: z.object({
+    categories: z.array(
+      z.object({
+        category: adminUsageCategorySchema,
+        usageEvents: z.number().int().nonnegative(),
+        activeUsers: z.number().int().nonnegative(),
+        credits: z.number().nonnegative(),
+        costCents: z.number().nonnegative(),
+        share: z.number().min(0).max(1)
+      })
+    ),
+    eventTypes: z.array(
+      z.object({
+        type: z.string(),
+        category: adminUsageCategorySchema,
+        usageEvents: z.number().int().nonnegative(),
+        activeUsers: z.number().int().nonnegative(),
+        credits: z.number().nonnegative(),
+        costCents: z.number().nonnegative(),
+        share: z.number().min(0).max(1)
+      })
+    ),
+    models: z.array(
+      z.object({
+        modelId: z.string(),
+        provider: z.string().nullable(),
+        usageEvents: z.number().int().nonnegative(),
+        activeUsers: z.number().int().nonnegative(),
+        credits: z.number().nonnegative(),
+        costCents: z.number().nonnegative(),
+        share: z.number().min(0).max(1)
+      })
+    )
+  }),
+  topUsers: z.array(
+    z.object({
+      userId: z.string(),
+      userName: z.string().nullable(),
+      userEmail: z.string().nullable(),
+      usageEvents: z.number().int().nonnegative(),
+      credits: z.number().nonnegative(),
+      costCents: z.number().nonnegative(),
+      lastSeenAt: z.string()
+    })
+  )
+})
+
+export const adminUsageOverviewResponseSchema = z.object({
+  overview: adminUsageOverviewSchema
+})
+
 export const adminAnalyticsSchema = z.object({
   summary: z.object({
     totalUsers: z.number(),
@@ -358,6 +452,9 @@ export const adminAccessSessionsApiResponseSchema = apiSuccessResponseSchema(
 export const adminUsageSummaryApiResponseSchema = apiSuccessResponseSchema(
   adminUsageSummaryResponseSchema
 )
+export const adminUsageOverviewApiResponseSchema = apiSuccessResponseSchema(
+  adminUsageOverviewResponseSchema
+)
 export const adminAnalyticsApiResponseSchema = apiSuccessResponseSchema(
   adminAnalyticsResponseSchema
 )
@@ -393,6 +490,7 @@ export const adminPublishReviewApiResponseSchema = apiSuccessResponseSchema(
 
 export type AdminUserRow = z.infer<typeof adminUserRowSchema>
 export type AdminUsageSummaryRow = z.infer<typeof adminUsageSummaryRowSchema>
+export type AdminUsageOverview = z.infer<typeof adminUsageOverviewSchema>
 export type AdminPublishItem = z.infer<typeof adminPublishItemSchema>
 export type AdminPublishProject = z.infer<typeof adminPublishProjectSchema>
 export type AdminPublishAction = z.infer<typeof adminPublishActionSchema>
