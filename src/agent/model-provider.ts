@@ -64,6 +64,13 @@ export const modelPricingRatesSchema = z.object({
 
 export const modelPricingRuleMatchSchema = z
   .object({
+    /**
+     * Token-priced models may switch the whole rate card according to the
+     * request's prompt length. The lower bound is inclusive and the upper
+     * bound is exclusive so adjacent cards can be expressed without overlap.
+     */
+    inputTokensGte: z.number().int().nonnegative().optional(),
+    inputTokensLt: z.number().int().positive().optional(),
     quality: z.array(z.string().min(1)).optional(),
     resolution: z.array(z.string().min(1)).optional(),
     size: z.array(z.string().min(1)).optional(),
@@ -72,6 +79,16 @@ export const modelPricingRuleMatchSchema = z
     operation: z.array(z.string().min(1)).optional(),
     metadata: z.record(z.string(), z.array(z.string().min(1))).optional()
   })
+  .refine(
+    (value) =>
+      value.inputTokensGte === undefined ||
+      value.inputTokensLt === undefined ||
+      value.inputTokensGte < value.inputTokensLt,
+    {
+      message: 'inputTokensGte must be less than inputTokensLt',
+      path: ['inputTokensLt']
+    }
+  )
   .default({})
 
 export const modelPricingRuleSchema = z.object({

@@ -305,20 +305,17 @@ export const adminUsageOverviewResponseSchema = z.object({
 export const adminAnalyticsSchema = z.object({
   summary: z.object({
     totalUsers: z.number(),
-    activeUsers: z.number(),
-    revenue: z.number(),
-    cost: z.number(),
-    events: z.number()
+    activeUsers30d: z.number(),
+    revenueCnyFen30d: z.number(),
+    costUsdCents30d: z.number(),
+    usageEvents30d: z.number()
   }),
   trends: z.object({
     months: z.array(z.string()),
-    users: z.array(z.number()),
     activeUsers: z.array(z.number()),
-    revenue: z.array(z.number()),
-    cost: z.array(z.number())
-  }),
-  modelUsage: z.array(z.object({ name: z.string(), value: z.number() })),
-  heatmap: z.array(z.array(z.number()))
+    revenueCnyFen: z.array(z.number()),
+    costUsdCents: z.array(z.number())
+  })
 })
 
 export const adminAnalyticsResponseSchema = z.object({
@@ -491,6 +488,7 @@ export const adminPublishReviewApiResponseSchema = apiSuccessResponseSchema(
 export type AdminUserRow = z.infer<typeof adminUserRowSchema>
 export type AdminUsageSummaryRow = z.infer<typeof adminUsageSummaryRowSchema>
 export type AdminUsageOverview = z.infer<typeof adminUsageOverviewSchema>
+export type AdminAnalytics = z.infer<typeof adminAnalyticsSchema>
 export type AdminPublishItem = z.infer<typeof adminPublishItemSchema>
 export type AdminPublishProject = z.infer<typeof adminPublishProjectSchema>
 export type AdminPublishAction = z.infer<typeof adminPublishActionSchema>

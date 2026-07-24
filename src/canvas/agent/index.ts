@@ -1,4 +1,5 @@
 export * from './actions.js'
+export * from './activity.js'
 export * from './capabilities.js'
 export * from './interrupts.js'
 export * from './prompt.js'

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { canvasAgentActionSchema } from './actions.js'
+import { canvasAgentActivityTitleCodeSchema } from './activity.js'
 
 export const agentRunStatusSchema = z.enum([
   'queued',
@@ -101,6 +102,7 @@ export const agentRunStepSchema = z.object({
   traceId: z.string().min(1).optional(),
   phase: agentRunPhaseSchema,
   title: z.string().min(1),
+  activityTitleCode: canvasAgentActivityTitleCodeSchema.optional(),
   status: agentRunStepStatusSchema,
   startedAt: z.string().min(1),
   completedAt: z.string().min(1).optional(),

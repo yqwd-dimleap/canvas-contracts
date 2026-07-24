@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   CANVAS_AGENT_PROTOCOL_VERSION,
+  canvasAgentInterruptSchema,
   canvasAgentLangGraphProtocolEventSchema,
   canvasAgentLangGraphThreadStateResponseSchema,
   canvasAgentThreadSnapshotSchema
@@ -70,6 +71,60 @@ describe('Canvas Agent application protocol v2', () => {
         method: 'custom:activity'
       }).success
     ).toBe(false)
+  })
+
+  test('carries locale-independent activity messages with legacy fallbacks', () => {
+    const frame = {
+      ...lifecycleFrame,
+      method: 'custom',
+      params: {
+        namespace: [],
+        timestamp: '2026-07-17T00:00:00.000Z',
+        data: {
+          name: 'activity',
+          payload: {
+            event: 'activity.upsert',
+            activity: {
+              id: 'activity-2',
+              scope: 'tool',
+              kind: 'generating_media',
+              title: 'Generate video 2/3',
+              titleMessage: {
+                code: 'tool.generate_media',
+                values: { mediaType: 'video', current: 2, total: 3 }
+              },
+              status: 'running',
+              detail: 'Generating video (48%)',
+              detailMessage: {
+                code: 'generating_media',
+                values: { mediaType: 'video', progress: 48 }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(canvasAgentLangGraphProtocolEventSchema.parse(frame)).toEqual(frame)
+  })
+
+  test('carries semantic messages for fixed interrupt copy', () => {
+    const interrupt = {
+      id: 'run-1:interrupt',
+      kind: 'canvas_conflict',
+      title: 'Your confirmation is needed',
+      titleMessage: { code: 'confirmation_title' },
+      prompt: 'The canvas changed.',
+      promptMessage: { code: 'canvas_conflict_prompt' },
+      options: [
+        {
+          value: 'keep_user',
+          label: 'Keep my changes',
+          labelMessage: { code: 'keep_user_changes' }
+        }
+      ],
+      createdAt: '2026-07-17T00:00:00.000Z'
+    }
+    expect(canvasAgentInterruptSchema.parse(interrupt)).toEqual(interrupt)
   })
 
   test('rejects unknown channels, missing sequence and malformed payloads', () => {

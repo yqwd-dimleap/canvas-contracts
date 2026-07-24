@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { artifactSchema } from '../artifacts/index.js'
 import {
+  canvasAgentActivityDetailMessageSchema,
+  canvasAgentActivityTitleMessageSchema
+} from '../canvas/agent/activity.js'
+import {
   canvasMutationReceiptSchema,
   canvasMutationTransactionSchema,
   canvasTransientEffectSchema
@@ -56,6 +60,19 @@ export const canvasAgentRunLifecycleStatusSchema = z.enum([
   'cancelled'
 ])
 
+export const canvasAgentInterruptMessageCodeSchema = z.enum([
+  'confirmation_title',
+  'canvas_conflict_prompt',
+  'keep_user_changes',
+  'keep_user_changes_description',
+  'apply_agent_changes',
+  'apply_agent_changes_description'
+])
+
+export const canvasAgentInterruptMessageSchema = z
+  .object({ code: canvasAgentInterruptMessageCodeSchema })
+  .strict()
+
 export const canvasAgentActivitySchema = z
   .object({
     id: z.string().trim().min(1),
@@ -73,6 +90,8 @@ export const canvasAgentActivitySchema = z
       'finalizing'
     ]),
     title: z.string().trim().min(1).max(160),
+    /** Preferred locale-independent UI label; `title` is the compatibility fallback. */
+    titleMessage: canvasAgentActivityTitleMessageSchema.optional(),
     status: z.enum([
       'pending',
       'running',
@@ -84,6 +103,8 @@ export const canvasAgentActivitySchema = z
     startedAt: z.string().datetime().optional(),
     completedAt: z.string().datetime().optional(),
     detail: z.string().trim().min(1).max(500).optional(),
+    /** Preferred locale-independent UI detail; `detail` is the compatibility fallback. */
+    detailMessage: canvasAgentActivityDetailMessageSchema.optional(),
     progress: z.number().min(0).max(100).optional()
   })
   .strict()
@@ -93,14 +114,18 @@ export const canvasAgentInterruptSchema = z
     id: z.string().trim().min(1),
     kind: z.enum(['clarification', 'canvas_conflict']),
     title: z.string().trim().min(1).max(160),
+    titleMessage: canvasAgentInterruptMessageSchema.optional(),
     prompt: z.string().trim().min(1).max(2_000),
+    promptMessage: canvasAgentInterruptMessageSchema.optional(),
     options: z
       .array(
         z
           .object({
             value: z.string().trim().min(1),
             label: z.string().trim().min(1).max(120),
-            description: z.string().trim().min(1).max(240).optional()
+            labelMessage: canvasAgentInterruptMessageSchema.optional(),
+            description: z.string().trim().min(1).max(240).optional(),
+            descriptionMessage: canvasAgentInterruptMessageSchema.optional()
           })
           .strict()
       )
