@@ -32,41 +32,64 @@ const mutationIdentitySchema = z.object({
   mutationId: z.string().trim().min(1)
 })
 
-const rasterPatchSchema = canvasRasterElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const textPatchSchema = canvasTextElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const shapePatchSchema = canvasShapeElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const vectorPatchSchema = canvasVectorElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const pathPatchSchema = canvasPathElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const groupPatchSchema = canvasGroupElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const maskPatchSchema = canvasMaskElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
-const adjustmentPatchSchema = canvasAdjustmentElementSchema
-  .omit({ id: true, type: true, revision: true })
-  .partial()
-  .strict()
+type ClassicZodShape = Readonly<Record<string, z.ZodType>>
 
-export const canvasDocumentPatchSchema = canvasDocumentSchema
-  .omit({
+type WithoutDefault<T extends z.ZodType> =
+  T extends z.ZodDefault<infer TInner extends z.ZodType> ? TInner : T
+
+type SparsePatchShape<TShape extends ClassicZodShape> = {
+  -readonly [TKey in keyof TShape]: z.ZodOptional<WithoutDefault<TShape[TKey]>>
+}
+
+/**
+ * Element/document schemas apply defaults when reading complete persisted
+ * records. A patch must never materialize those defaults for omitted fields,
+ * otherwise a metadata-only patch can silently reset mediaType, transforms,
+ * visibility, and other state before the reducer merges it.
+ */
+function sparsePatchSchema<TShape extends ClassicZodShape>(
+  schema: z.ZodObject<TShape>
+) {
+  const shape = {} as SparsePatchShape<TShape>
+  for (const key of Object.keys(schema.shape) as Array<keyof TShape>) {
+    const field = schema.shape[key] as z.ZodType
+    const withoutDefault =
+      field instanceof z.ZodDefault
+        ? (field.removeDefault() as z.ZodType)
+        : field
+    shape[key] =
+      withoutDefault.optional() as SparsePatchShape<TShape>[typeof key]
+  }
+  return z.strictObject(shape)
+}
+
+const rasterPatchSchema = sparsePatchSchema(
+  canvasRasterElementSchema.omit({ id: true, type: true, revision: true })
+)
+const textPatchSchema = sparsePatchSchema(
+  canvasTextElementSchema.omit({ id: true, type: true, revision: true })
+)
+const shapePatchSchema = sparsePatchSchema(
+  canvasShapeElementSchema.omit({ id: true, type: true, revision: true })
+)
+const vectorPatchSchema = sparsePatchSchema(
+  canvasVectorElementSchema.omit({ id: true, type: true, revision: true })
+)
+const pathPatchSchema = sparsePatchSchema(
+  canvasPathElementSchema.omit({ id: true, type: true, revision: true })
+)
+const groupPatchSchema = sparsePatchSchema(
+  canvasGroupElementSchema.omit({ id: true, type: true, revision: true })
+)
+const maskPatchSchema = sparsePatchSchema(
+  canvasMaskElementSchema.omit({ id: true, type: true, revision: true })
+)
+const adjustmentPatchSchema = sparsePatchSchema(
+  canvasAdjustmentElementSchema.omit({ id: true, type: true, revision: true })
+)
+
+export const canvasDocumentPatchSchema = sparsePatchSchema(
+  canvasDocumentSchema.omit({
     id: true,
     projectId: true,
     schemaVersion: true,
@@ -76,8 +99,7 @@ export const canvasDocumentPatchSchema = canvasDocumentSchema
     createdAt: true,
     updatedAt: true
   })
-  .partial()
-  .strict()
+)
 
 const documentCreateMutationSchema = mutationIdentitySchema
   .extend({
