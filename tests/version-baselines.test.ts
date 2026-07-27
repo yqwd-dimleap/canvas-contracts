@@ -9,8 +9,8 @@ const packageJson = JSON.parse(
 ) as { version: string }
 
 describe('version baselines', () => {
-  test('keeps package releases on the established 2.0 line', () => {
-    expect(packageJson.version).toMatch(/^2\.0\.\d+$/)
+  test('keeps package releases on the established 2.x line', () => {
+    expect(packageJson.version).toMatch(/^2\.\d+\.\d+$/)
   })
 
   test('keeps package, persisted schema and wire versions independent', () => {

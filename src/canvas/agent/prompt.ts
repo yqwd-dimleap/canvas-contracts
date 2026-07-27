@@ -32,6 +32,26 @@ export const promptTextContentKindSchema = z.enum([
   'ui_copy'
 ])
 
+/** Minimum visible characters required for destructive compression actions. */
+export const PROMPT_TEXT_MIN_REDUCIBLE_CHARACTERS = 12
+
+/** Stable cross-service failure vocabulary for prompt text processing. */
+export const promptTextFailureCodeSchema = z.enum([
+  'AUTH_EMAIL_UNVERIFIED',
+  'BILLING_STATUS_BLOCKED',
+  'PROMPT_OPERATION_NOT_APPLICABLE',
+  'PROMPT_QUALITY_FAILED',
+  'PROMPT_TIMEOUT',
+  'PROMPT_INTERNAL_ERROR'
+])
+
+export const promptTextFailureDetailsSchema = z.object({
+  code: promptTextFailureCodeSchema,
+  operation: promptTextOperationSchema.optional(),
+  minimumCharacters: z.number().int().positive().optional(),
+  reason: z.string().min(1).optional()
+})
+
 export const promptTextFieldContextSchema = z.object({
   field: z
     .enum([
@@ -85,11 +105,16 @@ export const processPromptTextResponseSchema = apiSuccessResponseSchema(
     contentKind: promptTextContentKindSchema,
     originalText: z.string(),
     text: z.string(),
+    changed: z.boolean(),
     notes: z.array(z.string()).default([])
   })
 )
 
 export type PromptTextOperation = z.infer<typeof promptTextOperationSchema>
+export type PromptTextFailureCode = z.infer<typeof promptTextFailureCodeSchema>
+export type PromptTextFailureDetails = z.infer<
+  typeof promptTextFailureDetailsSchema
+>
 export type ProcessPromptTextRequest = z.infer<
   typeof processPromptTextRequestSchema
 >

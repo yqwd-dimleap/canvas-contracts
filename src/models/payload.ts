@@ -112,17 +112,6 @@ export const generationPayloadConfigSchema = z
     pricingBindings: generationPayloadPricingBindingsSchema
   })
   .strict()
-  .superRefine((config, context) => {
-    if (config.mediaType !== 'image' && config.mediaType !== 'video') return
-    for (const field of ['model', 'prompt'] as const) {
-      if (typeof config.request.body[field] === 'string') continue
-      context.addIssue({
-        code: 'custom',
-        path: ['request', 'body', field],
-        message: `OpenAI-compatible ${config.mediaType} payload requires top-level ${field}.`
-      })
-    }
-  })
 
 export const generationPayloadConfigJsonSchema = z.toJSONSchema(
   generationPayloadConfigSchema
@@ -286,27 +275,65 @@ function objectArray(value: unknown): Record<string, unknown>[] {
   )
 }
 
-function referenceImagesFromParams(params: GenerationRuntimeParams): string[] {
-  const references = record(params.references)
-  const mediaUrls = objectArray(references.media)
+function uniqueStrings(values: string[]): string[] {
+  return values.filter(
+    (value, index, all) => Boolean(value) && all.indexOf(value) === index
+  )
+}
+
+function mediaUrlsByType(
+  params: GenerationRuntimeParams,
+  types: ReadonlySet<string>
+): string[] {
+  return objectArray(record(params.references).media)
     .filter((item) => {
       const type = typeof item.type === 'string' ? item.type.trim() : ''
-      return (
-        type === 'reference_image' ||
-        type === 'first_frame' ||
-        type === 'last_frame' ||
-        type === 'image'
-      )
+      return types.has(type)
     })
     .map((item) => (typeof item.url === 'string' ? item.url.trim() : ''))
     .filter(Boolean)
-  return [
+}
+
+function referenceImagesFromParams(params: GenerationRuntimeParams): string[] {
+  const references = record(params.references)
+  return uniqueStrings([
     ...stringArray(references.images),
-    ...mediaUrls,
+    ...mediaUrlsByType(
+      params,
+      new Set(['reference_image', 'first_frame', 'last_frame', 'image'])
+    ),
     ...(typeof references.firstImage === 'string'
       ? [references.firstImage]
       : [])
-  ].filter((value, index, all) => all.indexOf(value) === index)
+  ])
+}
+
+function referenceVideoUrlsFromParams(
+  params: GenerationRuntimeParams
+): string[] {
+  const references = record(params.references)
+  return uniqueStrings([
+    ...mediaUrlsByType(params, new Set(['reference_video', 'video'])),
+    ...stringArray(references.clips),
+    ...(typeof references.sourceVideo === 'string'
+      ? [references.sourceVideo.trim()]
+      : [])
+  ])
+}
+
+function referenceAudioUrlsFromParams(
+  params: GenerationRuntimeParams
+): string[] {
+  const references = record(params.references)
+  return uniqueStrings([
+    ...mediaUrlsByType(
+      params,
+      new Set(['reference_audio', 'driving_audio', 'audio'])
+    ),
+    ...(typeof references.drivingAudio === 'string'
+      ? [references.drivingAudio.trim()]
+      : [])
+  ])
 }
 
 /**
@@ -621,6 +648,21 @@ const SYSTEM_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
 
 const HELPER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
   {
+    path: 'helpers.references.imageUrls',
+    group: 'helpers',
+    description: 'deduplicated reference image URLs'
+  },
+  {
+    path: 'helpers.references.videoUrls',
+    group: 'helpers',
+    description: 'deduplicated reference video URLs'
+  },
+  {
+    path: 'helpers.references.audioUrls',
+    group: 'helpers',
+    description: 'deduplicated reference audio URLs'
+  },
+  {
     path: 'helpers.references.imageMedia',
     group: 'helpers',
     description: 'first frame + reference image media[]'
@@ -715,6 +757,9 @@ export function buildGenerationTemplateContext(
     system,
     helpers: {
       references: {
+        imageUrls: referenceImagesFromParams({ ...params, references }),
+        videoUrls: referenceVideoUrlsFromParams({ ...params, references }),
+        audioUrls: referenceAudioUrlsFromParams({ ...params, references }),
         imageMedia: imageMedia({ ...params, references }),
         firstFrameMedia: firstFrameMedia({ ...params, references }),
         referenceImageMedia: referenceImageMedia({ ...params, references })

@@ -293,31 +293,93 @@ describe('video generation metadata.payload', () => {
     })
   })
 
-  test('rejects provider-native nested prompt payloads', () => {
+  test('renders the documented Seedance 2.0 nested input payload', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
+    payload.endpoint = '/v1/videos/generations'
+    payload.controls = [
+      {
+        key: 'callbackUrl',
+        label: 'Callback URL',
+        type: 'text',
+        defaultValue: 'https://example.com/api/seedance/webhook'
+      },
+      {
+        key: 'generationType',
+        label: 'Generation type',
+        type: 'select',
+        defaultValue: 'reference-to-video',
+        options: ['text-to-video', 'image-to-video', 'reference-to-video']
+      },
+      {
+        key: 'duration',
+        label: 'Duration',
+        type: 'number',
+        defaultValue: 8,
+        min: 4,
+        max: 15
+      },
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        defaultValue: '1080p',
+        options: ['480p', '720p', '1080p', '4k']
+      },
+      {
+        key: 'referenceImages',
+        label: 'Reference images',
+        type: 'referenceImages'
+      }
+    ]
     payload.request.body = {
       model: '{{model}}',
+      callback_url: '{{params.callbackUrl}}',
       input: {
         prompt: '{{prompt}}',
-        media: '{{references.media}}'
-      },
-      parameters: {
+        generation_type: '{{params.generationType}}',
+        image_urls: '{{helpers.references.imageUrls}}',
+        video_urls: '{{helpers.references.videoUrls}}',
+        audio_urls: '{{helpers.references.audioUrls}}',
+        duration: '{{params.duration}}',
         resolution: '{{params.resolution}}'
       }
     }
 
-    expect(() =>
-      buildConfiguredVideoGenerationPayload(
-        {
-          model: 'wan2.7-r2v-2026-06-12',
-          prompt: 'Continue the village sequence.',
-          references: {
-            media: [{ type: 'reference_image', url: IMAGE_URL }]
-          }
-        },
-        mergeGenerationPayloadConfig(null, payload)
-      )
-    ).toThrow('OpenAI-compatible video payload requires top-level prompt')
+    const configured = buildConfiguredVideoGenerationPayload(
+      {
+        model: 'seedance-2-0',
+        prompt: 'Use the product and the reference camera motion.',
+        references: {
+          media: [
+            { type: 'reference_image', url: IMAGE_URL },
+            {
+              type: 'reference_video',
+              url: 'https://example.com/camera-motion.mp4'
+            },
+            {
+              type: 'reference_audio',
+              url: 'https://example.com/soundtrack.mp3'
+            }
+          ]
+        }
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.config.endpoint).toBe('/v1/videos/generations')
+    expect(configured.payload).toEqual({
+      model: 'seedance-2-0',
+      callback_url: 'https://example.com/api/seedance/webhook',
+      input: {
+        prompt: 'Use the product and the reference camera motion.',
+        generation_type: 'reference-to-video',
+        image_urls: [IMAGE_URL],
+        video_urls: ['https://example.com/camera-motion.mp4'],
+        audio_urls: ['https://example.com/soundtrack.mp3'],
+        duration: 8,
+        resolution: '1080p'
+      }
+    })
   })
 
   test('required controls fail before gateway submission', () => {

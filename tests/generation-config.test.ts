@@ -12,24 +12,22 @@ import {
 const MODEL_ID = 'config-model-a'
 
 describe('generation payload config capabilities', () => {
-  test('admin updates reject provider-native nested media payloads', () => {
+  test('admin updates accept provider-native nested media payloads', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.request.body = {
       model: '{{model}}',
-      input: { prompt: '{{prompt}}' }
+      callback_url: '{{params.callbackUrl}}',
+      input: {
+        prompt: '{{prompt}}',
+        generation_type: '{{params.generationType}}'
+      }
     }
 
     const result = updateAdminModelRequestSchema.safeParse({
-      modelId: 'wan2.7-r2v-2026-06-12',
+      modelId: 'seedance-2-0',
       metadata: { payload }
     })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.error.issues[0]?.path).toEqual(['metadata', 'payload'])
-      expect(result.error.issues[0]?.message).toContain(
-        'requires top-level prompt'
-      )
-    }
+    expect(result.success).toBe(true)
   })
 
   test('stringList control renders arrays and rejects non-string items', () => {
