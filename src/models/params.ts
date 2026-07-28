@@ -32,20 +32,116 @@ export const generationSystemSchema = z
   .strict()
 
 /**
- * 参考媒体字段是开放集合：不同厂商可能引入 mask / styleRef 等新字段。
- * 用 loose 透传扩展字段，避免每加一种参考媒体都要改契约；已知字段仍显式声明
- * 以获得类型提示。
+ * Provider-neutral media reference vocabulary.
+ *
+ * References are deliberately model-independent. Provider-specific fields
+ * such as image_url, video_url, imgUrl, or drivingAudioUrl are only rendered
+ * from metadata.payload.request.body after server-side media resolution.
  */
-export const imageGenerationReferencesSchema = z.looseObject({
-  images: z
-    .array(z.string())
-    .optional()
-    .describe('Ordered reference image URLs.'),
-  firstImage: z
-    .string()
-    .optional()
-    .describe('Primary reference image URL; defaults to images[0].')
-})
+export const generationReferenceMediaTypeSchema = z.enum([
+  'image',
+  'video',
+  'audio'
+])
+
+export const generationReferenceRoleSchema = z.enum([
+  'reference',
+  'first_frame',
+  'last_frame',
+  'source',
+  'clip',
+  'driving_audio',
+  'style',
+  'mask',
+  'reference_voice'
+])
+
+/**
+ * Reference roles are provider-neutral, but not interchangeable. Keeping this
+ * matrix at the contract boundary prevents an apparently valid request such as
+ * an audio `first_frame` from reaching a provider template.
+ */
+const REFERENCE_ROLES_BY_MEDIA_TYPE = {
+  image: new Set([
+    'reference',
+    'first_frame',
+    'last_frame',
+    'source',
+    'style',
+    'mask'
+  ]),
+  video: new Set(['reference', 'source', 'clip']),
+  audio: new Set(['reference', 'driving_audio', 'reference_voice'])
+} as const
+
+export const generationReferenceSourceSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('asset'),
+      assetId: z.string().trim().min(1).max(128)
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('url'),
+      url: z.string().trim().min(1).max(16_000)
+    })
+    .strict()
+])
+
+export const generationReferenceSchema = z
+  .object({
+    mediaType: generationReferenceMediaTypeSchema,
+    role: generationReferenceRoleSchema.default('reference'),
+    source: generationReferenceSourceSchema
+  })
+  .strict()
+  .superRefine((reference, context) => {
+    if (
+      REFERENCE_ROLES_BY_MEDIA_TYPE[reference.mediaType].has(reference.role)
+    ) {
+      return
+    }
+    context.addIssue({
+      code: 'custom',
+      path: ['role'],
+      message: `Role "${reference.role}" is not valid for ${reference.mediaType} media.`
+    })
+  })
+
+export const generationReferencesSchema = z
+  .object({
+    items: z.array(generationReferenceSchema).max(16).default([])
+  })
+  .strict()
+
+export type GenerationReference = z.infer<typeof generationReferenceSchema>
+export type GenerationReferences = z.infer<typeof generationReferencesSchema>
+
+function referenceIdentity(reference: GenerationReference): string {
+  return `${reference.mediaType}:${reference.role}:${reference.source.kind}:${
+    reference.source.kind === 'asset'
+      ? reference.source.assetId
+      : reference.source.url
+  }`
+}
+
+/** Keep source order while removing semantically duplicate references. */
+export function mergeGenerationReferences(
+  ...groups: ReadonlyArray<readonly GenerationReference[]>
+): GenerationReferences {
+  const seen = new Set<string>()
+  const items: GenerationReference[] = []
+  for (const group of groups) {
+    for (const reference of group) {
+      const identity = referenceIdentity(reference)
+      if (seen.has(identity)) continue
+      seen.add(identity)
+      items.push(reference)
+    }
+  }
+  return { items }
+}
 
 export const imageGenerationParamsSchema = z
   .object({
@@ -55,59 +151,14 @@ export const imageGenerationParamsSchema = z
       .min(1)
       .describe('Configured model id from GET /api/ai-image/models.'),
     params: generationParamsSchema.default({}),
-    references: imageGenerationReferencesSchema
-      .default({})
+    references: generationReferencesSchema
+      .default({ items: [] })
       .describe('Reference media; kept separate from model controls.'),
     system: generationSystemSchema
       .default({})
       .describe('Canvas persistence context; omit for standalone API tests.')
   })
   .strict()
-
-/** 视频参考媒体 */
-export const videoReferenceMediaSchema = z
-  .object({
-    type: z.enum([
-      'reference_image',
-      'reference_video',
-      'first_frame',
-      'last_frame',
-      'reference_audio',
-      'driving_audio',
-      'audio',
-      'video'
-    ]),
-    url: z.string().describe('Publicly fetchable media URL.'),
-    reference_voice: z
-      .string()
-      .optional()
-      .describe('Optional voice URL paired with this reference item.'),
-    image_url: z
-      .union([z.string(), z.object({ url: z.string().optional() })])
-      .optional(),
-    role: z.string().optional()
-  })
-  .loose()
-
-export const videoGenerationReferencesSchema = z.looseObject({
-  images: z
-    .array(z.string())
-    .optional()
-    .describe('Ordered shorthand for reference image URLs.'),
-  firstImage: z
-    .string()
-    .optional()
-    .describe('Primary image shorthand; defaults to images[0].'),
-  media: z
-    .array(videoReferenceMediaSchema)
-    .optional()
-    .describe(
-      'Typed provider-neutral reference media. Use this for mixed/multiple images, video, and reference_voice.'
-    ),
-  clips: z.array(z.string()).optional(),
-  sourceVideo: z.string().optional(),
-  drivingAudio: z.string().optional()
-})
 
 export const videoGenerationParamsSchema = z
   .object({
@@ -117,8 +168,8 @@ export const videoGenerationParamsSchema = z
       .min(1)
       .describe('Configured model id from GET /api/ai-video/models.'),
     params: generationParamsSchema.default({}),
-    references: videoGenerationReferencesSchema
-      .default({})
+    references: generationReferencesSchema
+      .default({ items: [] })
       .describe('Reference media; kept separate from model controls.'),
     system: generationSystemSchema
       .default({})
@@ -132,19 +183,13 @@ export const chatGenerationMessageSchema = z.looseObject({
   content: z.unknown()
 })
 
-export const chatGenerationReferencesSchema = z.looseObject({
-  images: z.array(z.string()).optional(),
-  firstImage: z.string().optional(),
-  media: z.array(videoReferenceMediaSchema).optional()
-})
-
 export const chatGenerationParamsSchema = z
   .object({
     model: z.string().min(1),
     prompt: z.string().default(''),
     messages: z.array(chatGenerationMessageSchema).default([]),
     params: generationParamsSchema.default({}),
-    references: chatGenerationReferencesSchema.default({}),
+    references: generationReferencesSchema.default({ items: [] }),
     system: generationSystemSchema.default({})
   })
   .strict()

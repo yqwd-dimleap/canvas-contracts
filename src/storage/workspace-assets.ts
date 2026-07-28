@@ -5,6 +5,7 @@ import type {
   CanvasResourceStorage,
   CanvasResourceType
 } from '../canvas/resources/types.js'
+import { MEDIA_PSD_MIME_TYPES } from '../media/index.js'
 
 export const workspaceAssetTypeSchema = z.enum([
   'image',
@@ -19,6 +20,7 @@ export const workspaceAssetOriginKindSchema = z.enum([
   'generation_result',
   'agent_generation',
   'model_reference',
+  'media_processing',
   'unknown'
 ])
 
@@ -255,7 +257,14 @@ export const workspaceUploadAbortRequestSchema =
 
 function isSupportedWorkspaceUploadMimeType(value: string): boolean {
   const normalized = value.split(';')[0]?.trim().toLowerCase() ?? ''
-  return normalized.startsWith('image/') || normalized.startsWith('video/')
+  return (
+    normalized.startsWith('image/') ||
+    normalized.startsWith('video/') ||
+    normalized.startsWith('audio/') ||
+    MEDIA_PSD_MIME_TYPES.includes(
+      normalized as (typeof MEDIA_PSD_MIME_TYPES)[number]
+    )
+  )
 }
 
 export const workspaceUploadCompleteRequestSchema = z
@@ -268,7 +277,7 @@ export const workspaceUploadCompleteRequestSchema = z
       .min(1)
       .max(256)
       .refine(isSupportedWorkspaceUploadMimeType, {
-        message: 'Only image and video assets are supported'
+        message: 'Only image, video, and audio assets are supported'
       }),
     size: z.number().int().nonnegative(),
     publicUrl: z.string().url().max(2048).optional(),
@@ -1116,7 +1125,8 @@ export function workspaceAssetMediaSources(
   const media = workspaceAssetMediaFromMetadata(asset.metadata)
   const image = media?.image
   const video = media?.video
-  const originalUrl = stringValue(media?.original?.url)
+  const originalUrl =
+    stringValue(media?.original?.url) ?? stringValue(asset.url)
   const isAnimated = Boolean(asset.type === 'image' && image?.isAnimated)
   const imageDisplayUrl = isAnimated
     ? originalUrl
@@ -1149,7 +1159,7 @@ export function workspaceAssetMediaForContext(
   containerWidth?: number
 ): string | null {
   const media = workspaceAssetMediaFromMetadata(asset.metadata)
-  if (!media) return null
+  if (!media) return stringValue(asset.url)
 
   if (media.type === 'video') {
     if (context === 'thumbnail' || context === 'preview') {

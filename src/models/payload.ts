@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  generationReferenceMediaTypeSchema,
+  generationReferenceRoleSchema,
+  generationReferencesSchema
+} from './params.js'
 
 export const generationPayloadMediaTypeSchema = z.enum([
   'image',
@@ -6,13 +11,77 @@ export const generationPayloadMediaTypeSchema = z.enum([
   'chat'
 ])
 
+const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
+const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
+
+const SYSTEM_TEMPLATE_PATHS = new Set([
+  'system.projectId',
+  'system.canvasTarget.source',
+  'system.canvasTarget.documentId',
+  'system.canvasTarget.elementId',
+  'system.canvasTarget.resourceId',
+  'system.canvasTarget.actionId'
+])
+
+const SERVER_TEMPLATE_PATHS = new Set(['server.callbackUrl'])
+
+const HELPER_TEMPLATE_PATHS = new Set([
+  'helpers.references.imageUrls',
+  'helpers.references.videoUrls',
+  'helpers.references.audioUrls',
+  'helpers.references.imageMedia',
+  'helpers.references.firstFrameMedia',
+  'helpers.references.typedMedia',
+  'helpers.references.firstImageUrl',
+  'helpers.references.sourceVideoUrl',
+  'helpers.references.clipUrls',
+  'helpers.references.drivingAudioUrl',
+  'helpers.messages.userMultimodal',
+  'helpers.content.openaiParts'
+])
+
+function templatePaths(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [...value.matchAll(TEMPLATE_RE)]
+      .map((match) => match[1]?.trim() ?? '')
+      .filter(Boolean)
+  }
+  if (Array.isArray(value)) return value.flatMap(templatePaths)
+  if (value && typeof value === 'object') {
+    return Object.values(value).flatMap(templatePaths)
+  }
+  return []
+}
+
+function isAllowedTemplatePath(
+  path: string,
+  controls: Array<{ key: string; enabled: boolean; type: string }>
+): boolean {
+  if (path === 'model' || path === 'prompt' || path === 'messages') {
+    return true
+  }
+  if (path === 'references.items') return true
+  if (SYSTEM_TEMPLATE_PATHS.has(path) || SERVER_TEMPLATE_PATHS.has(path)) {
+    return true
+  }
+  if (HELPER_TEMPLATE_PATHS.has(path)) return true
+  if (!path.startsWith('params.')) return false
+  const key = path.slice('params.'.length)
+  return controls.some(
+    (control) =>
+      control.enabled &&
+      control.type !== 'referenceMedia' &&
+      control.key === key
+  )
+}
+
 /**
  * Control 类型。参数键名映射完全交给 request.body 模板，这里只描述控件的
  * 值类型与校验，不再隐式规范化键名。
  * - text/number/boolean/select：标量。
  * - stringList：字符串数组（如参考图 URL 列表、clips）。
  * - json：任意 JSON 值（承载 messages[]、content[] 等结构化数组）。
- * - referenceImages：运行时参考图上传开关（值来自 references，不进 params）。
+ * - referenceMedia：运行时媒体引用能力（值来自 references，不进 params）。
  */
 export const generationPayloadControlTypeSchema = z.enum([
   'text',
@@ -21,7 +90,7 @@ export const generationPayloadControlTypeSchema = z.enum([
   'select',
   'stringList',
   'json',
-  'referenceImages'
+  'referenceMedia'
 ])
 
 /**
@@ -58,25 +127,29 @@ export const generationPayloadRequestEncodingSchema = z.enum([
   'multipart'
 ])
 
+/** Maps canonical media references to repeated multipart file fields. */
+export const generationPayloadMultipartFieldSchema = z
+  .object({
+    field: z.string().trim().min(1),
+    mediaType: generationReferenceMediaTypeSchema,
+    roles: z.array(generationReferenceRoleSchema).max(9).default([])
+  })
+  .strict()
+
 export const generationPayloadRequestSchema = z
   .object({
     body: z.record(z.string(), z.unknown()).default({}),
     omitEmpty: z.boolean().default(true),
     /**
-     * 带参考图（图生图/编辑）请求的上游传输编码：multipart 走 form-data 并把
-     * 参考图作为文件字节上传（OpenAI /images/edits 风格）；json 则参考图 URL 已
-     * 由 body 模板承载。纯文生图/文生视频始终走 JSON，不受此项影响。
+     * multipart 走 form-data；每类输入文件由 multipartFields 显式绑定。
+     * JSON 则由 body 模板消费已解析的媒体 URL。
      */
     encoding: generationPayloadRequestEncodingSchema.default('json'),
     /** 附加请求头（如异步网关的 X-DashScope-Async）。全部为字符串。 */
     headers: z.record(z.string(), z.string()).default({}),
-    /**
-     * 存在参考图时使用的端点覆盖（图生图）。为空则始终用顶层 endpoint。
-     * 替代此前硬编码的 /v1/images/edits。
-     */
+    /** References present 时使用的端点覆盖；为空则始终用顶层 endpoint。 */
     referenceEndpoint: z.string().trim().min(1).optional(),
-    /** multipart 编码时承载参考图文件的字段名，默认 image。 */
-    multipartImageField: z.string().trim().min(1).default('image')
+    multipartFields: z.array(generationPayloadMultipartFieldSchema).default([])
   })
   .strict()
 
@@ -107,9 +180,19 @@ export const generationPayloadConfigSchema = z
       omitEmpty: true,
       encoding: 'json',
       headers: {},
-      multipartImageField: 'image'
+      multipartFields: []
     }),
     pricingBindings: generationPayloadPricingBindingsSchema
+  })
+  .superRefine((config, context) => {
+    for (const path of templatePaths(config.request.body)) {
+      if (isAllowedTemplatePath(path, config.controls)) continue
+      context.addIssue({
+        code: 'custom',
+        path: ['request', 'body'],
+        message: `Unsupported generation payload template variable: ${path}`
+      })
+    }
   })
   .strict()
 
@@ -151,6 +234,15 @@ export type GenerationRuntimeParams = Record<string, unknown> & {
   system?: Record<string, unknown>
 }
 
+/**
+ * Server-owned values exposed to a model payload template. These values never
+ * cross the frontend/Agent request boundary and therefore cannot be supplied
+ * in raw model controls.
+ */
+export type GenerationPayloadServerContext = {
+  callbackUrl?: string
+}
+
 export type ConfiguredGenerationPayload = {
   runtime: GenerationRuntimeParams
   payload: Record<string, unknown>
@@ -165,6 +257,7 @@ export type GenerationTemplateContext = Record<string, unknown> & {
   params: Record<string, unknown>
   references: Record<string, unknown>
   system: Record<string, unknown>
+  server: GenerationPayloadServerContext
   helpers: Record<string, unknown>
 }
 
@@ -189,9 +282,6 @@ const DEFAULT_IMAGE_GENERATION_ENDPOINT = '/v1/images/generations'
 const DEFAULT_IMAGE_REFERENCE_ENDPOINT = '/v1/images/edits'
 const DEFAULT_VIDEO_GENERATION_ENDPOINT = '/v1/videos'
 const DEFAULT_CHAT_GENERATION_ENDPOINT = '/chat/completions'
-
-const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
-const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -261,13 +351,6 @@ export function compactGenerationRecord(
   return next
 }
 
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
-}
-
 function objectArray(value: unknown): Record<string, unknown>[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is Record<string, unknown> =>
@@ -281,59 +364,120 @@ function uniqueStrings(values: string[]): string[] {
   )
 }
 
-function mediaUrlsByType(
-  params: GenerationRuntimeParams,
-  types: ReadonlySet<string>
-): string[] {
-  return objectArray(record(params.references).media)
-    .filter((item) => {
-      const type = typeof item.type === 'string' ? item.type.trim() : ''
-      return types.has(type)
-    })
-    .map((item) => (typeof item.url === 'string' ? item.url.trim() : ''))
-    .filter(Boolean)
+type ResolvedGenerationReference = {
+  mediaType: 'image' | 'video' | 'audio'
+  role: string
+  url: string
 }
 
-function referenceImagesFromParams(params: GenerationRuntimeParams): string[] {
-  const references = record(params.references)
-  return uniqueStrings([
-    ...stringArray(references.images),
-    ...mediaUrlsByType(
-      params,
-      new Set(['reference_image', 'first_frame', 'last_frame', 'image'])
-    ),
-    ...(typeof references.firstImage === 'string'
-      ? [references.firstImage]
-      : [])
-  ])
+/**
+ * The template layer only receives resolved URLs. Asset IDs are accepted at
+ * transport boundaries and must be resolved by canvas-agent before this point.
+ */
+function resolvedReferencesFromParams(
+  params: GenerationRuntimeParams
+): ResolvedGenerationReference[] {
+  const items = objectArray(record(params.references).items)
+  const seen = new Set<string>()
+  const result: ResolvedGenerationReference[] = []
+  for (const item of items) {
+    const mediaType =
+      item.mediaType === 'image' ||
+      item.mediaType === 'video' ||
+      item.mediaType === 'audio'
+        ? item.mediaType
+        : null
+    const role = typeof item.role === 'string' ? item.role.trim() : ''
+    const source = record(item.source)
+    const url =
+      source.kind === 'url' && typeof source.url === 'string'
+        ? source.url.trim()
+        : ''
+    if (!mediaType || !role || !url) continue
+    const identity = `${mediaType}:${role}:${url}`
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    result.push({ mediaType, role, url })
+  }
+  return result
+}
+
+function urlsForMediaType(
+  params: GenerationRuntimeParams,
+  mediaType: ResolvedGenerationReference['mediaType']
+): string[] {
+  return uniqueStrings(
+    resolvedReferencesFromParams(params)
+      .filter((reference) => reference.mediaType === mediaType)
+      .map((reference) => reference.url)
+  )
+}
+
+function imageUrlsFromReferences(params: GenerationRuntimeParams): string[] {
+  return urlsForMediaType(params, 'image')
+}
+
+function resolvedReferencesForTemplate(
+  value: unknown
+): Record<string, unknown> {
+  const parsed = generationReferencesSchema.safeParse(value ?? { items: [] })
+  if (!parsed.success) {
+    throw new Error(
+      'Generation references must use canonical references.items.'
+    )
+  }
+  if (parsed.data.items.some((reference) => reference.source.kind !== 'url')) {
+    throw new Error(
+      'Generation asset references must be resolved by the server before payload rendering.'
+    )
+  }
+  return parsed.data as unknown as Record<string, unknown>
 }
 
 function referenceVideoUrlsFromParams(
   params: GenerationRuntimeParams
 ): string[] {
-  const references = record(params.references)
-  return uniqueStrings([
-    ...mediaUrlsByType(params, new Set(['reference_video', 'video'])),
-    ...stringArray(references.clips),
-    ...(typeof references.sourceVideo === 'string'
-      ? [references.sourceVideo.trim()]
-      : [])
-  ])
+  return urlsForMediaType(params, 'video')
 }
 
 function referenceAudioUrlsFromParams(
   params: GenerationRuntimeParams
 ): string[] {
-  const references = record(params.references)
-  return uniqueStrings([
-    ...mediaUrlsByType(
-      params,
-      new Set(['reference_audio', 'driving_audio', 'audio'])
-    ),
-    ...(typeof references.drivingAudio === 'string'
-      ? [references.drivingAudio.trim()]
-      : [])
-  ])
+  return urlsForMediaType(params, 'audio')
+}
+
+function firstImageUrl(params: GenerationRuntimeParams): string | undefined {
+  const references = resolvedReferencesFromParams(params)
+  return (
+    references.find(
+      (reference) =>
+        reference.mediaType === 'image' && reference.role === 'first_frame'
+    )?.url ??
+    references.find((reference) => reference.mediaType === 'image')?.url
+  )
+}
+
+function sourceVideoUrl(params: GenerationRuntimeParams): string | undefined {
+  return resolvedReferencesFromParams(params).find(
+    (reference) =>
+      reference.mediaType === 'video' && reference.role === 'source'
+  )?.url
+}
+
+function clipUrls(params: GenerationRuntimeParams): string[] {
+  return resolvedReferencesFromParams(params)
+    .filter(
+      (reference) =>
+        reference.mediaType === 'video' && reference.role === 'clip'
+    )
+    .map((reference) => reference.url)
+}
+
+function drivingAudioUrl(params: GenerationRuntimeParams): string | undefined {
+  return resolvedReferencesFromParams(params).find(
+    (reference) =>
+      reference.mediaType === 'audio' && reference.role === 'driving_audio'
+  )?.url
 }
 
 /**
@@ -341,30 +485,23 @@ function referenceAudioUrlsFromParams(
  * 通用命名（不绑定具体厂商），用于 {{helpers.messages.userMultimodal}}。
  */
 function userMultimodalMessages(params: GenerationRuntimeParams): unknown {
-  const content: Array<Record<string, string>> = referenceImagesFromParams(
+  const content: Array<Record<string, string>> = imageUrlsFromReferences(
     params
   ).map((image) => ({ image }))
   content.push({ text: String(params.prompt ?? '') })
   return [{ role: 'user', content }]
 }
 
-function openaiPartFromMedia(
-  item: Record<string, unknown>
-): Record<string, unknown> | null {
-  const type = typeof item.type === 'string' ? item.type : ''
-  const url = typeof item.url === 'string' ? item.url.trim() : ''
-  if (!url) return null
-  if (type === 'reference_video' || type === 'video') {
-    return { type: 'video_url', video_url: { url } }
+function openaiPartFromReference(
+  reference: ResolvedGenerationReference
+): Record<string, unknown> {
+  if (reference.mediaType === 'video') {
+    return { type: 'video_url', video_url: { url: reference.url } }
   }
-  if (
-    type === 'driving_audio' ||
-    type === 'reference_audio' ||
-    type === 'audio'
-  ) {
-    return { type: 'audio_url', audio_url: { url } }
+  if (reference.mediaType === 'audio') {
+    return { type: 'audio_url', audio_url: { url: reference.url } }
   }
-  return { type: 'image_url', image_url: { url } }
+  return { type: 'image_url', image_url: { url: reference.url } }
 }
 
 /**
@@ -373,20 +510,9 @@ function openaiPartFromMedia(
  */
 function openaiContentParts(params: GenerationRuntimeParams): unknown {
   const content: Array<Record<string, unknown>> = []
-  const references = record(params.references)
-  const media = objectArray(references.media)
-    .map(openaiPartFromMedia)
-    .filter((item): item is Record<string, unknown> => item !== null)
-  if (media.length > 0) {
-    content.push(...media)
-  } else {
-    for (const image of referenceImagesFromParams(params)) {
-      content.push({
-        type: 'image_url',
-        image_url: { url: image }
-      })
-    }
-  }
+  content.push(
+    ...resolvedReferencesFromParams(params).map(openaiPartFromReference)
+  )
   content.push({ type: 'text', text: String(params.prompt ?? '') })
   const seen = new Set<string>()
   return content.filter((item) => {
@@ -397,23 +523,41 @@ function openaiContentParts(params: GenerationRuntimeParams): unknown {
   })
 }
 
-function referenceImageMedia(params: GenerationRuntimeParams): unknown {
-  return referenceImagesFromParams(params).map((url) => ({
-    type: 'reference_image',
-    url
+function providerReferenceType(reference: ResolvedGenerationReference): string {
+  if (reference.role === 'first_frame') return 'first_frame'
+  if (reference.role === 'last_frame') return 'last_frame'
+  if (reference.role === 'driving_audio') return 'driving_audio'
+  if (reference.role === 'reference_voice') return 'reference_voice'
+  if (reference.mediaType === 'image') return 'reference_image'
+  if (reference.mediaType === 'video') return 'reference_video'
+  return 'reference_audio'
+}
+
+function typedMedia(params: GenerationRuntimeParams): unknown {
+  return resolvedReferencesFromParams(params).map((reference) => ({
+    type: providerReferenceType(reference),
+    url: reference.url
   }))
 }
 
 function firstFrameMedia(params: GenerationRuntimeParams): unknown {
-  const [url] = referenceImagesFromParams(params)
+  const url = firstImageUrl(params)
   return url ? [{ type: 'first_frame', url }] : []
 }
 
 function imageMedia(params: GenerationRuntimeParams): unknown {
-  return referenceImagesFromParams(params).map((url, index) => ({
-    type: index === 0 ? 'first_frame' : 'reference_image',
-    url
-  }))
+  const first = firstImageUrl(params)
+  return resolvedReferencesFromParams(params)
+    .filter((reference) => reference.mediaType === 'image')
+    .map((reference) => ({
+      type:
+        reference.role === 'first_frame' || reference.url === first
+          ? 'first_frame'
+          : reference.role === 'last_frame'
+            ? 'last_frame'
+            : 'reference_image',
+      url: reference.url
+    }))
 }
 
 function defaultsFromControls(
@@ -422,10 +566,33 @@ function defaultsFromControls(
   const defaults: Record<string, unknown> = {}
   for (const control of controls) {
     if (!control.enabled) continue
-    if (control.type === 'referenceImages') continue
+    if (control.type === 'referenceMedia') continue
     if ('defaultValue' in control) defaults[control.key] = control.defaultValue
   }
   return defaults
+}
+
+/**
+ * Retain only values explicitly declared by the selected model's enabled
+ * controls. The runtime envelope deliberately stays provider-neutral; a
+ * provider body can only consume values through its configured template.
+ */
+export function generationPayloadControlValues(
+  config: GenerationPayloadConfig,
+  values: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  const allowedKeys = new Set(
+    sanitizeGenerationPayloadConfig(config)
+      .controls.filter(
+        (control) => control.enabled && control.type !== 'referenceMedia'
+      )
+      .map((control) => control.key)
+  )
+  const selected: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(record(values))) {
+    if (allowedKeys.has(key)) selected[key] = value
+  }
+  return compactGenerationRecord(selected)
 }
 
 function normalizeRuntimeParams(
@@ -439,9 +606,9 @@ function normalizeRuntimeParams(
     messages: Array.isArray(messages) ? messages : [],
     params: compactGenerationRecord({
       ...defaultsFromControls(config.controls),
-      ...record(params.params)
+      ...generationPayloadControlValues(config, record(params.params))
     }),
-    references: compactGenerationRecord(record(params.references)),
+    references: resolvedReferencesForTemplate(params.references),
     system: compactGenerationRecord(record(params.system))
   }
 }
@@ -453,8 +620,11 @@ function assertControlValues(
   const runtimeParams = record(params.params)
   for (const control of controls) {
     if (!control.enabled) continue
-    if (control.type === 'referenceImages') {
-      if (control.required && referenceImagesFromParams(params).length === 0) {
+    if (control.type === 'referenceMedia') {
+      if (
+        control.required &&
+        resolvedReferencesFromParams(params).length === 0
+      ) {
         throw new Error(
           `Generation payload control "${control.key}" is required.`
         )
@@ -517,17 +687,17 @@ function assertControlValues(
   }
 }
 
-export function generationPayloadSupportsReferenceImages(
+export function generationPayloadSupportsReferences(
   config: GenerationPayloadConfig | null | undefined
 ): boolean {
   return Boolean(
     config?.controls.some(
-      (control) => control.enabled && control.type === 'referenceImages'
+      (control) => control.enabled && control.type === 'referenceMedia'
     )
   )
 }
 
-export function generationPayloadRequiresReferenceImages(
+export function generationPayloadRequiresReferences(
   config: GenerationPayloadConfig | null | undefined
 ): boolean {
   return Boolean(
@@ -535,7 +705,7 @@ export function generationPayloadRequiresReferenceImages(
       (control) =>
         control.enabled &&
         control.required === true &&
-        control.type === 'referenceImages'
+        control.type === 'referenceMedia'
     )
   )
 }
@@ -576,40 +746,15 @@ export function generationPayloadTemplateUsesParams(
 
 export type GenerationTemplateVariable = {
   path: string
-  group: 'direct' | 'params' | 'references' | 'system' | 'helpers'
+  group: 'direct' | 'params' | 'references' | 'system' | 'server' | 'helpers'
   description: string
 }
 
 const REFERENCE_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
   {
-    path: 'references.images',
+    path: 'references.items',
     group: 'references',
-    description: 'reference image URLs'
-  },
-  {
-    path: 'references.firstImage',
-    group: 'references',
-    description: 'first reference image URL'
-  },
-  {
-    path: 'references.media',
-    group: 'references',
-    description: 'typed reference media'
-  },
-  {
-    path: 'references.clips',
-    group: 'references',
-    description: 'source clip URLs'
-  },
-  {
-    path: 'references.sourceVideo',
-    group: 'references',
-    description: 'source video URL'
-  },
-  {
-    path: 'references.drivingAudio',
-    group: 'references',
-    description: 'driving audio URL'
+    description: 'canonical resolved media items'
   }
 ]
 
@@ -646,6 +791,14 @@ const SYSTEM_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
   }
 ]
 
+const SERVER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
+  {
+    path: 'server.callbackUrl',
+    group: 'server',
+    description: 'server-generated provider callback URL'
+  }
+]
+
 const HELPER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
   {
     path: 'helpers.references.imageUrls',
@@ -673,9 +826,29 @@ const HELPER_TEMPLATE_VARIABLES: GenerationTemplateVariable[] = [
     description: 'first frame media[]'
   },
   {
-    path: 'helpers.references.referenceImageMedia',
+    path: 'helpers.references.typedMedia',
     group: 'helpers',
-    description: 'reference image media[]'
+    description: 'provider-neutral typed media[]'
+  },
+  {
+    path: 'helpers.references.firstImageUrl',
+    group: 'helpers',
+    description: 'first-frame or first reference image URL'
+  },
+  {
+    path: 'helpers.references.sourceVideoUrl',
+    group: 'helpers',
+    description: 'source video URL'
+  },
+  {
+    path: 'helpers.references.clipUrls',
+    group: 'helpers',
+    description: 'ordered video clip URLs'
+  },
+  {
+    path: 'helpers.references.drivingAudioUrl',
+    group: 'helpers',
+    description: 'driving audio URL'
   },
   {
     path: 'helpers.messages.userMultimodal',
@@ -706,7 +879,7 @@ export function generationPayloadTemplateVariables(
       : [])
   ]
   const params = config.controls
-    .filter((control) => control.enabled && control.type !== 'referenceImages')
+    .filter((control) => control.enabled && control.type !== 'referenceMedia')
     .map((control) => ({
       path: `params.${control.key}`,
       group: 'params' as const,
@@ -717,6 +890,7 @@ export function generationPayloadTemplateVariables(
     ...params,
     ...REFERENCE_TEMPLATE_VARIABLES,
     ...SYSTEM_TEMPLATE_VARIABLES,
+    ...SERVER_TEMPLATE_VARIABLES,
     ...HELPER_TEMPLATE_VARIABLES
   ]
 }
@@ -732,19 +906,17 @@ function valueAtPath(value: unknown, path: string): unknown {
 }
 
 export function buildGenerationTemplateContext(
-  params: GenerationRuntimeParams
+  params: GenerationRuntimeParams,
+  options: { server?: GenerationPayloadServerContext } = {}
 ): GenerationTemplateContext {
-  const images = referenceImagesFromParams(params)
-  const rawReferences = record(params.references)
-  const references = compactGenerationRecord({
-    ...rawReferences,
-    images,
-    firstImage:
-      typeof rawReferences.firstImage === 'string' &&
-      rawReferences.firstImage.trim()
-        ? rawReferences.firstImage.trim()
-        : images[0]
-  })
+  const resolvedItems = resolvedReferencesFromParams(params)
+  const references = {
+    items: resolvedItems.map((reference) => ({
+      mediaType: reference.mediaType,
+      role: reference.role,
+      source: { kind: 'url', url: reference.url }
+    }))
+  }
   const runtimeParams = compactGenerationRecord(record(params.params))
   const messages = compactGenerationValue(params.messages)
   const system = compactGenerationRecord(record(params.system))
@@ -755,14 +927,19 @@ export function buildGenerationTemplateContext(
     params: runtimeParams,
     references,
     system,
+    server: options.server ?? {},
     helpers: {
       references: {
-        imageUrls: referenceImagesFromParams({ ...params, references }),
+        imageUrls: imageUrlsFromReferences({ ...params, references }),
         videoUrls: referenceVideoUrlsFromParams({ ...params, references }),
         audioUrls: referenceAudioUrlsFromParams({ ...params, references }),
         imageMedia: imageMedia({ ...params, references }),
         firstFrameMedia: firstFrameMedia({ ...params, references }),
-        referenceImageMedia: referenceImageMedia({ ...params, references })
+        typedMedia: typedMedia({ ...params, references }),
+        firstImageUrl: firstImageUrl({ ...params, references }),
+        sourceVideoUrl: sourceVideoUrl({ ...params, references }),
+        clipUrls: clipUrls({ ...params, references }),
+        drivingAudioUrl: drivingAudioUrl({ ...params, references })
       },
       messages: {
         userMultimodal: userMultimodalMessages({ ...params, references })
@@ -803,14 +980,15 @@ function renderTemplateValue(
 
 export function buildGenerationPayloadFromConfig(
   config: GenerationPayloadConfig,
-  params: GenerationRuntimeParams
+  params: GenerationRuntimeParams,
+  options: { server?: GenerationPayloadServerContext } = {}
 ): ConfiguredGenerationPayload {
   const normalizedConfig = sanitizeGenerationPayloadConfig(
     generationPayloadConfigSchema.parse(config)
   )
   const mergedParams = normalizeRuntimeParams(normalizedConfig, params)
   assertControlValues(normalizedConfig.controls, mergedParams)
-  const templateContext = buildGenerationTemplateContext(mergedParams)
+  const templateContext = buildGenerationTemplateContext(mergedParams, options)
   const rendered = renderTemplateValue(
     normalizedConfig.request.body,
     templateContext
@@ -928,9 +1106,8 @@ export function createDefaultGenerationPayloadConfig(
               max: 100
             },
             {
-              key: 'referenceImages',
-              label: 'Reference images',
-              type: 'referenceImages'
+              key: 'referenceMedia',
+              type: 'referenceMedia'
             },
             {
               key: 'seed',
@@ -944,13 +1121,15 @@ export function createDefaultGenerationPayloadConfig(
             encoding: 'multipart',
             headers: {},
             referenceEndpoint: DEFAULT_IMAGE_REFERENCE_ENDPOINT,
-            multipartImageField: 'image',
+            multipartFields: [
+              { field: 'image', mediaType: 'image', roles: [] }
+            ],
             body: {
               model: '{{model}}',
               prompt: '{{prompt}}',
               size: '{{params.size}}',
               n: '{{params.n}}',
-              image: '{{references.images}}',
+              image: '{{helpers.references.imageUrls}}',
               quality: '{{params.quality}}',
               background: '{{params.background}}',
               output_format: '{{params.outputFormat}}',
@@ -994,9 +1173,8 @@ export function createDefaultGenerationPayloadConfig(
                 options: VIDEO_ASPECT_OPTIONS
               },
               {
-                key: 'referenceImages',
-                label: 'Reference images',
-                type: 'referenceImages'
+                key: 'referenceMedia',
+                type: 'referenceMedia'
               },
               {
                 key: 'frames',
@@ -1020,19 +1198,19 @@ export function createDefaultGenerationPayloadConfig(
               omitEmpty: true,
               encoding: 'json',
               headers: {},
-              multipartImageField: 'image',
+              multipartFields: [],
               body: {
                 model: '{{model}}',
                 prompt: '{{prompt}}',
                 duration: '{{params.duration}}',
                 size: '{{params.resolution}}',
-                imgUrl: '{{references.firstImage}}',
-                mergeReferenceImageUrls: '{{references.images}}',
-                referenceMedia: '{{references.media}}',
-                mergeClipUrls: '{{references.clips}}',
+                imgUrl: '{{helpers.references.firstImageUrl}}',
+                mergeReferenceImageUrls: '{{helpers.references.imageUrls}}',
+                referenceMedia: '{{helpers.references.typedMedia}}',
+                mergeClipUrls: '{{helpers.references.clipUrls}}',
                 mergeVideoAspectRatio: '{{params.aspectRatio}}',
-                videoEditVideoUrl: '{{references.sourceVideo}}',
-                drivingAudioUrl: '{{references.drivingAudio}}',
+                videoEditVideoUrl: '{{helpers.references.sourceVideoUrl}}',
+                drivingAudioUrl: '{{helpers.references.drivingAudioUrl}}',
                 frames: '{{params.frames}}',
                 seed: '{{params.seed}}',
                 generate_audio: '{{params.generateAudio}}'
@@ -1068,13 +1246,17 @@ export function createDefaultGenerationPayloadConfig(
                 key: 'stream',
                 label: 'Stream',
                 type: 'boolean'
+              },
+              {
+                key: 'streamOptions',
+                type: 'json'
               }
             ],
             request: {
               omitEmpty: true,
               encoding: 'json',
               headers: {},
-              multipartImageField: 'image',
+              multipartFields: [],
               body: {
                 model: '{{model}}',
                 messages: '{{messages}}',

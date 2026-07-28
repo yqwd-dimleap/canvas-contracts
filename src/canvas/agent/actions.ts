@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { CANVAS_AGENT_PROTOCOL_VERSION } from '../../agent/langgraph-protocol.js'
 import { agentSkillIdSchema } from '../../agent/skills.js'
+import {
+  generationParamsSchema,
+  generationReferencesSchema
+} from '../../models/params.js'
 import { canvasContextSchema, canvasSelectionSchema } from '../core/context.js'
 import {
   canvasDocumentElementSchema,
@@ -68,6 +72,17 @@ export const canvasAgentCommandSourceSchema = z.enum([
   'home_action'
 ])
 
+/**
+ * Provider-neutral generation input carried through the Canvas Agent. Model
+ * selection, template rendering, and provider field names remain server-side.
+ */
+export const canvasAgentGenerationInputSchema = z
+  .object({
+    params: generationParamsSchema.default({}),
+    references: generationReferencesSchema.default({ items: [] })
+  })
+  .strict()
+
 export const canvasAgentCommandSchema = z.object({
   kind: canvasAgentCommandKindSchema,
   source: canvasAgentCommandSourceSchema.optional(),
@@ -84,7 +99,7 @@ export const canvasAgentCommandSchema = z.object({
       modelId: z.string().min(1).optional()
     })
     .optional(),
-  params: z.record(z.string(), z.unknown()).optional()
+  generation: canvasAgentGenerationInputSchema.optional()
 })
 
 export const canvasAgentConversationMessageSchema = z.object({
@@ -205,8 +220,10 @@ export const canvasAgentActionSchema = z.discriminatedUnion('type', [
     y: z.number().optional(),
     width: z.number().positive().optional(),
     height: z.number().positive().optional(),
-    referenceImageUrls: z.array(z.string().min(1)).default([]),
-    sourceVideoUrl: z.string().min(1).optional(),
+    generation: canvasAgentGenerationInputSchema.default({
+      params: {},
+      references: { items: [] }
+    }),
     data: z.record(z.string(), z.unknown()).default({})
   }),
   z.object({

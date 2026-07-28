@@ -3,6 +3,13 @@ import {
   generationTaskResultSchema,
   generationTaskTypeSchema
 } from '../generation/index.js'
+import {
+  mediaJobErrorSchema,
+  mediaJobEventSummarySchema,
+  mediaJobOperationSchema,
+  mediaJobStageSchema,
+  mediaJobStatusSchema
+} from '../media/index.js'
 import { eventEnvelopeBaseSchema } from './envelope.js'
 
 /**
@@ -56,6 +63,47 @@ export const generationProgressEventSchema = eventEnvelopeBaseSchema.extend({
     type: generationTaskTypeSchema,
     status: z.enum(['pending', 'polling', 'completed', 'failed']),
     progress: z.number().min(0).max(100)
+  })
+})
+
+export const mediaJobProgressEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('media.job.progress'),
+  data: z.object({
+    jobId: z.string().min(1),
+    operation: mediaJobOperationSchema,
+    projectId: z.string().nullable().optional(),
+    status: mediaJobStatusSchema,
+    stage: mediaJobStageSchema,
+    progress: z.number().min(0).max(1)
+  })
+})
+
+export const mediaJobCompletedEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('media.job.completed'),
+  data: z.object({
+    jobId: z.string().min(1),
+    operation: mediaJobOperationSchema,
+    projectId: z.string().nullable().optional(),
+    result: mediaJobEventSummarySchema
+  })
+})
+
+export const mediaJobFailedEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('media.job.failed'),
+  data: z.object({
+    jobId: z.string().min(1),
+    operation: mediaJobOperationSchema,
+    projectId: z.string().nullable().optional(),
+    error: mediaJobErrorSchema
+  })
+})
+
+export const mediaJobCancelledEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('media.job.cancelled'),
+  data: z.object({
+    jobId: z.string().min(1),
+    operation: mediaJobOperationSchema,
+    projectId: z.string().nullable().optional()
   })
 })
 
@@ -134,6 +182,10 @@ export const canvasEventSchema = z.discriminatedUnion('eventType', [
   generationCompletedEventSchema,
   generationFailedEventSchema,
   generationProgressEventSchema,
+  mediaJobProgressEventSchema,
+  mediaJobCompletedEventSchema,
+  mediaJobFailedEventSchema,
+  mediaJobCancelledEventSchema,
   agentRunCompletedEventSchema,
   agentRunFailedEventSchema,
   agentRunCancelledEventSchema,
@@ -146,6 +198,10 @@ export const canvasEventTypeSchema = z.enum([
   'generation.completed',
   'generation.failed',
   'generation.progress',
+  'media.job.progress',
+  'media.job.completed',
+  'media.job.failed',
+  'media.job.cancelled',
   'agent.run.completed',
   'agent.run.failed',
   'agent.run.cancelled',

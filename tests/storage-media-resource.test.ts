@@ -50,6 +50,16 @@ describe('workspace asset write contracts', () => {
     ).toBe(true)
   })
 
+  test('accepts audio upload completion MIME types', () => {
+    expect(
+      workspaceUploadCompleteRequestSchema.safeParse({
+        key: 'users/user-1/voice.mp3',
+        mimeType: 'audio/mpeg',
+        size: 1024
+      }).success
+    ).toBe(true)
+  })
+
   test('tracks owned video poster objects', () => {
     expect(
       workspaceAssetVideoMediaSchema.parse({

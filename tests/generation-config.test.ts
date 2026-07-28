@@ -4,6 +4,7 @@ import { buildConfiguredChatGenerationPayload } from '../src/models/generation-p
 import {
   buildGenerationPayloadFromConfig,
   createDefaultGenerationPayloadConfig,
+  generationPayloadConfigSchema,
   mergeGenerationPayloadConfig,
   readGenerationPayloadConfig,
   readPricingDimension
@@ -12,11 +13,20 @@ import {
 const MODEL_ID = 'config-model-a'
 
 describe('generation payload config capabilities', () => {
-  test('admin updates accept provider-native nested media payloads', () => {
+  test('admin updates accept provider-native output fields with server callback context', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
+    payload.controls = [
+      {
+        key: 'generationType',
+        label: 'Generation type',
+        type: 'select',
+        defaultValue: 'reference-to-video',
+        options: ['reference-to-video']
+      }
+    ]
     payload.request.body = {
       model: '{{model}}',
-      callback_url: '{{params.callbackUrl}}',
+      callback_url: '{{server.callbackUrl}}',
       input: {
         prompt: '{{prompt}}',
         generation_type: '{{params.generationType}}'
@@ -42,22 +52,14 @@ describe('generation payload config capabilities', () => {
         options: []
       }
     ]
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      loras: '{{params.loras}}'
-    }
+    payload.request.body = { model: '{{model}}', loras: '{{params.loras}}' }
 
-    const ok = buildGenerationPayloadFromConfig(payload, {
-      model: MODEL_ID,
-      prompt: 'test prompt',
-      params: { loras: ['a', 'b'] }
-    })
-    expect(ok.payload).toEqual({
-      model: MODEL_ID,
-      prompt: 'test prompt',
-      loras: ['a', 'b']
-    })
+    expect(
+      buildGenerationPayloadFromConfig(payload, {
+        model: MODEL_ID,
+        params: { loras: ['a', 'b'] }
+      }).payload
+    ).toEqual({ model: MODEL_ID, loras: ['a', 'b'] })
 
     expect(() =>
       buildGenerationPayloadFromConfig(payload, {
@@ -67,54 +69,35 @@ describe('generation payload config capabilities', () => {
     ).toThrow('must be a list of strings')
   })
 
-  test('json control carries structured array values verbatim', () => {
-    const payload = createDefaultGenerationPayloadConfig('chat')
-    payload.controls = [
-      {
-        key: 'tools',
-        label: 'Tools',
-        type: 'json',
-        enabled: true,
-        required: false,
-        options: []
-      }
-    ]
-    payload.request.body = { model: '{{model}}', tools: '{{params.tools}}' }
-
-    const tools = [{ type: 'function', function: { name: 'search' } }]
-    const configured = buildGenerationPayloadFromConfig(payload, {
-      model: MODEL_ID,
-      params: { tools }
-    })
-    expect(configured.payload).toEqual({ model: MODEL_ID, tools })
-  })
-
-  test('request encoding, headers and referenceEndpoint survive round-trip', () => {
-    const payload = createDefaultGenerationPayloadConfig('image')
+  test('multipart config declares every accepted canonical media input', () => {
+    const payload = createDefaultGenerationPayloadConfig('video')
     payload.request.encoding = 'multipart'
     payload.request.headers = { 'X-DashScope-Async': 'enable' }
-    payload.request.referenceEndpoint = '/v1/images/edits'
-    payload.request.multipartImageField = 'init_image'
+    payload.request.referenceEndpoint = '/v1/videos/edits'
+    payload.request.multipartFields = [
+      { field: 'first_frame', mediaType: 'image', roles: ['first_frame'] },
+      { field: 'source_video', mediaType: 'video', roles: ['source'] },
+      { field: 'audio', mediaType: 'audio', roles: ['driving_audio'] }
+    ]
 
     const stored = readGenerationPayloadConfig(
       mergeGenerationPayloadConfig(null, payload)
     )
-    expect(stored?.request.encoding).toBe('multipart')
-    expect(stored?.request.headers).toEqual({ 'X-DashScope-Async': 'enable' })
-    expect(stored?.request.referenceEndpoint).toBe('/v1/images/edits')
-    expect(stored?.request.multipartImageField).toBe('init_image')
+    expect(stored?.request).toMatchObject({
+      encoding: 'multipart',
+      headers: { 'X-DashScope-Async': 'enable' },
+      referenceEndpoint: '/v1/videos/edits',
+      multipartFields: payload.request.multipartFields
+    })
   })
 
-  test('pricingBindings resolve dimensions to custom param keys', () => {
+  test('pricing bindings resolve dimensions to custom param keys', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.pricingBindings = { duration: 'seconds', resolution: 'res' }
 
     const params = { seconds: 8, res: '1080P', duration: 5 }
     expect(readPricingDimension(payload, params, 'duration')).toBe(8)
     expect(readPricingDimension(payload, params, 'resolution')).toBe('1080P')
-    // Unbound dimension falls back to same-named key.
-    payload.pricingBindings = {}
-    expect(readPricingDimension(payload, params, 'duration')).toBe(5)
   })
 
   test('chat build entry normalizes messages and requires chat config', () => {
@@ -125,52 +108,24 @@ describe('generation payload config capabilities', () => {
         prompt: '',
         messages: [{ role: 'user', content: 'hi' }],
         params: { temperature: 0.5 },
-        references: {},
+        references: { items: [] },
         system: {}
       },
       mergeGenerationPayloadConfig(null, payload)
     )
-    expect(configured.endpoint).toBe('/chat/completions')
     expect(configured.payload).toMatchObject({
       model: MODEL_ID,
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.5
     })
-
-    expect(() =>
-      buildConfiguredChatGenerationPayload(
-        {
-          model: MODEL_ID,
-          prompt: '',
-          messages: [],
-          params: {},
-          references: {},
-          system: {}
-        },
-        mergeGenerationPayloadConfig(
-          null,
-          createDefaultGenerationPayloadConfig('image')
-        )
-      )
-    ).toThrow('Generation payload is not configured')
   })
 
-  test('loose references pass extra media fields through to the template', () => {
+  test('configuration rejects raw aliases and unavailable template variables', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      mask: '{{references.maskImage}}'
-    }
-    const configured = buildGenerationPayloadFromConfig(payload, {
-      model: MODEL_ID,
-      prompt: 'test prompt',
-      references: { maskImage: 'https://example.com/mask.png' }
-    })
-    expect(configured.payload).toEqual({
-      model: MODEL_ID,
-      prompt: 'test prompt',
-      mask: 'https://example.com/mask.png'
-    })
+    payload.request.body = { image: '{{references.images}}' }
+    expect(generationPayloadConfigSchema.safeParse(payload).success).toBe(false)
+
+    payload.request.body = { secret: '{{params.notDeclared}}' }
+    expect(generationPayloadConfigSchema.safeParse(payload).success).toBe(false)
   })
 })

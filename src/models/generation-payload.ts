@@ -1,8 +1,13 @@
 import {
+  generationReferencesSchema,
+  mergeGenerationReferences
+} from './params.js'
+import {
   buildGenerationPayloadFromConfig,
   compactGenerationRecord,
   type GenerationPayloadConfig,
   type GenerationPayloadMediaType,
+  type GenerationPayloadServerContext,
   hasGenerationPayloadConfig,
   readGenerationPayloadConfig
 } from './payload.js'
@@ -11,7 +16,6 @@ import type {
   ImageGenerationParams,
   VideoGenerationParams
 } from './types.js'
-import { normalizeVideoGenerationReferenceParams } from './video-reference.js'
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -24,17 +28,9 @@ function trimmedString(value: unknown): string | undefined {
   return text || undefined
 }
 
-function normalizeStringArray(values: unknown): string[] | undefined {
-  if (!Array.isArray(values)) return undefined
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const value of values) {
-    const url = trimmedString(value)
-    if (!url || seen.has(url)) continue
-    seen.add(url)
-    out.push(url)
-  }
-  return out.length > 0 ? out : undefined
+function normalizeReferences(value: unknown) {
+  const parsed = generationReferencesSchema.parse(value ?? { items: [] })
+  return mergeGenerationReferences(parsed.items)
 }
 
 function normalizeSystem(value: unknown) {
@@ -65,21 +61,11 @@ export function normalizeImageGenerationParams(
   const prompt = trimmedString(params.prompt)
   if (!prompt) throw new Error('Image prompt is required.')
 
-  const references = record(params.references)
-
   return {
     model,
     prompt,
     params: compactGenerationRecord(record(params.params)),
-    references: compactGenerationRecord({
-      ...references,
-      ...(normalizeStringArray(references.images)
-        ? { images: normalizeStringArray(references.images) }
-        : { images: undefined }),
-      ...(trimmedString(references.firstImage)
-        ? { firstImage: trimmedString(references.firstImage) }
-        : { firstImage: undefined })
-    }),
+    references: normalizeReferences(params.references),
     system: normalizeSystem(params.system)
   }
 }
@@ -93,15 +79,13 @@ export function normalizeVideoGenerationParams(
   const prompt = trimmedString(params.prompt)
   if (!prompt) throw new Error('Video prompt is required.')
 
-  const normalized = normalizeVideoGenerationReferenceParams({
+  return {
     model,
     prompt,
     params: compactGenerationRecord(record(params.params)),
-    references: record(params.references),
+    references: normalizeReferences(params.references),
     system: normalizeSystem(params.system)
-  })
-
-  return normalized
+  }
 }
 
 export function normalizeChatGenerationParams(
@@ -117,7 +101,7 @@ export function normalizeChatGenerationParams(
     prompt: trimmedString(params.prompt) ?? '',
     messages,
     params: compactGenerationRecord(record(params.params)),
-    references: compactGenerationRecord(record(params.references)),
+    references: normalizeReferences(params.references),
     system: normalizeSystem(params.system)
   }
 }
@@ -126,6 +110,10 @@ export type ConfiguredVideoGenerationPayload = {
   runtime: VideoGenerationParams
   payload: Record<string, unknown>
   config: GenerationPayloadConfig
+}
+
+export type GenerationPayloadBuildOptions = {
+  server?: GenerationPayloadServerContext
 }
 
 export function hasGenerationPayloadConfiguration(input: {
@@ -137,7 +125,8 @@ export function hasGenerationPayloadConfiguration(input: {
 
 export function buildConfiguredVideoGenerationPayload(
   params: VideoGenerationParams,
-  metadata?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null,
+  options?: GenerationPayloadBuildOptions
 ): ConfiguredVideoGenerationPayload {
   const normalized = normalizeVideoGenerationParams(params)
   const payloadConfig = readGenerationPayloadConfig(metadata)
@@ -146,7 +135,11 @@ export function buildConfiguredVideoGenerationPayload(
       `Generation payload is not configured for model ${normalized.model}.`
     )
   }
-  const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
+  const configured = buildGenerationPayloadFromConfig(
+    payloadConfig,
+    normalized,
+    options
+  )
 
   return {
     runtime: configured.runtime as VideoGenerationParams,
@@ -163,7 +156,8 @@ export type ConfiguredImageGenerationPayload = {
 
 export function buildConfiguredImageGenerationPayload(
   params: ImageGenerationParams,
-  metadata?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null,
+  options?: GenerationPayloadBuildOptions
 ): ConfiguredImageGenerationPayload {
   const normalized = normalizeImageGenerationParams(params)
   const payloadConfig = readGenerationPayloadConfig(metadata)
@@ -172,7 +166,11 @@ export function buildConfiguredImageGenerationPayload(
       `Generation payload is not configured for model ${normalized.model}.`
     )
   }
-  const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
+  const configured = buildGenerationPayloadFromConfig(
+    payloadConfig,
+    normalized,
+    options
+  )
 
   return {
     runtime: configured.runtime as ImageGenerationParams,
@@ -190,7 +188,8 @@ export type ConfiguredChatGenerationPayload = {
 
 export function buildConfiguredChatGenerationPayload(
   params: ChatGenerationParams,
-  metadata?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null,
+  options?: GenerationPayloadBuildOptions
 ): ConfiguredChatGenerationPayload {
   const normalized = normalizeChatGenerationParams(params)
   const payloadConfig = readGenerationPayloadConfig(metadata)
@@ -199,7 +198,11 @@ export function buildConfiguredChatGenerationPayload(
       `Generation payload is not configured for model ${normalized.model}.`
     )
   }
-  const configured = buildGenerationPayloadFromConfig(payloadConfig, normalized)
+  const configured = buildGenerationPayloadFromConfig(
+    payloadConfig,
+    normalized,
+    options
+  )
 
   return {
     runtime: configured.runtime as ChatGenerationParams,

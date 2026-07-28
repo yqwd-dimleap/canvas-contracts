@@ -4,95 +4,69 @@ import {
   normalizeImageGenerationParams
 } from '../src/models/generation-payload.js'
 import {
+  generationReferencesSchema,
+  imageGenerationParamsSchema
+} from '../src/models/params.js'
+import {
   buildGenerationPayloadFromConfig,
   createDefaultGenerationPayloadConfig,
+  generationPayloadConfigSchema,
   mergeGenerationPayloadConfig
 } from '../src/models/payload.js'
 
 const IMAGE_MODEL_ID = 'image-model-a'
+const IMAGE_URL = 'https://example.com/reference.png'
+
+const imageReference = (
+  url: string,
+  role: 'reference' | 'mask' = 'reference'
+) => ({
+  mediaType: 'image' as const,
+  role,
+  source: { kind: 'url' as const, url }
+})
 
 describe('image generation metadata.payload', () => {
-  test('normalizes canonical image params without model-specific defaults', () => {
+  test('normalizes only canonical reference items without model defaults', () => {
     const params = normalizeImageGenerationParams({
       model: IMAGE_MODEL_ID,
       prompt: ' generate a clean product render ',
-      params: {
-        size: ' 1536x1024 ',
-        quality: ' high ',
-        style: ' editorial ',
-        strength: 0.65
-      },
-      references: {
-        images: [' https://example.com/ref.png ', 'https://example.com/ref.png']
-      },
-      system: {
-        projectId: 'project-1'
-      }
+      params: { size: ' 1536x1024 ', quality: ' high ' },
+      references: { items: [imageReference(` ${IMAGE_URL} `)] },
+      system: { projectId: 'project-1' }
     })
 
     expect(params).toEqual({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
-      params: {
-        size: '1536x1024',
-        quality: 'high',
-        style: 'editorial',
-        strength: 0.65
-      },
-      references: {
-        images: ['https://example.com/ref.png']
-      },
-      system: {
-        projectId: 'project-1'
-      }
+      params: { size: '1536x1024', quality: 'high' },
+      references: { items: [imageReference(IMAGE_URL)] },
+      system: { projectId: 'project-1' }
     })
   })
 
-  test('requires metadata.payload for image payload build', () => {
-    expect(() =>
-      buildConfiguredImageGenerationPayload({
-        model: IMAGE_MODEL_ID,
-        prompt: 'generate a clean product render'
-      })
-    ).toThrow('Generation payload is not configured')
-  })
-
-  test('renders default image payload template from unified params', () => {
+  test('renders default image payload from resolved canonical references', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     const configured = buildConfiguredImageGenerationPayload(
       {
         model: IMAGE_MODEL_ID,
         prompt: 'generate a clean product render',
-        params: {
-          size: '1536x1024',
-          quality: 'high'
-        },
-        references: {
-          images: ['https://example.com/reference.png']
-        },
-        system: {
-          projectId: 'project-1'
-        }
+        params: { size: '1536x1024', quality: 'high' },
+        references: { items: [imageReference(IMAGE_URL)] },
+        system: { projectId: 'project-1' }
       },
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.config).toEqual(payload)
-    expect(configured.runtime).toMatchObject({
-      model: IMAGE_MODEL_ID,
-      prompt: 'generate a clean product render',
-      params: {
-        size: '1536x1024',
-        n: 1,
-        quality: 'high'
-      }
+    expect(configured.runtime.references).toEqual({
+      items: [imageReference(IMAGE_URL)]
     })
     expect(configured.payload).toMatchObject({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
       size: '1536x1024',
       n: 1,
-      image: ['https://example.com/reference.png'],
+      image: [IMAGE_URL],
       quality: 'high',
       background: 'auto',
       output_format: 'png'
@@ -100,33 +74,21 @@ describe('image generation metadata.payload', () => {
     expect(configured.payload).not.toHaveProperty('projectId')
   })
 
-  test('renders custom image controls from unified params', () => {
+  test('maps configured controls and reference helpers independently', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
-    payload.controls.push(
-      {
-        key: 'style',
-        label: 'Style',
-        type: 'text',
-        enabled: true,
-        required: false,
-        options: [],
-        defaultValue: 'studio'
-      },
-      {
-        key: 'strength',
-        label: 'Strength',
-        type: 'number',
-        enabled: true,
-        required: false,
-        options: [],
-        defaultValue: 0.5
-      }
-    )
+    payload.controls.push({
+      key: 'strength',
+      label: 'Strength',
+      type: 'number',
+      enabled: true,
+      required: false,
+      options: [],
+      defaultValue: 0.5
+    })
     payload.request.body = {
       model: '{{model}}',
       prompt: '{{prompt}}',
-      image: '{{references.images}}',
-      style: '{{params.style}}',
+      references: '{{helpers.references.imageUrls}}',
       strength: '{{params.strength}}'
     }
 
@@ -135,195 +97,82 @@ describe('image generation metadata.payload', () => {
         model: IMAGE_MODEL_ID,
         prompt: 'generate a clean product render',
         references: {
-          images: ['https://example.com/reference.png']
+          items: [
+            imageReference('https://example.com/reference-1.png'),
+            imageReference('https://example.com/reference-2.png', 'mask')
+          ]
         },
-        params: {
-          style: 'editorial',
-          strength: 0.8
-        }
+        params: { strength: 0.8 }
       },
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.runtime).toMatchObject({
+    expect(configured.payload).toEqual({
       model: IMAGE_MODEL_ID,
       prompt: 'generate a clean product render',
-      references: {
-        images: ['https://example.com/reference.png']
-      },
-      params: {
-        style: 'editorial',
-        strength: 0.8
-      }
-    })
-    expect(configured.payload).toMatchObject({
-      model: IMAGE_MODEL_ID,
-      prompt: 'generate a clean product render',
-      image: ['https://example.com/reference.png'],
-      style: 'editorial',
+      references: [
+        'https://example.com/reference-1.png',
+        'https://example.com/reference-2.png'
+      ],
       strength: 0.8
     })
   })
 
-  test('keeps multiple reference images in the rendered payload', () => {
+  test('drops undeclared control values before rendering provider fields', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     payload.request.body = {
       model: '{{model}}',
       prompt: '{{prompt}}',
-      image: '{{references.images}}'
+      quality: '{{params.quality}}'
     }
 
-    const configured = buildConfiguredImageGenerationPayload(
-      {
+    const configured = buildGenerationPayloadFromConfig(payload, {
+      model: IMAGE_MODEL_ID,
+      prompt: 'format an image',
+      params: { quality: 'high', injected: 'must-not-reach-provider' }
+    })
+
+    expect(configured.runtime.params).not.toHaveProperty('injected')
+    expect(configured.payload).toEqual({
+      model: IMAGE_MODEL_ID,
+      prompt: 'format an image',
+      quality: 'high'
+    })
+  })
+
+  test('rejects raw legacy references and legacy template paths', () => {
+    expect(
+      imageGenerationParamsSchema.safeParse({
         model: IMAGE_MODEL_ID,
-        prompt: 'generate a clean product render',
+        prompt: 'test',
+        references: { images: [IMAGE_URL] }
+      }).success
+    ).toBe(false)
+    expect(
+      generationReferencesSchema.safeParse({ images: [IMAGE_URL] }).success
+    ).toBe(false)
+
+    const payload = createDefaultGenerationPayloadConfig('image')
+    payload.request.body = { image: '{{references.images}}' }
+    expect(generationPayloadConfigSchema.safeParse(payload).success).toBe(false)
+  })
+
+  test('does not let unresolved asset IDs reach payload rendering', () => {
+    const payload = createDefaultGenerationPayloadConfig('image')
+    expect(() =>
+      buildGenerationPayloadFromConfig(payload, {
+        model: IMAGE_MODEL_ID,
+        prompt: 'test',
         references: {
-          images: [
-            'https://example.com/reference-1.png',
-            'https://example.com/reference-2.png'
+          items: [
+            {
+              mediaType: 'image',
+              role: 'reference',
+              source: { kind: 'asset', assetId: 'asset-1' }
+            }
           ]
         }
-      },
-      mergeGenerationPayloadConfig(null, payload)
-    )
-
-    expect(configured.payload).toEqual({
-      model: IMAGE_MODEL_ID,
-      prompt: 'generate a clean product render',
-      image: [
-        'https://example.com/reference-1.png',
-        'https://example.com/reference-2.png'
-      ]
-    })
-  })
-
-  test('uses params as the only control-value template namespace', () => {
-    const payload = createDefaultGenerationPayloadConfig('image')
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      size: '{{params.size}}',
-      n: '{{params.n}}'
-    }
-
-    const configured = buildConfiguredImageGenerationPayload(
-      {
-        model: IMAGE_MODEL_ID,
-        prompt: 'generate a clean product render',
-        params: {
-          size: '1536x1024',
-          n: 2
-        }
-      },
-      mergeGenerationPayloadConfig(null, payload)
-    )
-
-    expect(configured.payload).toEqual({
-      model: IMAGE_MODEL_ID,
-      prompt: 'generate a clean product render',
-      size: '1536x1024',
-      n: 2
-    })
-  })
-
-  test('passes param keys through verbatim without canonical rewriting', () => {
-    const payload = createDefaultGenerationPayloadConfig('image')
-    payload.controls = payload.controls.map((control) =>
-      control.key === 'outputFormat'
-        ? { ...control, key: 'output_format' }
-        : control
-    )
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      format: '{{params.output_format}}',
-      compression: '{{params.output_compression}}'
-    }
-
-    const configured = buildGenerationPayloadFromConfig(payload, {
-      model: IMAGE_MODEL_ID,
-      prompt: 'format an image',
-      params: {
-        output_format: 'webp',
-        output_compression: 72
-      }
-    })
-
-    expect(configured.config.controls).toContainEqual(
-      expect.objectContaining({ key: 'output_format' })
-    )
-    expect(configured.config.request.body).toEqual({
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      format: '{{params.output_format}}',
-      compression: '{{params.output_compression}}'
-    })
-    expect(configured.payload).toEqual({
-      model: IMAGE_MODEL_ID,
-      prompt: 'format an image',
-      format: 'webp',
-      compression: 72
-    })
-  })
-
-  test('validates runtime values against the configured control', () => {
-    const payload = createDefaultGenerationPayloadConfig('image')
-
-    expect(() =>
-      buildGenerationPayloadFromConfig(payload, {
-        model: IMAGE_MODEL_ID,
-        params: { n: '2' }
       })
-    ).toThrow('Generation payload control "n" must be a number')
-
-    expect(() =>
-      buildGenerationPayloadFromConfig(payload, {
-        model: IMAGE_MODEL_ID,
-        params: { outputFormat: 'gif' }
-      })
-    ).toThrow('Generation payload control "outputFormat" has an unsupported')
-  })
-
-  test('supports generic multimodal message helpers', () => {
-    const payload = createDefaultGenerationPayloadConfig('image')
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      input: {
-        messages: '{{helpers.messages.userMultimodal}}'
-      },
-      parameters: {
-        size: '{{params.size}}',
-        n: '{{params.n}}'
-      }
-    }
-
-    const configured = buildGenerationPayloadFromConfig(payload, {
-      model: 'provider-image-model',
-      prompt: '保留主体姿态，改成更生气的表情',
-      references: {
-        images: ['https://example.com/original-cat.png']
-      }
-    })
-
-    expect(configured.payload).toMatchObject({
-      model: 'provider-image-model',
-      prompt: '保留主体姿态，改成更生气的表情',
-      input: {
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { image: 'https://example.com/original-cat.png' },
-              { text: '保留主体姿态，改成更生气的表情' }
-            ]
-          }
-        ]
-      },
-      parameters: {
-        size: '1024x1024',
-        n: 1
-      }
-    })
+    ).toThrow('must be resolved by the server')
   })
 })

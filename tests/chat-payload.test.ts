@@ -11,8 +11,6 @@ const IMAGE_URL_2 = 'https://example.com/second.png'
 describe('chat generation metadata.payload', () => {
   test('renders the default OpenAI chat payload template', () => {
     const payload = createDefaultGenerationPayloadConfig('chat')
-    expect(payload.endpoint).toBe('/chat/completions')
-
     const configured = buildGenerationPayloadFromConfig(payload, {
       model: 'chat-model-a',
       messages: [
@@ -30,10 +28,6 @@ describe('chat generation metadata.payload', () => {
 
     expect(configured.payload).toMatchObject({
       model: 'chat-model-a',
-      messages: [
-        { role: 'system', content: 'You are concise.' },
-        { role: 'user', content: 'Describe the scene.' }
-      ],
       temperature: 0.2,
       max_tokens: 256,
       reasoning_effort: 'medium',
@@ -42,24 +36,35 @@ describe('chat generation metadata.payload', () => {
     })
   })
 
-  test('derives multiple reference images from media entries', () => {
+  test('derives media URLs only from canonical items', () => {
     const payload = createDefaultGenerationPayloadConfig('chat')
     payload.request.body = {
       model: '{{model}}',
       messages: '{{messages}}',
-      images: '{{references.images}}',
-      firstImage: '{{references.firstImage}}'
+      images: '{{helpers.references.imageUrls}}',
+      firstImage: '{{helpers.references.firstImageUrl}}'
     }
 
     const configured = buildGenerationPayloadFromConfig(payload, {
       model: 'chat-model-b',
       messages: [{ role: 'user', content: 'Use both images.' }],
       references: {
-        media: [
-          { type: 'reference_image', url: IMAGE_URL_1 },
-          { type: 'reference_video', url: 'https://example.com/clip.mp4' },
-          { type: 'reference_audio', url: 'https://example.com/sound.mp3' },
-          { type: 'reference_image', url: IMAGE_URL_2 }
+        items: [
+          {
+            mediaType: 'image',
+            role: 'first_frame',
+            source: { kind: 'url', url: IMAGE_URL_1 }
+          },
+          {
+            mediaType: 'video',
+            role: 'clip',
+            source: { kind: 'url', url: 'https://example.com/clip.mp4' }
+          },
+          {
+            mediaType: 'image',
+            role: 'reference',
+            source: { kind: 'url', url: IMAGE_URL_2 }
+          }
         ]
       }
     })

@@ -4,12 +4,8 @@ import type {
   chatGenerationMessageSchema,
   chatGenerationParamsSchema,
   imageGenerationParamsSchema,
-  videoGenerationParamsSchema,
-  videoReferenceMediaSchema
+  videoGenerationParamsSchema
 } from './params.js'
-
-/** 视频参考媒体 */
-export type VideoReferenceMedia = z.infer<typeof videoReferenceMediaSchema>
 
 /** Renderer-agnostic Canvas2D generation target. */
 export type CanvasGenerationTarget = z.infer<

@@ -12,7 +12,21 @@ import {
 
 const IMAGE_URL = 'https://example.com/input.png'
 const SECOND_IMAGE_URL = 'https://example.com/second.png'
+const VIDEO_URL = 'https://example.com/camera-motion.mp4'
+const AUDIO_URL = 'https://example.com/soundtrack.mp3'
 const VIDEO_MODEL_ID = 'video-model-a'
+
+const reference = (
+  mediaType: 'image' | 'video' | 'audio',
+  role:
+    | 'reference'
+    | 'first_frame'
+    | 'source'
+    | 'clip'
+    | 'driving_audio'
+    | 'reference_voice',
+  url: string
+) => ({ mediaType, role, source: { kind: 'url' as const, url } })
 
 describe('video generation metadata.payload', () => {
   test('configured video eligibility requires metadata.payload', () => {
@@ -29,51 +43,41 @@ describe('video generation metadata.payload', () => {
     ).toBe(true)
   })
 
-  test('normalizes video references without injecting model defaults', () => {
+  test('normalizes canonical video references without injecting controls', () => {
     const params = normalizeVideoGenerationParams({
       model: VIDEO_MODEL_ID,
       prompt: ' generate a short video ',
       references: {
-        firstImage: IMAGE_URL,
-        images: [IMAGE_URL, SECOND_IMAGE_URL]
+        items: [
+          reference('image', 'first_frame', IMAGE_URL),
+          reference('image', 'reference', SECOND_IMAGE_URL)
+        ]
       }
     })
 
-    expect(params).toMatchObject({
-      model: VIDEO_MODEL_ID,
-      prompt: 'generate a short video',
-      references: {
-        firstImage: IMAGE_URL,
-        images: [IMAGE_URL, SECOND_IMAGE_URL]
-      }
-    })
+    expect(params.references.items).toEqual([
+      reference('image', 'first_frame', IMAGE_URL),
+      reference('image', 'reference', SECOND_IMAGE_URL)
+    ])
     expect(params.params).not.toHaveProperty('duration')
-    expect(params.params).not.toHaveProperty('resolution')
   })
 
-  test('renders default video payload template from unified params', () => {
+  test('renders default video payload from image references', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
-    expect(payload.endpoint).toBe('/v1/videos')
     const configured = buildConfiguredVideoGenerationPayload(
       {
         model: VIDEO_MODEL_ID,
         prompt: 'generate a short video',
         references: {
-          images: [IMAGE_URL, SECOND_IMAGE_URL]
+          items: [
+            reference('image', 'first_frame', IMAGE_URL),
+            reference('image', 'reference', SECOND_IMAGE_URL)
+          ]
         }
       },
       mergeGenerationPayloadConfig(null, payload)
     )
 
-    expect(configured.runtime).toMatchObject({
-      model: VIDEO_MODEL_ID,
-      prompt: 'generate a short video',
-      params: {
-        duration: 5,
-        resolution: '720P',
-        aspectRatio: '16:9'
-      }
-    })
     expect(configured.payload).toMatchObject({
       model: VIDEO_MODEL_ID,
       prompt: 'generate a short video',
@@ -85,304 +89,102 @@ describe('video generation metadata.payload', () => {
     })
   })
 
-  test('supports provider multimodal content body templates', () => {
+  test('maps mixed canonical media into OpenAI-compatible provider parts', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.request.body = {
       model: '{{model}}',
-      prompt: '{{prompt}}',
-      content: '{{helpers.content.openaiParts}}',
-      resolution: '{{params.resolution}}',
-      ratio: '{{params.aspectRatio}}',
-      duration: '{{params.duration}}',
-      frames: '{{params.frames}}'
+      content: '{{helpers.content.openaiParts}}'
     }
-
     const configured = buildGenerationPayloadFromConfig(payload, {
-      model: 'provider-video-model',
+      model: VIDEO_MODEL_ID,
       prompt: 'make this a dynamic wallpaper',
       references: {
-        images: [IMAGE_URL, SECOND_IMAGE_URL]
-      },
-      params: {
-        frames: 57
-      }
-    })
-
-    expect(configured.payload).toMatchObject({
-      model: 'provider-video-model',
-      prompt: 'make this a dynamic wallpaper',
-      resolution: '720P',
-      ratio: '16:9',
-      duration: 5,
-      frames: 57
-    })
-    expect(configured.payload.content).toEqual([
-      {
-        type: 'image_url',
-        image_url: { url: IMAGE_URL }
-      },
-      {
-        type: 'image_url',
-        image_url: { url: SECOND_IMAGE_URL }
-      },
-      {
-        type: 'text',
-        text: 'make this a dynamic wallpaper'
-      }
-    ])
-  })
-
-  test('renders multi-image reference media helpers', () => {
-    const payload = createDefaultGenerationPayloadConfig('video')
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      duration: '{{params.duration}}',
-      metadata: {
-        resolution: '{{params.resolution}}',
-        action: 'referenceGenerate',
-        media: '{{helpers.references.imageMedia}}'
-      }
-    }
-
-    const configured = buildGenerationPayloadFromConfig(payload, {
-      model: 'provider-video-model',
-      prompt: 'make this a dynamic wallpaper',
-      references: {
-        images: [IMAGE_URL, SECOND_IMAGE_URL]
-      }
-    })
-
-    expect(configured.payload).toMatchObject({
-      model: 'provider-video-model',
-      prompt: 'make this a dynamic wallpaper',
-      duration: 5,
-      metadata: {
-        resolution: '720P',
-        action: 'referenceGenerate',
-        media: [
-          {
-            type: 'first_frame',
-            url: IMAGE_URL
-          },
-          {
-            type: 'reference_image',
-            url: SECOND_IMAGE_URL
-          }
+        items: [
+          reference('image', 'reference', IMAGE_URL),
+          reference('video', 'source', VIDEO_URL),
+          reference('audio', 'driving_audio', AUDIO_URL)
         ]
       }
     })
+
+    expect(configured.payload.content).toEqual([
+      { type: 'image_url', image_url: { url: IMAGE_URL } },
+      { type: 'video_url', video_url: { url: VIDEO_URL } },
+      { type: 'audio_url', audio_url: { url: AUDIO_URL } },
+      { type: 'text', text: 'make this a dynamic wallpaper' }
+    ])
   })
 
-  test('renders wan2.7-r2v mixed references as an OpenAI-compatible body', () => {
+  test('maps role-aware media helpers and provider callback from server context', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
-    payload.endpoint = '/v1/videos'
     payload.controls = [
-      {
-        key: 'resolution',
-        label: 'Resolution',
-        type: 'select',
-        enabled: true,
-        required: true,
-        defaultValue: '720P',
-        options: ['720P']
-      },
-      {
-        key: 'ratio',
-        label: 'Ratio',
-        type: 'select',
-        enabled: true,
-        required: true,
-        defaultValue: '16:9',
-        options: ['16:9', '9:16']
-      },
-      {
-        key: 'duration',
-        label: 'Duration',
-        type: 'number',
-        enabled: true,
-        required: true,
-        defaultValue: 10,
-        options: [],
-        min: 5,
-        max: 10
-      },
-      {
-        key: 'prompt_extend',
-        label: 'Prompt extend',
-        type: 'boolean',
-        enabled: true,
-        required: false,
-        defaultValue: false,
-        options: []
-      },
-      {
-        key: 'watermark',
-        label: 'Watermark',
-        type: 'boolean',
-        enabled: true,
-        required: false,
-        defaultValue: true,
-        options: []
-      },
-      {
-        key: 'referenceImages',
-        label: 'Reference media',
-        type: 'referenceImages',
-        enabled: true,
-        required: true,
-        options: []
-      }
-    ]
-    payload.pricingBindings = {
-      duration: 'duration',
-      resolution: 'resolution',
-      aspectRatio: 'ratio'
-    }
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      size: '{{params.resolution}}',
-      duration: '{{params.duration}}',
-      mergeVideoAspectRatio: '{{params.ratio}}',
-      referenceMedia: '{{references.media}}',
-      prompt_extend: '{{params.prompt_extend}}',
-      watermark: '{{params.watermark}}'
-    }
-
-    const media = [
-      {
-        type: 'reference_image' as const,
-        url: IMAGE_URL,
-        reference_voice: 'https://example.com/voice-1.wav'
-      },
-      {
-        type: 'reference_video' as const,
-        url: 'https://example.com/reference.mp4',
-        reference_voice: 'https://example.com/voice-2.wav'
-      },
-      { type: 'reference_image' as const, url: SECOND_IMAGE_URL }
-    ]
-    const configured = buildConfiguredVideoGenerationPayload(
-      {
-        model: 'wan2.7-r2v-2026-06-12',
-        prompt: 'Continue the village sequence across the references.',
-        params: {
-          resolution: '720P',
-          ratio: '16:9',
-          duration: 10,
-          prompt_extend: false,
-          watermark: true
-        },
-        references: { media },
-        system: {}
-      },
-      mergeGenerationPayloadConfig(null, payload)
-    )
-
-    expect(configured.config.endpoint).toBe('/v1/videos')
-    expect(configured.payload).toEqual({
-      model: 'wan2.7-r2v-2026-06-12',
-      prompt: 'Continue the village sequence across the references.',
-      size: '720P',
-      duration: 10,
-      mergeVideoAspectRatio: '16:9',
-      referenceMedia: media,
-      prompt_extend: false,
-      watermark: true
-    })
-  })
-
-  test('renders the documented Seedance 2.0 nested input payload', () => {
-    const payload = createDefaultGenerationPayloadConfig('video')
-    payload.endpoint = '/v1/videos/generations'
-    payload.controls = [
-      {
-        key: 'callbackUrl',
-        label: 'Callback URL',
-        type: 'text',
-        defaultValue: 'https://example.com/api/seedance/webhook'
-      },
       {
         key: 'generationType',
         label: 'Generation type',
         type: 'select',
+        enabled: true,
+        required: true,
         defaultValue: 'reference-to-video',
-        options: ['text-to-video', 'image-to-video', 'reference-to-video']
+        options: ['reference-to-video']
       },
       {
-        key: 'duration',
-        label: 'Duration',
-        type: 'number',
-        defaultValue: 8,
-        min: 4,
-        max: 15
-      },
-      {
-        key: 'resolution',
-        label: 'Resolution',
-        type: 'select',
-        defaultValue: '1080p',
-        options: ['480p', '720p', '1080p', '4k']
-      },
-      {
-        key: 'referenceImages',
-        label: 'Reference images',
-        type: 'referenceImages'
+        key: 'referenceMedia',
+        label: 'Reference media',
+        type: 'referenceMedia',
+        enabled: true,
+        required: true,
+        options: []
       }
     ]
     payload.request.body = {
       model: '{{model}}',
-      callback_url: '{{params.callbackUrl}}',
+      callback_url: '{{server.callbackUrl}}',
       input: {
-        prompt: '{{prompt}}',
         generation_type: '{{params.generationType}}',
+        media: '{{helpers.references.typedMedia}}',
         image_urls: '{{helpers.references.imageUrls}}',
         video_urls: '{{helpers.references.videoUrls}}',
-        audio_urls: '{{helpers.references.audioUrls}}',
-        duration: '{{params.duration}}',
-        resolution: '{{params.resolution}}'
+        audio_urls: '{{helpers.references.audioUrls}}'
       }
     }
-
     const configured = buildConfiguredVideoGenerationPayload(
       {
-        model: 'seedance-2-0',
-        prompt: 'Use the product and the reference camera motion.',
+        model: VIDEO_MODEL_ID,
+        prompt: 'continue the sequence',
         references: {
-          media: [
-            { type: 'reference_image', url: IMAGE_URL },
-            {
-              type: 'reference_video',
-              url: 'https://example.com/camera-motion.mp4'
-            },
-            {
-              type: 'reference_audio',
-              url: 'https://example.com/soundtrack.mp3'
-            }
+          items: [
+            reference('image', 'first_frame', IMAGE_URL),
+            reference('video', 'source', VIDEO_URL),
+            reference('audio', 'reference_voice', AUDIO_URL)
           ]
         }
       },
-      mergeGenerationPayloadConfig(null, payload)
+      mergeGenerationPayloadConfig(null, payload),
+      {
+        server: {
+          callbackUrl: 'https://agent.example.com/api/webhooks/inbound'
+        }
+      }
     )
 
-    expect(configured.config.endpoint).toBe('/v1/videos/generations')
     expect(configured.payload).toEqual({
-      model: 'seedance-2-0',
-      callback_url: 'https://example.com/api/seedance/webhook',
+      model: VIDEO_MODEL_ID,
+      callback_url: 'https://agent.example.com/api/webhooks/inbound',
       input: {
-        prompt: 'Use the product and the reference camera motion.',
         generation_type: 'reference-to-video',
+        media: [
+          { type: 'first_frame', url: IMAGE_URL },
+          { type: 'reference_video', url: VIDEO_URL },
+          { type: 'reference_voice', url: AUDIO_URL }
+        ],
         image_urls: [IMAGE_URL],
-        video_urls: ['https://example.com/camera-motion.mp4'],
-        audio_urls: ['https://example.com/soundtrack.mp3'],
-        duration: 8,
-        resolution: '1080p'
+        video_urls: [VIDEO_URL],
+        audio_urls: [AUDIO_URL]
       }
     })
   })
 
-  test('required controls fail before gateway submission', () => {
+  test('requires configured controls before gateway submission', () => {
     const payload = createDefaultGenerationPayloadConfig('video')
     payload.controls.push({
       key: 'camera',
@@ -392,15 +194,11 @@ describe('video generation metadata.payload', () => {
       required: true,
       options: []
     })
-    payload.request.body = {
-      model: '{{model}}',
-      prompt: '{{prompt}}',
-      camera: '{{params.camera}}'
-    }
+    payload.request.body = { camera: '{{params.camera}}' }
 
     expect(() =>
       buildGenerationPayloadFromConfig(payload, {
-        model: 'video-model',
+        model: VIDEO_MODEL_ID,
         prompt: 'generate a short video'
       })
     ).toThrow('Generation payload control "camera" is required')

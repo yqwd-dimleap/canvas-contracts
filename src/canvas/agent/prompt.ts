@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../../api/response.js'
+import { generationReferencesSchema } from '../../models/params.js'
 import { canvasAgentBaseRequestSchema } from './actions.js'
 
 /**
@@ -81,8 +82,8 @@ export const promptTextFieldContextSchema = z.object({
  * Process Prompt Text Request
  * 通用文本处理请求：用于提示词、画布文字、texture 文本、脚本和 UI 文案。
  */
-export const processPromptTextRequestSchema =
-  canvasAgentBaseRequestSchema.extend({
+export const processPromptTextRequestSchema = canvasAgentBaseRequestSchema
+  .extend({
     canvas: canvasAgentBaseRequestSchema.shape.canvas.optional(),
     selection: canvasAgentBaseRequestSchema.shape.selection.optional(),
     input: z.string().trim().min(1).max(24000),
@@ -90,8 +91,30 @@ export const processPromptTextRequestSchema =
     contentKind: promptTextContentKindSchema.default('plain_text'),
     intent: z.string().trim().min(1).max(2000).optional(),
     fieldContext: promptTextFieldContextSchema.optional(),
-    referenceImages: z.array(z.string().min(1)).max(8).optional(),
+    /**
+     * Prompt assistance consumes the same media vocabulary as generation.
+     * It currently accepts image references only because its provider content
+     * is image multimodal; asset ownership and URL resolution happen server-side.
+     */
+    references: generationReferencesSchema.default({ items: [] }),
     styleGuide: z.string().trim().min(1).max(6000).optional()
+  })
+  .superRefine((request, context) => {
+    if (request.references.items.length > 8) {
+      context.addIssue({
+        code: 'custom',
+        path: ['references', 'items'],
+        message: 'Prompt text processing accepts at most eight references.'
+      })
+    }
+    request.references.items.forEach((reference, index) => {
+      if (reference.mediaType === 'image') return
+      context.addIssue({
+        code: 'custom',
+        path: ['references', 'items', index, 'mediaType'],
+        message: 'Prompt text processing accepts image references only.'
+      })
+    })
   })
 
 /**
