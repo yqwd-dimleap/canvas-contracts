@@ -1126,7 +1126,8 @@ export function workspaceAssetMediaSources(
   const image = media?.image
   const video = media?.video
   const originalUrl =
-    stringValue(media?.original?.url) ?? stringValue(asset.url)
+    stringValue(media?.original?.url) ??
+    (asset.type === 'audio' ? stringValue(asset.url) : null)
   const isAnimated = Boolean(asset.type === 'image' && image?.isAnimated)
   const imageDisplayUrl = isAnimated
     ? originalUrl
@@ -1159,7 +1160,7 @@ export function workspaceAssetMediaForContext(
   containerWidth?: number
 ): string | null {
   const media = workspaceAssetMediaFromMetadata(asset.metadata)
-  if (!media) return stringValue(asset.url)
+  if (!media) return asset.type === 'audio' ? stringValue(asset.url) : null
 
   if (media.type === 'video') {
     if (context === 'thumbnail' || context === 'preview') {

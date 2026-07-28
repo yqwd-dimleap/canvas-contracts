@@ -157,6 +157,31 @@ describe('image generation metadata.payload', () => {
     expect(generationPayloadConfigSchema.safeParse(payload).success).toBe(false)
   })
 
+  test('rejects invalid role and media-type combinations at the contract boundary', () => {
+    expect(
+      generationReferencesSchema.safeParse({
+        items: [
+          {
+            mediaType: 'audio',
+            role: 'first_frame',
+            source: { kind: 'url', url: 'https://example.com/voice.mp3' }
+          }
+        ]
+      }).success
+    ).toBe(false)
+    expect(
+      generationReferencesSchema.safeParse({
+        items: [
+          {
+            mediaType: 'audio',
+            role: 'driving_audio',
+            source: { kind: 'url', url: 'https://example.com/voice.mp3' }
+          }
+        ]
+      }).success
+    ).toBe(true)
+  })
+
   test('does not let unresolved asset IDs reach payload rendering', () => {
     const payload = createDefaultGenerationPayloadConfig('image')
     expect(() =>
