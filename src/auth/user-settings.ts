@@ -58,10 +58,16 @@ export const updateUserGenerationModelPreferencesSchema = z.object({
     .default({})
 })
 
+export const userGenerationModelBrandSchema = z.object({
+  name: z.string().min(1).optional(),
+  icon: z.string().min(1).optional()
+})
+
 export const userGenerationModelPreferenceModelSchema = z.object({
   modelId: z.string().min(1),
   displayName: z.string().min(1),
   provider: z.string().min(1).optional(),
+  brand: userGenerationModelBrandSchema.optional(),
   category: modelCategorySchema,
   pricing: modelPricingConfigSchema.optional(),
   payload: generationPayloadConfigSchema,

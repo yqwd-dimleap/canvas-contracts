@@ -4,6 +4,8 @@ import { canvasResourceStorageSchema } from '../canvas/resources/types.js'
 import { timestampSchema } from '../shared/timestamp.js'
 import { workspaceAssetMediaMetadataSchema } from '../storage/workspace-assets.js'
 
+export * from './media-execution.js'
+
 // ============================================================================
 // Generation Status (single source of truth)
 // ============================================================================

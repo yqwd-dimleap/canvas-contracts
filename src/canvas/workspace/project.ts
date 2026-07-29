@@ -10,6 +10,9 @@ import { canvasMutationReceiptSchema } from '../core/mutations.js'
 /** Persisted project Canvas schema baseline; independent from package semver. */
 export const WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION = 2 as const
 
+/** Missing on legacy records means Canvas mode. */
+export const workspaceProjectModeSchema = z.enum(['canvas', 'agent'])
+
 export const workspaceProjectMediaSourceSchema = z.enum([
   'cover',
   'session',
@@ -142,6 +145,7 @@ export const workspaceProjectRunSchema = z.object({
 
 export const recentWorkspaceProjectSchema = z.object({
   id: z.string().min(1),
+  mode: workspaceProjectModeSchema.optional(),
   title: z.string(),
   previewImage: z.string(),
   previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
@@ -191,6 +195,7 @@ export const workspaceProjectAssetSchema = z.object({
 export const workspaceProjectSchema = z.object({
   id: z.string().min(1),
   userId: z.string().optional(),
+  mode: workspaceProjectModeSchema.optional(),
   title: z.string(),
   status: z.string(),
   historyId: z.string().nullable(),
@@ -213,6 +218,7 @@ const workspaceProjectRecordSchema = z.record(z.string(), z.unknown())
 export const workspaceProjectCreateRequestSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
+    mode: workspaceProjectModeSchema.optional(),
     title: z.string().optional(),
     status: z.string().optional(),
     historyId: z.string().nullable().optional(),
@@ -297,9 +303,16 @@ export function parseWorkspaceProjectCanvas(
   return workspaceProjectCanvasSchema.parse(value)
 }
 
+export function resolveWorkspaceProjectMode(
+  project: Pick<WorkspaceProject, 'mode'>
+): WorkspaceProjectMode {
+  return project.mode ?? 'canvas'
+}
+
 export type WorkspaceProjectSummary = z.infer<
   typeof workspaceProjectSummarySchema
 >
+export type WorkspaceProjectMode = z.infer<typeof workspaceProjectModeSchema>
 export type WorkspaceProjectPublicationStatus = z.infer<
   typeof workspaceProjectPublicationStatusSchema
 >

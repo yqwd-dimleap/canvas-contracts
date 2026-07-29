@@ -1,15 +1,9 @@
-import { z } from 'zod'
+import type { z } from 'zod'
+import { visualMediaExecutionUseCaseSchema } from '../generation/media-execution.js'
 import type { ModelCategory } from './model-provider.js'
 
-export const canvasGenerationUseCaseSchema = z.enum([
-  'text-to-image',
-  'image-to-image',
-  'image-edit',
-  'text-to-video',
-  'image-to-video',
-  'video-edit',
-  'video-merge'
-])
+/** @deprecated Prefer mediaExecutionUseCaseSchema from ./generation. */
+export const canvasGenerationUseCaseSchema = visualMediaExecutionUseCaseSchema
 
 export interface GenerationUseCaseModelPreference {
   useCase: CanvasGenerationUseCase

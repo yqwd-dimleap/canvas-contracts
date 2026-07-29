@@ -2,8 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { adminUserPatchRequestSchema } from '../src/admin/admin-business.js'
 import { setPasswordRequestSchema } from '../src/auth/session.js'
 import {
+  resolveWorkspaceProjectMode,
   WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
   workspaceProjectCanvasSchema,
+  workspaceProjectCreateRequestSchema,
   workspaceProjectSchema
 } from '../src/canvas/workspace/project.js'
 import { featuredWorkDocumentSchema } from '../src/workspace/featured-work.js'
@@ -88,6 +90,26 @@ describe('shared workspace schemas', () => {
     expect(workspaceProjectCanvasSchema.safeParse(canvas).success).toBe(true)
     expect(
       workspaceProjectCanvasSchema.safeParse({ resources: canvas }).success
+    ).toBe(false)
+  })
+
+  test('adds Agent workspace mode without breaking legacy Canvas projects', () => {
+    const legacy = workspaceProjectSchema.parse({
+      id: 'project-legacy',
+      title: 'Legacy',
+      status: 'active',
+      historyId: null,
+      previewImage: '',
+      createdAt: 1,
+      updatedAt: 1
+    })
+    expect(resolveWorkspaceProjectMode(legacy)).toBe('canvas')
+    expect(
+      workspaceProjectCreateRequestSchema.parse({ mode: 'agent' }).mode
+    ).toBe('agent')
+    expect(
+      workspaceProjectCreateRequestSchema.safeParse({ mode: 'unsupported' })
+        .success
     ).toBe(false)
   })
 

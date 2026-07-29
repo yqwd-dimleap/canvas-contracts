@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import {
   generationTaskResultSchema,
-  generationTaskTypeSchema
+  generationTaskTypeSchema,
+  mediaExecutionUpdateSchema
 } from '../generation/index.js'
 import {
   mediaJobErrorSchema,
@@ -64,6 +65,15 @@ export const generationProgressEventSchema = eventEnvelopeBaseSchema.extend({
     status: z.enum(['pending', 'polling', 'completed', 'failed']),
     progress: z.number().min(0).max(100)
   })
+})
+
+/**
+ * Canonical cross-surface media execution event. Legacy generation.* events
+ * remain available while image/video consumers migrate to the unified task.
+ */
+export const mediaExecutionUpdatedEventSchema = eventEnvelopeBaseSchema.extend({
+  eventType: z.literal('generation.execution.updated'),
+  data: mediaExecutionUpdateSchema
 })
 
 export const mediaJobProgressEventSchema = eventEnvelopeBaseSchema.extend({
@@ -182,6 +192,7 @@ export const canvasEventSchema = z.discriminatedUnion('eventType', [
   generationCompletedEventSchema,
   generationFailedEventSchema,
   generationProgressEventSchema,
+  mediaExecutionUpdatedEventSchema,
   mediaJobProgressEventSchema,
   mediaJobCompletedEventSchema,
   mediaJobFailedEventSchema,
@@ -198,6 +209,7 @@ export const canvasEventTypeSchema = z.enum([
   'generation.completed',
   'generation.failed',
   'generation.progress',
+  'generation.execution.updated',
   'media.job.progress',
   'media.job.completed',
   'media.job.failed',
@@ -210,6 +222,9 @@ export const canvasEventTypeSchema = z.enum([
 ])
 
 export type BillingUpdatedEvent = z.infer<typeof billingUpdatedEventSchema>
+export type MediaExecutionUpdatedEvent = z.infer<
+  typeof mediaExecutionUpdatedEventSchema
+>
 export type NotificationUpdatedEvent = z.infer<
   typeof notificationUpdatedEventSchema
 >
