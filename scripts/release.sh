@@ -116,10 +116,10 @@ require_branch() {
   echo "$branch"
 }
 
-confirm_main_branch() {
+confirm_primary_branch() {
   local branch="$1"
-  if [[ "$branch" != "main" ]]; then
-    echo -e "${YELLOW}Warning: You are on branch '${branch}', not 'main'${NC}"
+  if [[ "$branch" != "master" ]]; then
+    echo -e "${YELLOW}Warning: You are on branch '${branch}', not 'master'${NC}"
     read -p "Continue anyway? [y/N]: " continue_branch
     if [[ ! "$continue_branch" =~ ^[Yy]$ ]]; then
       echo "Release cancelled."
@@ -407,7 +407,7 @@ prepare_release() {
   local bump_type choice new_version new_tag
 
   branch=$(require_branch)
-  confirm_main_branch "$branch"
+  confirm_primary_branch "$branch"
   require_node
   fetch_origin
 
@@ -624,7 +624,7 @@ publish_release() {
   local branch version tag remote_target rel_sha
 
   branch=$(require_branch)
-  confirm_main_branch "$branch"
+  confirm_primary_branch "$branch"
   ensure_clean_worktree
   fetch_origin
   warn_if_branch_behind_for_publish "$branch"
@@ -678,7 +678,7 @@ retry_publish() {
   local branch version tag remote_target head
 
   branch=$(require_branch)
-  confirm_main_branch "$branch"
+  confirm_primary_branch "$branch"
   ensure_clean_worktree
   fetch_origin
   warn_if_branch_behind_for_publish "$branch"

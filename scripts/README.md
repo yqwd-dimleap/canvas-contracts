@@ -53,7 +53,7 @@ Actions 发布失败后，可以针对同一个 `package.json` 版本和同一�
 
 1. **准备 release**
    - 确保在 git 仓库中
-   - 检查是否在 `main` 分支
+   - 检查是否在 `master` 分支
    - 检查工作目录是否干净
    - 拉取最新代码
    - `patch`（如 `2.0.11 → 2.0.12`）：小改、小修、文档和常规兼容维护；
@@ -79,7 +79,7 @@ Actions 发布失败后，可以针对同一个 `package.json` 版本和同一�
 2. **触发发布**
    - 运行 `./scripts/release.sh publish`
    - 确认当前 HEAD 就是本次版本的 `chore(release): vX.Y.Z` 提交
-   - 推送 commit 到 `origin/main`
+   - 推送 commit 到 `origin/master`
    - 在 HEAD 上创建 annotated tag `vX.Y.Z` 并推送，触发 GitHub Actions
    - GitHub Actions 自动发布到 GitHub Packages
 
@@ -186,7 +186,7 @@ bun run check
 git remote -v
 
 # 检查是否有权限
-git push origin main --dry-run
+git push origin master --dry-run
 
 # 如果需要，重新配置认证
 ```
