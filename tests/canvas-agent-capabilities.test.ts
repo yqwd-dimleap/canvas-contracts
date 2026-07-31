@@ -83,4 +83,8 @@ describe('default Canvas2D agent capabilities', () => {
       creditOperationIdSchema.safeParse('prompt.script_split').success
     ).toBe(false)
   })
+
+  test('accepts the lyrics generation use case (chat category)', () => {
+    expect(canvasGenerationUseCaseSchema.safeParse('lyrics').success).toBe(true)
+  })
 })

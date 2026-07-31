@@ -29,7 +29,7 @@ export const generationTaskStatusSchema = z.enum([
 // Generation Tasks
 // ============================================================================
 
-export const generationTaskTypeSchema = z.enum(['image', 'video'])
+export const generationTaskTypeSchema = z.enum(['image', 'video', 'lyrics'])
 
 export const generationTaskResultSchema = z.object({
   url: z.string().optional(),
@@ -43,6 +43,9 @@ export const generationTaskResultSchema = z.object({
   height: z.number().optional(),
   duration: z.number().optional(),
   durationMs: z.number().optional(),
+  // Text output for non-media generations (e.g. lyrics). No asset URL.
+  text: z.string().optional(),
+  title: z.string().optional(),
   errorInfo: z.string().optional()
 })
 

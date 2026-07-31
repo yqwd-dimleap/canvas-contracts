@@ -8,7 +8,8 @@ export const canvasGenerationUseCaseSchema = z.enum([
   'text-to-video',
   'image-to-video',
   'video-edit',
-  'video-merge'
+  'video-merge',
+  'lyrics'
 ])
 
 export interface GenerationUseCaseModelPreference {
@@ -45,6 +46,10 @@ export const GENERATION_USE_CASE_MODEL_PREFERENCES: GenerationUseCaseModelPrefer
     {
       useCase: 'video-merge',
       category: 'video'
+    },
+    {
+      useCase: 'lyrics',
+      category: 'chat'
     }
   ]
 
