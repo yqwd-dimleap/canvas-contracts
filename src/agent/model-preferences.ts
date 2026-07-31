@@ -17,49 +17,32 @@ export interface GenerationUseCaseModelPreference {
   category: ModelCategory
 }
 
-export const GENERATION_USE_CASE_MODEL_PREFERENCES: GenerationUseCaseModelPreference[] =
-  [
-    {
-      useCase: 'text-to-image',
-      category: 'image'
-    },
-    {
-      useCase: 'image-to-image',
-      category: 'image'
-    },
-    {
-      useCase: 'image-edit',
-      category: 'image'
-    },
-    {
-      useCase: 'text-to-video',
-      category: 'video'
-    },
-    {
-      useCase: 'image-to-video',
-      category: 'video'
-    },
-    {
-      useCase: 'video-edit',
-      category: 'video'
-    },
-    {
-      useCase: 'video-merge',
-      category: 'video'
-    },
-    {
-      useCase: 'lyrics',
-      category: 'chat'
-    }
-  ]
+/**
+ * Canonical category for every generation use case. The exhaustive Record is
+ * intentional: adding a schema value must fail typecheck until its category is
+ * defined here, instead of leaving consumers to maintain parallel switches.
+ */
+export const GENERATION_USE_CASE_MODEL_CATEGORIES = {
+  'text-to-image': 'image',
+  'image-to-image': 'image',
+  'image-edit': 'image',
+  'text-to-video': 'video',
+  'image-to-video': 'video',
+  'video-edit': 'video',
+  'video-merge': 'video',
+  lyrics: 'chat'
+} as const satisfies Record<CanvasGenerationUseCase, ModelCategory>
+
+export const GENERATION_USE_CASE_MODEL_PREFERENCES =
+  canvasGenerationUseCaseSchema.options.map((useCase) => ({
+    useCase,
+    category: GENERATION_USE_CASE_MODEL_CATEGORIES[useCase]
+  })) satisfies GenerationUseCaseModelPreference[]
 
 export function getModelCategoryForGenerationUseCase(
   useCase: CanvasGenerationUseCase
-): ModelCategory | undefined {
-  const pref = GENERATION_USE_CASE_MODEL_PREFERENCES.find(
-    (item) => item.useCase === useCase
-  )
-  return pref?.category
+): ModelCategory {
+  return GENERATION_USE_CASE_MODEL_CATEGORIES[useCase]
 }
 
 export type CanvasGenerationUseCase = z.infer<

@@ -7,8 +7,43 @@ import {
   workspaceProjectSchema
 } from '../src/canvas/workspace/project.js'
 import { featuredWorkDocumentSchema } from '../src/workspace/featured-work.js'
+import { workspaceSchema } from '../src/workspace/workspace.js'
 
 describe('shared workspace schemas', () => {
+  test('discriminates personal and team workspace ownership', () => {
+    const common = {
+      id: '507f1f77bcf86cd799439011',
+      name: 'Workspace',
+      status: 'active',
+      createdAt: 1,
+      updatedAt: 1
+    }
+    expect(
+      workspaceSchema.safeParse({
+        ...common,
+        kind: 'personal',
+        ownerUserId: 'user-1',
+        teamId: null
+      }).success
+    ).toBe(true)
+    expect(
+      workspaceSchema.safeParse({
+        ...common,
+        kind: 'team',
+        ownerUserId: null,
+        teamId: '507f1f77bcf86cd799439012'
+      }).success
+    ).toBe(true)
+    expect(
+      workspaceSchema.safeParse({
+        ...common,
+        kind: 'personal',
+        ownerUserId: null,
+        teamId: '507f1f77bcf86cd799439012'
+      }).success
+    ).toBe(false)
+  })
+
   test('validates admin user mutations at the shared boundary', () => {
     expect(
       adminUserPatchRequestSchema.safeParse({
@@ -30,6 +65,8 @@ describe('shared workspace schemas', () => {
   test('keeps project session, runs, and publication snapshot typed', () => {
     const project = workspaceProjectSchema.parse({
       id: 'project-1',
+      workspaceId: 'workspace-1',
+      createdByUserId: 'user-1',
       title: 'Project',
       status: 'completed',
       historyId: null,

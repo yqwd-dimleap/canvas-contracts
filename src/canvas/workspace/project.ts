@@ -1,9 +1,5 @@
 import { z } from 'zod'
 import { apiSuccessResponseSchema } from '../../api/response.js'
-import {
-  workspaceAssetMetadataSchema,
-  workspaceAssetTypeSchema
-} from '../../storage/workspace-assets.js'
 import { canvasDocumentSchema } from '../core/document.js'
 import { canvasMutationReceiptSchema } from '../core/mutations.js'
 
@@ -170,19 +166,14 @@ export const workspaceProjectAgentStateSchema = z
   })
   .strict()
 
-export const workspaceProjectAssetSchema = z.object({
-  id: z.string().min(1),
-  userId: z.string().optional(),
-  projectId: z.string().nullable().optional(),
-  type: workspaceAssetTypeSchema,
-  name: z.string(),
-  mimeType: z.string(),
-  size: z.number().int().nonnegative(),
-  url: z.string().nullable(),
-  metadata: workspaceAssetMetadataSchema.default({}),
-  createdAt: z.string().or(z.number()).or(z.date()),
-  updatedAt: z.string().or(z.number()).or(z.date())
-})
+export const workspaceProjectBrandBindingSchema = z
+  .object({
+    kitId: z.string().min(1),
+    versionId: z.string().min(1),
+    /** A pinned version protects existing work from silent brand changes. */
+    mode: z.enum(['pinned', 'follow_published'])
+  })
+  .strict()
 
 /**
  * MongoDB project document schema
@@ -190,7 +181,8 @@ export const workspaceProjectAssetSchema = z.object({
  */
 export const workspaceProjectSchema = z.object({
   id: z.string().min(1),
-  userId: z.string().optional(),
+  workspaceId: z.string().min(1),
+  createdByUserId: z.string().min(1),
   title: z.string(),
   status: z.string(),
   historyId: z.string().nullable(),
@@ -201,11 +193,11 @@ export const workspaceProjectSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
   createdAt: z.string().or(z.number()),
   updatedAt: z.string().or(z.number()),
-  assets: z.array(workspaceProjectAssetSchema).optional(),
   canvas: workspaceProjectCanvasSchema.optional(),
   agent: workspaceProjectAgentStateSchema.optional(),
   summary: workspaceProjectSummarySchema.optional(),
-  publication: workspaceProjectPublicationSchema.optional()
+  publication: workspaceProjectPublicationSchema.optional(),
+  brandBinding: workspaceProjectBrandBindingSchema.optional()
 })
 
 const workspaceProjectRecordSchema = z.record(z.string(), z.unknown())
@@ -220,7 +212,8 @@ export const workspaceProjectCreateRequestSchema = z
     previewImageDimensions: workspaceProjectPreviewDimensionsSchema.optional(),
     runs: z.array(workspaceProjectRunSchema).optional(),
     session: workspaceProjectSessionSchema.optional(),
-    metadata: workspaceProjectRecordSchema.optional()
+    metadata: workspaceProjectRecordSchema.optional(),
+    brandBinding: workspaceProjectBrandBindingSchema.optional()
   })
   .strict()
 
@@ -234,7 +227,7 @@ export const workspaceProjectUpdateRequestSchema = z
     runs: z.array(workspaceProjectRunSchema).optional(),
     session: workspaceProjectSessionSchema.optional(),
     metadata: workspaceProjectRecordSchema.optional(),
-    assets: z.array(workspaceProjectAssetSchema).optional()
+    brandBinding: workspaceProjectBrandBindingSchema.nullable().optional()
   })
   .strict()
 
@@ -320,7 +313,9 @@ export type WorkspaceProjectAgentState = z.infer<
   typeof workspaceProjectAgentStateSchema
 >
 
-export type WorkspaceProjectAsset = z.infer<typeof workspaceProjectAssetSchema>
+export type WorkspaceProjectBrandBinding = z.infer<
+  typeof workspaceProjectBrandBindingSchema
+>
 export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>
 export type WorkspaceProjectCreateRequest = z.infer<
   typeof workspaceProjectCreateRequestSchema

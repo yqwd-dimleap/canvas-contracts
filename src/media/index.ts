@@ -21,7 +21,11 @@ export const mediaPsdMimeTypeSchema = z.enum(MEDIA_PSD_MIME_TYPES)
 
 export const mediaJobOperationSchema = z.enum([
   'psd.inspect',
-  'psd.extract-layers'
+  'psd.extract-layers',
+  'image.compose',
+  'image.transform',
+  'image.vectorize',
+  'video.poster'
 ])
 
 export const mediaJobStatusSchema = z.enum([
@@ -79,6 +83,68 @@ export const psdExtractLayersOptionsSchema = z
   })
   .strict()
 
+/** Draw order is the input order, unless an explicit layer list is supplied. */
+export const imageComposeOptionsSchema = z
+  .object({
+    width: z.number().int().positive().max(16_384),
+    height: z.number().int().positive().max(16_384),
+    background: z.string().trim().max(64).default('transparent'),
+    format: z.enum(['png', 'webp']).default('png'),
+    layers: z
+      .array(
+        z
+          .object({
+            assetId: z.string().trim().min(1).max(128),
+            x: z.number().finite().default(0),
+            y: z.number().finite().default(0),
+            width: z.number().finite().positive().optional(),
+            height: z.number().finite().positive().optional(),
+            opacity: z.number().min(0).max(1).default(1)
+          })
+          .strict()
+      )
+      .min(2)
+      .max(16)
+      .optional()
+  })
+  .strict()
+
+export const imageTransformOptionsSchema = z
+  .object({
+    width: z.number().int().positive().max(16_384).optional(),
+    height: z.number().int().positive().max(16_384).optional(),
+    fit: z.enum(['contain', 'cover', 'fill']).default('contain'),
+    rotate: z.number().finite().min(-360).max(360).default(0),
+    format: z.enum(['png', 'jpeg', 'webp']).default('png'),
+    quality: z.number().int().min(1).max(100).default(90)
+  })
+  .strict()
+  .refine((value) => value.width !== undefined || value.height !== undefined, {
+    message: 'MEDIA_TRANSFORM_DIMENSIONS_REQUIRED'
+  })
+
+/**
+ * A deterministic palette/vector density budget. The worker emits a genuine
+ * SVG made from color runs; it never pretends an embedded raster is vector.
+ */
+export const imageVectorizeOptionsSchema = z
+  .object({
+    colors: z.number().int().min(2).max(64).default(16),
+    maxWidth: z.number().int().positive().max(4_096).default(1_024),
+    simplify: z.number().min(0).max(1).default(0.25),
+    background: z.enum(['transparent', 'flatten']).default('transparent')
+  })
+  .strict()
+
+export const videoPosterOptionsSchema = z
+  .object({
+    atSeconds: z.number().finite().nonnegative().default(0),
+    width: z.number().int().positive().max(4_096).default(1_280),
+    format: z.enum(['jpeg', 'png', 'webp']).default('jpeg'),
+    quality: z.number().int().min(1).max(100).default(88)
+  })
+  .strict()
+
 const mediaJobRequestBaseSchema = z.object({
   projectId: z.string().trim().min(1).max(128).nullable().optional(),
   target: mediaJobTargetSchema.optional()
@@ -100,9 +166,67 @@ export const psdExtractLayersMediaJobRequestSchema = mediaJobRequestBaseSchema
   })
   .strict()
 
+export const imageComposeMediaJobRequestSchema = mediaJobRequestBaseSchema
+  .extend({
+    operation: z.literal('image.compose'),
+    inputs: z.array(mediaJobInputSchema).min(2).max(16),
+    options: imageComposeOptionsSchema
+  })
+  .strict()
+  .superRefine((request, context) => {
+    const ids = request.inputs.map((input) => input.assetId)
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['inputs'],
+        message: 'MEDIA_INPUT_ASSET_IDS_MUST_BE_UNIQUE'
+      })
+    }
+    if (request.options.layers) {
+      const inputIds = new Set(ids)
+      for (const [index, layer] of request.options.layers.entries()) {
+        if (!inputIds.has(layer.assetId)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['options', 'layers', index, 'assetId'],
+            message: 'MEDIA_COMPOSE_LAYER_MUST_REFERENCE_INPUT'
+          })
+        }
+      }
+    }
+  })
+
+export const imageTransformMediaJobRequestSchema = mediaJobRequestBaseSchema
+  .extend({
+    operation: z.literal('image.transform'),
+    inputs: z.array(mediaJobInputSchema).length(1),
+    options: imageTransformOptionsSchema
+  })
+  .strict()
+
+export const imageVectorizeMediaJobRequestSchema = mediaJobRequestBaseSchema
+  .extend({
+    operation: z.literal('image.vectorize'),
+    inputs: z.array(mediaJobInputSchema).length(1),
+    options: imageVectorizeOptionsSchema
+  })
+  .strict()
+
+export const videoPosterMediaJobRequestSchema = mediaJobRequestBaseSchema
+  .extend({
+    operation: z.literal('video.poster'),
+    inputs: z.array(mediaJobInputSchema).length(1),
+    options: videoPosterOptionsSchema
+  })
+  .strict()
+
 export const createMediaJobRequestSchema = z.discriminatedUnion('operation', [
   psdInspectMediaJobRequestSchema,
-  psdExtractLayersMediaJobRequestSchema
+  psdExtractLayersMediaJobRequestSchema,
+  imageComposeMediaJobRequestSchema,
+  imageTransformMediaJobRequestSchema,
+  imageVectorizeMediaJobRequestSchema,
+  videoPosterMediaJobRequestSchema
 ])
 
 export const mediaPsdDocumentSchema = z.object({
@@ -133,7 +257,7 @@ export const mediaPsdLayerSchema = z.object({
 })
 
 export const mediaJobOutputSchema = z.object({
-  role: z.literal('layer'),
+  role: z.enum(['layer', 'image', 'vector', 'poster']),
   assetId: z.string().min(1),
   sourceLayerId: z.string().min(1),
   name: z.string(),
@@ -149,7 +273,30 @@ export const mediaPsdJobResultSchema = z.object({
   warnings: z.array(z.string().min(1)).max(100).default([])
 })
 
-export const mediaJobResultSchema = mediaPsdJobResultSchema
+export const mediaRasterJobResultSchema = z.object({
+  kind: z.literal('raster'),
+  outputs: z.array(mediaJobOutputSchema).length(1),
+  warnings: z.array(z.string().min(1)).max(100).default([])
+})
+
+export const mediaVectorJobResultSchema = z.object({
+  kind: z.literal('vector'),
+  outputs: z.array(mediaJobOutputSchema).length(1),
+  warnings: z.array(z.string().min(1)).max(100).default([])
+})
+
+export const mediaVideoJobResultSchema = z.object({
+  kind: z.literal('video'),
+  outputs: z.array(mediaJobOutputSchema).length(1),
+  warnings: z.array(z.string().min(1)).max(100).default([])
+})
+
+export const mediaJobResultSchema = z.discriminatedUnion('kind', [
+  mediaPsdJobResultSchema,
+  mediaRasterJobResultSchema,
+  mediaVectorJobResultSchema,
+  mediaVideoJobResultSchema
+])
 
 export const mediaJobErrorSchema = z.object({
   code: z.string().min(1),
@@ -166,11 +313,19 @@ export const mediaJobSchema = z.object({
   id: z.string().min(1),
   operation: mediaJobOperationSchema,
   operationVersion: z.literal(1),
-  userId: z.string().min(1),
+  workspaceId: z.string().min(1),
+  createdByUserId: z.string().min(1),
   projectId: z.string().min(1).nullable(),
   target: mediaJobTargetSchema.optional(),
   inputs: z.array(mediaJobInputSchema).min(1).max(16),
-  options: z.union([psdInspectOptionsSchema, psdExtractLayersOptionsSchema]),
+  options: z.union([
+    psdInspectOptionsSchema,
+    psdExtractLayersOptionsSchema,
+    imageComposeOptionsSchema,
+    imageTransformOptionsSchema,
+    imageVectorizeOptionsSchema,
+    videoPosterOptionsSchema
+  ]),
   status: mediaJobStatusSchema,
   stage: mediaJobStageSchema,
   progress: z.number().min(0).max(1),
@@ -199,12 +354,12 @@ export const mediaJobEventSummarySchema = z.object({
 export const mediaOperationDescriptorSchema = z.object({
   operation: mediaJobOperationSchema,
   version: z.literal(1),
-  category: z.literal('design'),
-  inputMimeTypes: z.array(mediaPsdMimeTypeSchema).min(1),
-  minInputs: z.literal(1),
-  maxInputs: z.literal(1),
+  category: z.enum(['design', 'image', 'video']),
+  inputMimeTypes: z.array(z.string().min(1)).min(1),
+  minInputs: z.number().int().positive(),
+  maxInputs: z.number().int().positive(),
   available: z.boolean(),
-  outputRoles: z.array(z.literal('layer'))
+  outputRoles: z.array(z.enum(['layer', 'image', 'vector', 'poster']))
 })
 
 export const mediaOperationsResponseSchema = z.object({
@@ -239,6 +394,9 @@ export type MediaJobTarget = z.infer<typeof mediaJobTargetSchema>
 export type CreateMediaJobRequest = z.infer<typeof createMediaJobRequestSchema>
 export type MediaJobResult = z.infer<typeof mediaJobResultSchema>
 export type MediaPsdJobResult = z.infer<typeof mediaPsdJobResultSchema>
+export type MediaRasterJobResult = z.infer<typeof mediaRasterJobResultSchema>
+export type MediaVectorJobResult = z.infer<typeof mediaVectorJobResultSchema>
+export type MediaVideoJobResult = z.infer<typeof mediaVideoJobResultSchema>
 export type MediaJobError = z.infer<typeof mediaJobErrorSchema>
 export type MediaJob = z.infer<typeof mediaJobSchema>
 export type MediaJobEventSummary = z.infer<typeof mediaJobEventSummarySchema>

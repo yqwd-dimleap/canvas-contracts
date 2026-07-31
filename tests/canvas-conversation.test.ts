@@ -50,6 +50,7 @@ describe('Canvas mutation transaction', () => {
   test('applies a flat transaction and advances document/element revisions', () => {
     const transaction = canvasMutationTransactionSchema.parse({
       transactionId: 'tx-1',
+      workspaceId: 'workspace-1',
       projectId: 'project-1',
       origin: 'user',
       baseRevision: 0,

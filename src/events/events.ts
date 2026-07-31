@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   generationTaskResultSchema,
+  generationTaskStatusSchema,
   generationTaskTypeSchema
 } from '../generation/index.js'
 import {
@@ -61,7 +62,7 @@ export const generationProgressEventSchema = eventEnvelopeBaseSchema.extend({
     actionId: z.string().optional(),
     projectId: z.string().nullable().optional(),
     type: generationTaskTypeSchema,
-    status: z.enum(['pending', 'polling', 'completed', 'failed']),
+    status: generationTaskStatusSchema,
     progress: z.number().min(0).max(100)
   })
 })

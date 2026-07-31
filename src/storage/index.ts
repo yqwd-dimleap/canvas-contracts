@@ -260,6 +260,22 @@ export function buildWorkspaceObjectKey(input: {
   return `${storageEnvironmentPrefix(input.environment)}/workspaces/${input.workspaceId}/objects/${input.objectId}${ext}`
 }
 
+/** True only for the canonical object namespace of one workspace. */
+export function workspaceOwnsStorageKey(input: {
+  key: string
+  workspaceId: string
+  environment?: StorageEnvironment
+}): boolean {
+  if (!assertNoPathTraversal(input.key)) return false
+  const owns = (environment: StorageEnvironment) =>
+    input.key.startsWith(
+      `${storageEnvironmentPrefix(environment)}/workspaces/${input.workspaceId}/objects/`
+    )
+  return input.environment
+    ? owns(input.environment)
+    : STORAGE_ENVIRONMENTS.some(owns)
+}
+
 export function storageObjectViewPathFromKey(key: string): string {
   return `/api/storage/objects/${key
     .split('/')

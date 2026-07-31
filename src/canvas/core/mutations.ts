@@ -280,6 +280,7 @@ export const canvasMutationSchema = z.union([
 export const canvasMutationTransactionSchema = z
   .object({
     transactionId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
     origin: canvasMutationOriginSchema,
     originRunId: z.string().trim().min(1).optional(),
@@ -313,6 +314,7 @@ export const canvasMutationConflictSchema = z
     conflictId: z.string().trim().min(1),
     transactionId: z.string().trim().min(1),
     mutationId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
     documentId: z.string().trim().min(1).optional(),
     elementId: z.string().trim().min(1).optional(),
@@ -328,6 +330,7 @@ export const canvasMutationConflictSchema = z
 export const canvasMutationReceiptSchema = z
   .object({
     transactionId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
     status: z.enum(['committed', 'conflicted', 'skipped']),
     committedRevision: z.number().int().nonnegative(),

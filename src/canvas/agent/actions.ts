@@ -284,6 +284,7 @@ export const canvasAgentRunAttachmentSchema = z
 export const canvasAgentRunInputSchema = z
   .object({
     protocolVersion: z.literal(CANVAS_AGENT_PROTOCOL_VERSION),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
     messageId: z.string().trim().min(1),
     canvasRevision: z.number().int().nonnegative(),

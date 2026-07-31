@@ -9,8 +9,9 @@ export const canvasAgentThreadStatusSchema = z.enum([
 export const canvasAgentThreadSchema = z
   .object({
     threadId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
-    userId: z.string().trim().min(1),
+    createdByUserId: z.string().trim().min(1),
     title: z.string().trim().min(1).max(200),
     status: canvasAgentThreadStatusSchema,
     lastMessageId: z.string().trim().min(1).nullable(),
@@ -23,8 +24,9 @@ export const canvasAgentMessageSchema = z
   .object({
     messageId: z.string().trim().min(1),
     threadId: z.string().trim().min(1),
+    workspaceId: z.string().trim().min(1),
     projectId: z.string().trim().min(1),
-    userId: z.string().trim().min(1),
+    createdByUserId: z.string().trim().min(1),
     role: z.enum(['user', 'assistant']),
     content: z.string(),
     runId: z.string().trim().min(1).optional(),

@@ -64,13 +64,13 @@ export const userGenerationModelPreferenceModelSchema = z.object({
   provider: z.string().min(1).optional(),
   category: modelCategorySchema,
   pricing: modelPricingConfigSchema.optional(),
-  payload: generationPayloadConfigSchema,
+  /** Required for image/video execution; chat preferences may not need one. */
+  payload: generationPayloadConfigSchema.optional(),
   isSystemDefault: z.boolean().default(false)
 })
 
 export const userGenerationModelPreferenceRowSchema = z.object({
   useCase: canvasGenerationUseCaseSchema,
-  label: z.string().min(1),
   category: modelCategorySchema,
   systemDefaultModelId: z.string().min(1).nullable(),
   selectedModelId: z.string().min(1).nullable(),
@@ -102,7 +102,6 @@ export type UserGenerationModelPreferenceRow = z.infer<
 export type UserGenerationModelPreferencesView = z.infer<
   typeof userGenerationModelPreferencesViewSchema
 >
-
 // ── 用户相关端点的标准信封响应 schema ──
 
 /** GET /api/user/roles —— 当前用户角色列表。 */
@@ -110,7 +109,7 @@ export const userRolesApiResponseSchema = apiSuccessResponseSchema(
   z.object({ roles: z.array(z.string()) })
 )
 
-/** GET/PATCH /api/user/generation-model-preferences —— 生成模型偏好视图。 */
+/** GET/PATCH /api/user/model-preferences —— 生成模型偏好视图。 */
 export const userGenerationModelPreferencesApiResponseSchema =
   apiSuccessResponseSchema(
     z.object({ preferences: userGenerationModelPreferencesViewSchema })

@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { canvasGenerationUseCaseSchema } from '../src/agent/model-preferences.js'
+import {
+  canvasGenerationUseCaseSchema,
+  GENERATION_USE_CASE_MODEL_CATEGORIES,
+  GENERATION_USE_CASE_MODEL_PREFERENCES
+} from '../src/agent/model-preferences.js'
+import { userGenerationModelPreferenceRowSchema } from '../src/auth/user-settings.js'
 import { creditOperationIdSchema } from '../src/billing/schema.js'
 import {
   canvasAgentCommandKindSchema,
@@ -86,5 +91,23 @@ describe('default Canvas2D agent capabilities', () => {
 
   test('accepts the lyrics generation use case (chat category)', () => {
     expect(canvasGenerationUseCaseSchema.safeParse('lyrics').success).toBe(true)
+    expect(GENERATION_USE_CASE_MODEL_CATEGORIES.lyrics).toBe('chat')
+    expect(
+      GENERATION_USE_CASE_MODEL_PREFERENCES.map((item) => item.useCase)
+    ).toEqual(canvasGenerationUseCaseSchema.options)
+  })
+
+  test('keeps localized use-case labels out of the API contract', () => {
+    const row = userGenerationModelPreferenceRowSchema.parse({
+      useCase: 'lyrics',
+      label: 'backend-owned label',
+      category: 'chat',
+      systemDefaultModelId: null,
+      selectedModelId: null,
+      userModelId: null,
+      models: []
+    })
+
+    expect(row).not.toHaveProperty('label')
   })
 })

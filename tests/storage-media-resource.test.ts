@@ -249,11 +249,9 @@ describe('canvas media output resource readers', () => {
           mimeType: 'image/png',
           size: 1024,
           url: null,
-          metadata: {
-            storage: {
-              key: 'objects/upload.png',
-              viewPath: '/api/storage/objects/upload.png'
-            }
+          storage: {
+            key: 'objects/upload.png',
+            viewPath: '/api/storage/objects/upload.png'
           }
         }
       ]
