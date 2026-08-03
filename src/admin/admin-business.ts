@@ -76,31 +76,51 @@ export const USER_BILLING_STATUSES = [
   'paused'
 ] as const
 
+const adminUserPatchFields = {
+  credits: z.number().int().min(0).max(1_000_000_000).optional(),
+  monthlyCreditLimit: z.number().int().min(0).max(1_000_000_000).optional(),
+  plan: z.enum(BILLING_PLAN_IDS).optional(),
+  status: z.enum(USER_BILLING_STATUSES).optional(),
+  roles: z.array(z.string()).optional()
+}
+
+function requireAdminUserPatch(
+  value: {
+    credits?: number
+    monthlyCreditLimit?: number
+    plan?: string
+    status?: string
+    roles?: string[]
+  },
+  context: z.RefinementCtx
+) {
+  const hasPatch =
+    value.credits !== undefined ||
+    value.monthlyCreditLimit !== undefined ||
+    value.plan !== undefined ||
+    value.status !== undefined ||
+    value.roles !== undefined
+  if (!hasPatch) {
+    context.addIssue({
+      code: 'custom',
+      message:
+        'At least one of credits, monthlyCreditLimit, plan, status, roles is required'
+    })
+  }
+}
+
+export const adminUserPatchBodySchema = z
+  .object(adminUserPatchFields)
+  .strict()
+  .superRefine(requireAdminUserPatch)
+
 export const adminUserPatchRequestSchema = z
   .object({
     userId: z.string().min(1),
-    credits: z.number().int().min(0).max(1_000_000_000).optional(),
-    monthlyCreditLimit: z.number().int().min(0).max(1_000_000_000).optional(),
-    plan: z.enum(BILLING_PLAN_IDS).optional(),
-    status: z.enum(USER_BILLING_STATUSES).optional(),
-    roles: z.array(z.string()).optional()
+    ...adminUserPatchFields
   })
   .strict()
-  .superRefine((value, context) => {
-    const hasPatch =
-      value.credits !== undefined ||
-      value.monthlyCreditLimit !== undefined ||
-      value.plan !== undefined ||
-      value.status !== undefined ||
-      value.roles !== undefined
-    if (!hasPatch) {
-      context.addIssue({
-        code: 'custom',
-        message:
-          'At least one of credits, monthlyCreditLimit, plan, status, roles is required'
-      })
-    }
-  })
+  .superRefine(requireAdminUserPatch)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Orders

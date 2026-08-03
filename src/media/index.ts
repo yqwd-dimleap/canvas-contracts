@@ -237,6 +237,24 @@ export const mediaPsdDocumentSchema = z.object({
   channels: z.number().int().positive().optional()
 })
 
+/**
+ * Representative type-layer styling.
+ *
+ * A PSD text layer can carry many style runs; the worker reports the first one
+ * plus the full string, which is enough to recreate editable text without
+ * pretending to model Photoshop's full typography engine.
+ */
+export const mediaPsdLayerTextSchema = z.object({
+  content: z.string(),
+  fontName: z.string().min(1).optional(),
+  fontSize: z.number().finite().positive().optional(),
+  /** `#rrggbb`, derived from the first style run's fill color. */
+  color: z
+    .string()
+    .regex(/^#[0-9a-f]{6}$/)
+    .optional()
+})
+
 export const mediaPsdLayerSchema = z.object({
   sourceLayerId: z.string().min(1),
   parentId: z.string().min(1).nullable(),
@@ -253,7 +271,8 @@ export const mediaPsdLayerSchema = z.object({
   opacity: z.number().int().min(0).max(255),
   blendMode: z.string().min(1).optional(),
   isGroup: z.boolean(),
-  hasMask: z.boolean()
+  hasMask: z.boolean(),
+  text: mediaPsdLayerTextSchema.optional()
 })
 
 export const mediaJobOutputSchema = z.object({

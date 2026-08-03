@@ -332,6 +332,7 @@ export const CANVAS_AGENT_TOOL_NAMES = {
   searchPromptTemplates: 'prompt_search_templates',
   webSearch: 'web_search',
   mediaSearch: 'media_search',
+  inspectPsd: 'media_inspect_psd',
   submitPlan: 'canvas2d_submit_plan',
   requestUserInput: 'canvas2d_request_user_input',
   executeActions: 'canvas2d_execute_actions'
@@ -550,6 +551,29 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     elementTypes: [],
     metadata: {
       uiGroup: 'reference'
+    }
+  },
+  {
+    name: CANVAS_AGENT_TOOL_NAMES.inspectPsd,
+    title: 'Inspect PSD layers',
+    activityTitle: {
+      'zh-CN': '解析 PSD 图层结构',
+      'en-US': 'Inspect PSD layer structure'
+    },
+    description:
+      'Read the layer tree, bounds, visibility, and blend metadata of an owned PSD asset without extracting or writing any files.',
+    category: 'review',
+    runtime: 'langchain',
+    permission: 'read',
+    enabled: true,
+    visible: true,
+    streaming: false,
+    interruptible: true,
+    requiresConfirmation: false,
+    actionTypes: [],
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'understand'
     }
   },
   {

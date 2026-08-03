@@ -3,6 +3,10 @@ import {
   modelPricingConfigSchema,
   modelProviderSchema
 } from '../agent/model-provider.js'
+import {
+  AI_MODEL_SHOWCASE_METADATA_KEY,
+  modelShowcaseConfigSchema
+} from '../agent/model-showcase.js'
 import { agentRuntimeConfigViewSchema } from '../agent/runtime-config.js'
 import { webSearchConfigViewSchema } from '../agent/web-search.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
@@ -22,6 +26,32 @@ function validateGenerationPayloadMetadata(
   })
 }
 
+function validateModelShowcaseMetadata(
+  metadata: Record<string, unknown> | undefined,
+  context: z.RefinementCtx
+) {
+  if (!metadata || !Object.hasOwn(metadata, AI_MODEL_SHOWCASE_METADATA_KEY)) {
+    return
+  }
+  const parsed = modelShowcaseConfigSchema.safeParse(
+    metadata[AI_MODEL_SHOWCASE_METADATA_KEY]
+  )
+  if (parsed.success) return
+  context.addIssue({
+    code: 'custom',
+    path: ['metadata', AI_MODEL_SHOWCASE_METADATA_KEY],
+    message: parsed.error.issues[0]?.message ?? 'Invalid model showcase.'
+  })
+}
+
+function validateModelMetadata(
+  metadata: Record<string, unknown> | undefined,
+  context: z.RefinementCtx
+) {
+  validateGenerationPayloadMetadata(metadata, context)
+  validateModelShowcaseMetadata(metadata, context)
+}
+
 export const updateAdminModelRequestSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
@@ -39,7 +69,21 @@ export const updateAdminModelRequestSchema = z
     path: ['modelId']
   })
   .superRefine((value, context) =>
-    validateGenerationPayloadMetadata(value.metadata, context)
+    validateModelMetadata(value.metadata, context)
+  )
+
+/** PATCH body for a model identified by provider and modelId in the URL. */
+export const adminModelPatchRequestSchema = z
+  .object({
+    displayName: z.string().optional(),
+    enabled: z.boolean().optional(),
+    pricing: modelPricingConfigSchema.optional(),
+    modelKind: z.string().nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .strict()
+  .superRefine((value, context) =>
+    validateModelMetadata(value.metadata, context)
   )
 
 export const updateAdminModelResponseSchema = z.object({
@@ -58,7 +102,7 @@ export const importGatewayModelsRequestSchema = z
   })
   .strict()
   .superRefine((value, context) =>
-    validateGenerationPayloadMetadata(value.metadata, context)
+    validateModelMetadata(value.metadata, context)
   )
 
 export const importGatewayModelsResponseSchema = z.object({
@@ -202,6 +246,9 @@ export const importGatewayModelsApiResponseSchema = apiSuccessResponseSchema(
 
 export type UpdateAdminModelRequest = z.infer<
   typeof updateAdminModelRequestSchema
+>
+export type AdminModelPatchRequest = z.infer<
+  typeof adminModelPatchRequestSchema
 >
 export type UpdateAdminModelResponse = z.infer<
   typeof updateAdminModelResponseSchema

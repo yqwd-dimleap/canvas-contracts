@@ -6,9 +6,8 @@ export const WEB_SEARCH_DEFAULT_BASE_URL = 'https://api.tavily.com' as const
 
 export const webSearchProviderSchema = z.enum(['tavily'])
 const webSearchBaseUrlSchema = z
-  .string()
-  .trim()
   .url()
+  .trim()
   .regex(/^https?:\/\//i, 'Web search base URL must use HTTP or HTTPS')
 
 export const webSearchConfigSchema = z.object({

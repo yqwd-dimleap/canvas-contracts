@@ -238,7 +238,8 @@ export const workspaceProjectPublishRequestSchema = z
   .strict()
 
 export const listWorkspaceProjectsResponseSchema = z.object({
-  projects: z.array(workspaceProjectSchema)
+  projects: z.array(workspaceProjectSchema),
+  total: z.number().int().nonnegative()
 })
 
 export const getWorkspaceProjectResponseSchema = z.object({
@@ -264,6 +265,10 @@ export const listWorkspaceProjectsApiResponseSchema = apiSuccessResponseSchema(
 
 export const workspaceProjectApiResponseSchema = apiSuccessResponseSchema(
   getWorkspaceProjectResponseSchema
+)
+
+export const workspaceProjectCanvasApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ canvas: workspaceProjectCanvasSchema })
 )
 
 export const workspaceProjectCanvasCommitApiResponseSchema =

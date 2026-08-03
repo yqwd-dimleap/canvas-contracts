@@ -79,13 +79,10 @@ export const workspaceAssetSourceSchema = z
   })
   .strict()
   .superRefine((source, context) => {
-    if (source.kind === 'generation' && !source.generationTaskId) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['generationTaskId'],
-        message: 'ASSET_GENERATION_TASK_REQUIRED'
-      })
-    }
+    // `generationTaskId` is intentionally optional: assets produced before the
+    // task id was persisted alongside the result carry a truthful
+    // `kind: 'generation'` with no recoverable task. Downgrading them to
+    // 'import' would misstate provenance, so the link stays best-effort.
     if (source.kind === 'media_job' && !source.mediaJobId) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -202,6 +199,31 @@ export const workspaceAssetMetadataSchema = z
   })
   .strict()
 
+export const WORKSPACE_ASSET_SEARCH_MAX_TOKENS = 64 as const
+export const WORKSPACE_ASSET_SEARCH_MAX_TOKEN_LENGTH = 48 as const
+export const WORKSPACE_ASSET_SEARCH_MIN_QUERY_LENGTH = 1 as const
+
+export const workspaceAssetSearchSchema = z
+  .object({
+    tokens: z.array(z.string().min(1)).max(WORKSPACE_ASSET_SEARCH_MAX_TOKENS)
+  })
+  .strict()
+
+/**
+ * Every status except `archived`, listed explicitly.
+ *
+ * The default listing wants "not archived", but expressing that as `$ne` makes
+ * it a range predicate, which cannot feed an index-ordered sort — Mongo falls
+ * back to a blocking in-memory SORT of the whole match. An `$in` over equality
+ * values keeps the sort index-provided (SORT_MERGE).
+ */
+export const WORKSPACE_ASSET_ACTIVE_STATUSES = [
+  'uploading',
+  'processing',
+  'ready',
+  'failed'
+] as const
+
 export const workspaceAssetSchema = z
   .object({
     id: z.string().min(1),
@@ -229,8 +251,95 @@ export const workspaceAssetSchema = z
 
 export const workspaceAssetDocumentSchema = workspaceAssetSchema.extend({
   createdAt: timestampSchema,
-  updatedAt: timestampSchema
+  updatedAt: timestampSchema,
+  /**
+   * Persistence-only search projection. Derived from `name`/`mimeType` on every
+   * write, never client-supplied and never returned by the API — the store
+   * strips it before parsing through `workspaceAssetSchema`, which is strict.
+   */
+  search: workspaceAssetSearchSchema.optional()
 })
+
+export const WORKSPACE_ASSET_FOLDER_MAX_DEPTH = 8 as const
+export const WORKSPACE_ASSET_FOLDER_PATH_SEPARATOR = '/' as const
+
+/**
+ * Materialized ancestor path, e.g. `/root-id/child-id/`. Subtree reads are a
+ * single indexed prefix range instead of a recursive walk, which is what keeps
+ * folder listing flat-cost as the tree grows.
+ */
+export const workspaceAssetFolderSchema = z
+  .object({
+    id: z.string().min(1),
+    workspaceId: z.string().min(1),
+    createdByUserId: z.string().min(1),
+    name: z.string().trim().min(1).max(128),
+    parentId: z.string().min(1).nullable(),
+    path: z.string().min(1),
+    depth: z.number().int().min(0).max(WORKSPACE_ASSET_FOLDER_MAX_DEPTH),
+    createdAt: z.string(),
+    updatedAt: z.string()
+  })
+  .strict()
+
+export const workspaceAssetFolderDocumentSchema =
+  workspaceAssetFolderSchema.extend({
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema
+  })
+
+export const workspaceAssetFolderCreateRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(128),
+    parentId: z.string().min(1).nullable().optional()
+  })
+  .strict()
+
+export const workspaceAssetFolderPatchRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(128).optional(),
+    /** `null` moves the folder to the workspace root. */
+    parentId: z.string().min(1).nullable().optional()
+  })
+  .strict()
+  .refine((value) => value.name !== undefined || value.parentId !== undefined, {
+    message: 'FOLDER_PATCH_EMPTY'
+  })
+
+export const workspaceAssetFolderDeleteQuerySchema = z
+  .object({
+    /**
+     * Without this the request fails with 409 when the folder still holds
+     * subfolders or assets. With it, the subtree is removed and every asset
+     * beneath it is reparented to this folder's parent — never deleted.
+     */
+    cascade: z.boolean().optional()
+  })
+  .strict()
+
+export const workspaceAssetFolderListResponseSchema = z.object({
+  folders: z.array(workspaceAssetFolderSchema)
+})
+
+export const workspaceAssetFolderResponseSchema = z.object({
+  folder: workspaceAssetFolderSchema
+})
+
+export const workspaceAssetFolderDeleteResponseSchema = z.object({
+  success: z.literal(true),
+  deletedFolders: z.number().int().nonnegative(),
+  reparentedAssets: z.number().int().nonnegative()
+})
+
+export const workspaceAssetFolderListApiResponseSchema =
+  apiSuccessResponseSchema(workspaceAssetFolderListResponseSchema)
+
+export const workspaceAssetFolderApiResponseSchema = apiSuccessResponseSchema(
+  workspaceAssetFolderResponseSchema
+)
+
+export const workspaceAssetFolderDeleteApiResponseSchema =
+  apiSuccessResponseSchema(workspaceAssetFolderDeleteResponseSchema)
 
 export const workspaceAssetReferenceTypeSchema = z.enum([
   'canvas_raster',
@@ -321,6 +430,11 @@ export const workspaceUploadPartRequestSchema = z
   })
   .strict()
 
+export const workspaceUploadPartBodySchema =
+  workspaceUploadPartRequestSchema.pick({
+    key: true
+  })
+
 export const workspaceUploadPartResponseSchema = z.object({
   uploadUrl: z.string().min(1)
 })
@@ -346,6 +460,9 @@ export const workspaceUploadAbortRequestSchema =
     key: true,
     uploadId: true
   })
+
+export const workspaceUploadAbortBodySchema =
+  workspaceUploadAbortRequestSchema.pick({ key: true })
 
 function isSupportedWorkspaceUploadMimeType(value: string): boolean {
   const normalized = value.split(';')[0]?.trim().toLowerCase() ?? ''
@@ -402,9 +519,62 @@ export const workspaceAssetPatchRequestSchema = z
   })
   .strict()
 
+export const WORKSPACE_ASSET_LIST_DEFAULT_LIMIT = 48 as const
+export const WORKSPACE_ASSET_LIST_MAX_LIMIT = 200 as const
+
+export const workspaceAssetSortSchema = z.enum([
+  'updatedAt',
+  'createdAt',
+  'name'
+])
+
+export const workspaceAssetOrderSchema = z.enum(['asc', 'desc'])
+
+/**
+ * Keyset pagination. The cursor encodes the sort key value plus the `_id`
+ * tiebreaker of the last row, so paging cost stays flat instead of growing
+ * with offset — and rows cannot be skipped or repeated when the underlying
+ * set shifts mid-scroll, which offset paging cannot avoid.
+ *
+ * A cursor is only meaningful for the exact filter+sort it was issued for; the
+ * server rejects one whose sort or order does not match the request.
+ */
+export const workspaceAssetCursorSchema = z
+  .object({
+    sort: workspaceAssetSortSchema,
+    order: workspaceAssetOrderSchema,
+    /** Sort key value of the last row: ISO string, or name. */
+    value: z.string(),
+    id: z.string().min(1)
+  })
+  .strict()
+
+export const workspaceAssetListQuerySchema = z
+  .object({
+    query: z.string().trim().max(128).optional(),
+    type: workspaceAssetTypeSchema.optional(),
+    status: workspaceAssetStatusSchema.optional(),
+    folderId: z.string().min(1).max(128).nullable().optional(),
+    /** Include every descendant of `folderId`, not just direct children. */
+    recursive: z.boolean().optional(),
+    tags: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(WORKSPACE_ASSET_LIST_MAX_LIMIT)
+      .default(WORKSPACE_ASSET_LIST_DEFAULT_LIMIT),
+    sort: workspaceAssetSortSchema.default('updatedAt'),
+    order: workspaceAssetOrderSchema.default('desc'),
+    cursor: z.string().min(1).optional()
+  })
+  .strict()
+
 export const listWorkspaceAssetsResponseSchema = z.object({
   assets: z.array(workspaceAssetSchema),
-  hasMore: z.boolean()
+  hasMore: z.boolean(),
+  /** Opaque; pass back verbatim as `cursor`. Null when the page is last. */
+  nextCursor: z.string().nullable()
 })
 
 export const workspaceAssetResponseSchema = z.object({
@@ -539,6 +709,45 @@ export type WorkspaceUploadCompleteResult = z.infer<
 export type WorkspaceAssetPatchRequest = z.infer<
   typeof workspaceAssetPatchRequestSchema
 >
+export type WorkspaceAssetSearch = z.infer<typeof workspaceAssetSearchSchema>
+export type WorkspaceAssetSort = z.infer<typeof workspaceAssetSortSchema>
+export type WorkspaceAssetOrder = z.infer<typeof workspaceAssetOrderSchema>
+export type WorkspaceAssetCursor = z.infer<typeof workspaceAssetCursorSchema>
+export type WorkspaceAssetListQuery = z.infer<
+  typeof workspaceAssetListQuerySchema
+>
+export type ListWorkspaceAssetsResponse = z.infer<
+  typeof listWorkspaceAssetsResponseSchema
+>
+export type WorkspaceAssetFolder = z.infer<typeof workspaceAssetFolderSchema>
+export type WorkspaceAssetFolderDocument = z.infer<
+  typeof workspaceAssetFolderDocumentSchema
+>
+export type WorkspaceAssetFolderCreateRequest = z.infer<
+  typeof workspaceAssetFolderCreateRequestSchema
+>
+export type WorkspaceAssetFolderPatchRequest = z.infer<
+  typeof workspaceAssetFolderPatchRequestSchema
+>
+
+/** Ancestor ids of a folder, root first, excluding the folder itself. */
+export function workspaceAssetFolderAncestorIds(path: string): string[] {
+  return path.split(WORKSPACE_ASSET_FOLDER_PATH_SEPARATOR).filter(Boolean)
+}
+
+/** Materialized path a child of `parent` must carry. */
+export function workspaceAssetFolderChildPath(
+  parent: Pick<WorkspaceAssetFolder, 'id' | 'path'> | null
+): string {
+  const separator = WORKSPACE_ASSET_FOLDER_PATH_SEPARATOR
+  if (!parent) return separator
+  return `${parent.path}${parent.id}${separator}`
+}
+
+/** Escape a value used inside a RegExp so user input cannot alter the pattern. */
+export function escapeRegExpLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 export type WorkspaceAssetMediaContext =
   | 'canvas'
