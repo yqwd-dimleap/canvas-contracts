@@ -134,6 +134,7 @@ export const gatewayModelsResponseSchema = z.object({
         'chat',
         'embedding',
         'audio',
+        'lyrics',
         'other'
       ]),
       pricing: z.unknown().optional(),

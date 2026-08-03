@@ -8,7 +8,8 @@ import {
 export const generationPayloadMediaTypeSchema = z.enum([
   'image',
   'video',
-  'chat'
+  'chat',
+  'lyrics'
 ])
 
 const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
@@ -868,7 +869,7 @@ export function generationPayloadTemplateVariables(
   const direct: GenerationTemplateVariable[] = [
     { path: 'model', group: 'direct', description: 'model id' },
     { path: 'prompt', group: 'direct', description: 'prompt text' },
-    ...(config.mediaType === 'chat'
+    ...(config.mediaType === 'chat' || config.mediaType === 'lyrics'
       ? [
           {
             path: 'messages',
@@ -1217,56 +1218,95 @@ export function createDefaultGenerationPayloadConfig(
               }
             }
           }
-        : {
-            mediaType: 'chat',
-            endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
-            pricingBindings: {},
-            controls: [
-              {
-                key: 'temperature',
-                label: 'Temperature',
-                type: 'number',
-                min: 0,
-                max: 2,
-                step: 0.1
-              },
-              {
-                key: 'maxTokens',
-                label: 'Max tokens',
-                type: 'number',
-                min: 1
-              },
-              {
-                key: 'reasoningEffort',
-                label: 'Reasoning effort',
-                type: 'select',
-                options: ['low', 'medium', 'high']
-              },
-              {
-                key: 'stream',
-                label: 'Stream',
-                type: 'boolean'
-              },
-              {
-                key: 'streamOptions',
-                type: 'json'
-              }
-            ],
-            request: {
-              omitEmpty: true,
-              encoding: 'json',
-              headers: {},
-              multipartFields: [],
-              body: {
-                model: '{{model}}',
-                messages: '{{messages}}',
-                temperature: '{{params.temperature}}',
-                max_tokens: '{{params.maxTokens}}',
-                reasoning_effort: '{{params.reasoningEffort}}',
-                stream: '{{params.stream}}',
-                stream_options: '{{params.streamOptions}}'
+        : mediaType === 'lyrics'
+          ? {
+              mediaType: 'lyrics',
+              endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
+              pricingBindings: {},
+              controls: [
+                {
+                  key: 'mode',
+                  label: 'Mode',
+                  type: 'select',
+                  defaultValue: 'write_full_song',
+                  options: ['write_full_song', 'continue']
+                },
+                {
+                  key: 'lyrics',
+                  label: 'Existing Lyrics',
+                  type: 'text',
+                  defaultValue: ''
+                },
+                {
+                  key: 'title',
+                  label: 'Title',
+                  type: 'text',
+                  defaultValue: ''
+                }
+              ],
+              request: {
+                omitEmpty: true,
+                encoding: 'json',
+                headers: {},
+                multipartFields: [],
+                body: {
+                  mode: '{{params.mode}}',
+                  prompt: '{{prompt}}',
+                  lyrics: '{{params.lyrics}}',
+                  title: '{{params.title}}'
+                }
               }
             }
-          }
+          : {
+              mediaType: 'chat',
+              endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
+              pricingBindings: {},
+              controls: [
+                {
+                  key: 'temperature',
+                  label: 'Temperature',
+                  type: 'number',
+                  min: 0,
+                  max: 2,
+                  step: 0.1
+                },
+                {
+                  key: 'maxTokens',
+                  label: 'Max tokens',
+                  type: 'number',
+                  min: 1
+                },
+                {
+                  key: 'reasoningEffort',
+                  label: 'Reasoning effort',
+                  type: 'select',
+                  options: ['low', 'medium', 'high']
+                },
+                {
+                  key: 'stream',
+                  label: 'Stream',
+                  type: 'boolean'
+                },
+                {
+                  key: 'streamOptions',
+                  type: 'json'
+                }
+              ],
+              request: {
+                omitEmpty: true,
+                encoding: 'json',
+                headers: {},
+                multipartFields: [],
+                body: {
+                  model: '{{model}}',
+                  messages: '{{messages}}',
+                  temperature: '{{params.temperature}}',
+                  max_tokens: '{{params.maxTokens}}',
+                  reasoning_effort: '{{params.reasoningEffort}}',
+                  stream: '{{params.stream}}',
+                  stream_options: '{{params.streamOptions}}'
+                }
+              }
+            }
   return generationPayloadConfigSchema.parse(payload)
 }

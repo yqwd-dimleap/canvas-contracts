@@ -14,6 +14,7 @@ export const modelCategorySchema = z.enum([
   'chat',
   'embedding',
   'audio',
+  'lyrics',
   'other'
 ])
 

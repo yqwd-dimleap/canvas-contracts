@@ -193,7 +193,10 @@ export function buildConfiguredChatGenerationPayload(
 ): ConfiguredChatGenerationPayload {
   const normalized = normalizeChatGenerationParams(params)
   const payloadConfig = readGenerationPayloadConfig(metadata)
-  if (payloadConfig?.mediaType !== 'chat') {
+  if (
+    payloadConfig?.mediaType !== 'chat' &&
+    payloadConfig?.mediaType !== 'lyrics'
+  ) {
     throw new Error(
       `Generation payload is not configured for model ${normalized.model}.`
     )

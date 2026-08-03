@@ -38,6 +38,7 @@ export const usageEventTypeSchema = z.enum([
   'image.generation',
   'image.edit',
   'video.generation',
+  'lyrics.generation',
   'billing.credit_grant',
   'billing.payment_settled'
 ])
