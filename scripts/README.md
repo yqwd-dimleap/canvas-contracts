@@ -20,10 +20,10 @@ Actions 发布失败后，可以针对同一个 `package.json` 版本和同一�
 - ✅ 显示自上次发布以来的 commit 历史
 - ✅ 自动更新 `package.json` 版本号
 - ✅ 默认跳过文档更新，需要时可用 `--with-changelog` 打开 `CHANGELOG.md`
-- ✅ 运行完整检查（lint + typecheck + build）
+- ✅ 运行完整发布检查（lint + typecheck + build + test + pack verify）
 - ✅ `prepare` 只创建本地版本提交；tag 延后到 `publish` 时按 HEAD 现打
 - ✅ 用显式 `publish` 命令推送远程并触发 GitHub Actions 发布
-- ✅ 用显式 `retry-publish` 命令复用当前版本/tag 重试失败的发布
+- ✅ 用显式 `retry-publish` 命令重跑当前 immutable tag 对应的 GitHub Actions 失败任务
 - ✅ 用 `status` 一眼看清当前发布状态与推荐的下一步
 - ✅ 用 `abort` 安全回退「本地已 prepare 但未推送」的发布，保留无关改动
 
@@ -69,9 +69,9 @@ Actions 发布失败后，可以针对同一个 `package.json` 版本和同一�
    - 自动更新 `package.json` 中的版本号
    - 默认不更新 `CHANGELOG.md`
    - 传入 `--with-changelog` 时会打开编辑器并提示添加日期和变更内容
-   - 执行 `bun run check`（lint + typecheck + build）
+   - 执行 `bun run release:verify`（lint + typecheck + build + test + pack verify）
    - 如果失败会自动回滚 `package.json` 的修改
-   - 提交格式：`chore(release): vX.Y.Z`
+   - 提交格式：`chore: release vX.Y.Z`
    - **不创建 tag**（tag 延后到 `publish` 阶段按 HEAD 现打）
    - 如果检测到已经 prepare 过（未发布），不会重复 bump，而是提示用
      `publish` / `abort` / `status`
@@ -87,11 +87,11 @@ Actions 发布失败后，可以针对同一个 `package.json` 版本和同一�
    - 修复 GitHub Actions、registry token、权限或网络问题
    - 运行 `./scripts/release.sh retry-publish`
    - 脚本会确认当前 HEAD 是对应版本的 release 提交
-   - 如果远端 tag 已存在且指向当前 HEAD，脚本会删除并重新推送同一个远端 tag 以重新触发 Actions
+   - 远端 tag 永远不移动；脚本通过 GitHub CLI 重跑该 tag 对应的失败 Action
    - 如果远端 tag 还不存在，则等同于正常 `publish`
    - 整个过程不会修改 `package.json`，也不会 bump 到下一个版本
 
-如果已经 prepare 过（HEAD 是 `chore(release): vX.Y.Z` 且未发布），
+如果已经 prepare 过（HEAD 是 `chore: release vX.Y.Z` 且未发布），
 再次运行默认的 `./scripts/release.sh` 会直接提示使用 `publish` /
 `abort`，不会进入版本选择、也不会重复 bump。
 
@@ -164,8 +164,8 @@ git stash
 
 **问题：检查失败**
 ```bash
-# 手动运行检查看详细错误
-bun run check
+# 手动运行完整发布检查
+bun run release:verify
 
 # 修复后重新运行发布脚本
 ./scripts/release.sh

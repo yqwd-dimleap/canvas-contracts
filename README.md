@@ -106,7 +106,7 @@ LangGraph/Deep Agents state.
 - Package versions, persisted schema versions, and wire protocol versions are
   independent version spaces. Never copy a package major into a schema or
   protocol version.
-- The current baselines are package `2.0.x`, CanvasDocument schema `1`,
+- The current baselines are package `2.2.x`, CanvasDocument schema `1`,
   workspace Canvas schema `2`, and Canvas Agent application protocol `v2`.
 - Schema and protocol versions advance only with an explicit migration plan;
   ordinary package releases must not change them.

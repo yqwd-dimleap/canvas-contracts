@@ -206,7 +206,7 @@ release_tag_for_version() {
 
 release_commit_subject() {
   local version="$1"
-  echo "chore(release): v${version}"
+  echo "chore: release v${version}"
 }
 
 local_tag_target() {
@@ -459,7 +459,7 @@ prepare_release() {
   echo "Select version bump type:"
   echo "  ${GREEN}1)${NC} patch   - Bug fixes, docs, non-behavioral changes (${current} → ${major}.${minor}.$((patch + 1)))"
   echo "  ${GREEN}2)${NC} minor   - New features, backward compatible (${current} → ${major}.$((minor + 1)).0)"
-  echo "  ${GREEN}3)${NC} major   - Breaking changes (${current} → $((major + 1)).0.0)"
+  echo "  ${GREEN}3)${NC} major   - Explicitly approved platform-scale release (${current} → $((major + 1)).0.0)"
   echo ""
   read -p "Enter choice [1-3]: " choice
 
@@ -539,8 +539,8 @@ prepare_release() {
   fi
 
   echo ""
-  echo -e "${GREEN}Running checks (lint + typecheck + build)...${NC}"
-  if ! bun run check; then
+  echo -e "${GREEN}Running release checks (lint + typecheck + build + tests + package)...${NC}"
+  if ! bun run release:verify; then
     echo ""
     echo -e "${RED}✗ Checks failed!${NC}"
     echo "Please fix the errors and try again."
@@ -549,20 +549,7 @@ prepare_release() {
   fi
 
   echo ""
-  echo -e "${GREEN}✓ All checks passed${NC}"
-
-  echo ""
-  echo -e "${GREEN}Verifying package tarball contents...${NC}"
-  if ! bun run pack:verify; then
-    echo ""
-    echo -e "${RED}✗ Package verification failed!${NC}"
-    echo "Please fix the package exports or build output and try again."
-    git checkout -- package.json
-    exit 1
-  fi
-
-  echo ""
-  echo -e "${GREEN}✓ Package contents verified${NC}"
+  echo -e "${GREEN}✓ All release checks passed${NC}"
 
   echo ""
   echo -e "${GREEN}Committing version bump...${NC}"
@@ -721,9 +708,8 @@ retry_publish() {
   echo -e "${YELLOW}  Retry publish ${tag}${NC}"
   echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
   echo ""
-  echo "This will not bump the version or create a new commit."
-  echo "It will push origin/${branch}, then delete and recreate origin tag ${tag}"
-  echo "at the same commit to trigger GitHub Actions again."
+  echo "This will not bump the version, create a new commit, or move ${tag}."
+  echo "It re-runs the existing GitHub Actions publish workflow for this immutable tag."
   echo ""
   read -p "Re-trigger publish for ${tag}? [y/N]: " retry_confirm
   if [[ ! "$retry_confirm" =~ ^[Yy]$ ]]; then
@@ -731,14 +717,22 @@ retry_publish() {
     exit 0
   fi
 
-  echo ""
-  echo -e "${GREEN}Pushing release commit to origin/${branch}...${NC}"
-  git push origin "$branch"
+  if ! command -v gh > /dev/null 2>&1; then
+    echo -e "${RED}Error: GitHub CLI (gh) is required to re-run an immutable tag workflow.${NC}"
+    echo "Re-run the failed Publish Package workflow for ${tag} in GitHub Actions instead."
+    exit 1
+  fi
 
-  echo -e "${GREEN}Recreating origin tag ${tag} at current HEAD...${NC}"
-  git tag -f -a "$tag" -m "Release ${tag}" > /dev/null
-  git push origin ":refs/tags/${tag}"
-  git push origin "$tag"
+  local run_id
+  run_id=$(gh run list --workflow publish.yml --branch "$tag" --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
+  if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+    echo -e "${RED}Error: no Publish Package workflow run was found for ${tag}.${NC}"
+    echo "Start a workflow re-run from GitHub Actions for the existing tag."
+    exit 1
+  fi
+
+  echo -e "${GREEN}Re-running failed jobs for Publish Package workflow ${run_id}...${NC}"
+  gh run rerun "$run_id" --failed
 
   print_publish_success "$version"
 }
