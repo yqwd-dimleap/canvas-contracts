@@ -9,6 +9,7 @@ export const canvasGenerationUseCaseSchema = z.enum([
   'image-to-video',
   'video-edit',
   'video-merge',
+  'video-script',
   'lyrics'
 ])
 
@@ -30,7 +31,8 @@ export const GENERATION_USE_CASE_MODEL_CATEGORIES = {
   'image-to-video': 'video',
   'video-edit': 'video',
   'video-merge': 'video',
-  lyrics: 'audio'
+  'video-script': 'chat',
+  lyrics: 'chat'
 } as const satisfies Record<CanvasGenerationUseCase, GenerationModelCategory>
 
 export const GENERATION_USE_CASE_MODEL_PREFERENCES =

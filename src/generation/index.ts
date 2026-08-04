@@ -38,7 +38,12 @@ export const generationTaskStatusSchema = z.enum([
 // Generation Tasks
 // ============================================================================
 
-export const generationTaskTypeSchema = z.enum(['image', 'video', 'lyrics'])
+export const generationTaskTypeSchema = z.enum([
+  'image',
+  'video',
+  'lyrics',
+  'chat'
+])
 
 export const generationTaskResultSchema = z.object({
   url: z.string().optional(),
@@ -69,6 +74,8 @@ export const generationTaskSchema = z.object({
   /** Upstream/provider task id. `id` remains the canonical Canvas task id. */
   taskId: z.string().optional(),
   providerTaskId: z.string().optional(),
+  /** Idempotency key for retry deduplication. */
+  idempotencyKey: z.string().optional(),
   documentId: z.string().optional(),
   elementId: z.string().optional(),
   actionId: z.string().optional(),
@@ -91,6 +98,7 @@ export const generationTaskDocumentSchema = generationTaskSchema.extend({
 
 export const createGenerationTaskRequestSchema = z.object({
   type: generationTaskTypeSchema,
+  idempotencyKey: z.string().optional(),
   documentId: z.string().optional(),
   elementId: z.string().optional(),
   actionId: z.string().optional(),
