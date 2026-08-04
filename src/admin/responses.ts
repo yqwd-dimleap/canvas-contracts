@@ -91,24 +91,21 @@ export const updateAdminModelResponseSchema = z.object({
   success: z.literal(true)
 })
 
-export const importGatewayModelsRequestSchema = z
+export const registerGatewayModelRequestSchema = z
   .object({
-    provider: z.string().trim().min(1).optional(),
-    modelIds: z.array(z.string().trim().min(1)).min(1),
-    enabled: z.boolean().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    pricingGroup: z.string().trim().min(1).optional(),
-    markup: z.number().min(0).optional(),
-    centsPerCredit: z.number().positive().optional()
+    modelId: z.string().trim().min(1),
+    displayName: z.string().trim().min(1),
+    modelKind: modelCategorySchema,
+    pricing: modelPricingConfigSchema,
+    metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
   .superRefine((value, context) =>
     validateModelMetadata(value.metadata, context)
   )
 
-export const importGatewayModelsResponseSchema = z.object({
-  imported: z.number().int().min(0),
-  synced: z.number().int().min(0)
+export const registerGatewayModelResponseSchema = z.object({
+  registered: z.literal(true)
 })
 
 /**
@@ -152,50 +149,19 @@ export const modelProvidersResponseSchema = z.object({
  * Admin - Gateway Models List Response
  * 管理后台：网关模型列表
  */
-export const gatewayModelsResponseSchema = z.object({
-  models: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      provider: z.string().optional(),
-      description: z.string().optional(),
-      icon: z.string().optional(),
-      tags: z.array(z.string()).default([]),
-      vendorId: z.number().optional(),
-      vendorName: z.string().optional(),
-      vendorIcon: z.string().optional(),
-      quotaType: z.number().optional(),
-      modelRatio: z.number().optional(),
-      completionRatio: z.number().optional(),
-      cacheRatio: z.number().optional(),
-      modelPrice: z.number().optional(),
-      priceDescription: z.string().optional(),
-      enableGroups: z.array(z.string()).default([]),
-      supportedEndpointTypes: z.array(z.string()).default([]),
-      contextWindow: z.number().optional(),
-      category: modelCategorySchema,
-      pricing: z.unknown().optional(),
-      pricingAvailable: z.boolean().optional(),
-      pricingError: z.string().optional(),
-      metadata: z.record(z.string(), z.unknown()).optional()
-    })
-  ),
-  groupRatio: z.record(z.string(), z.number()).default({}),
-  vendors: z
-    .array(
-      z.object({
-        id: z.number(),
-        name: z.string().optional(),
-        icon: z.string().optional()
-      })
+export const gatewayModelsResponseSchema = z
+  .object({
+    models: z.array(
+      z
+        .object({
+          id: z.string().trim().min(1),
+          ownedBy: z.string().trim().min(1).optional(),
+          created: z.number().int().nonnegative().optional()
+        })
+        .strict()
     )
-    .default([]),
-  supportedEndpoint: z.record(z.string(), z.unknown()).default({}),
-  usableGroup: z.record(z.string(), z.string()).default({}),
-  autoGroups: z.array(z.string()).default([]),
-  pricingVersion: z.string().optional(),
-  success: z.boolean().optional()
-})
+  })
+  .strict()
 
 /**
  * Admin - Agent Runtime Config Response
@@ -233,8 +199,8 @@ export const webSearchConfigApiResponseSchema = apiSuccessResponseSchema(
   webSearchConfigResponseSchema
 )
 
-export const importGatewayModelsApiResponseSchema = apiSuccessResponseSchema(
-  importGatewayModelsResponseSchema
+export const registerGatewayModelApiResponseSchema = apiSuccessResponseSchema(
+  registerGatewayModelResponseSchema
 )
 
 export type UpdateAdminModelRequest = z.infer<
@@ -246,11 +212,11 @@ export type AdminModelPatchRequest = z.infer<
 export type UpdateAdminModelResponse = z.infer<
   typeof updateAdminModelResponseSchema
 >
-export type ImportGatewayModelsRequest = z.infer<
-  typeof importGatewayModelsRequestSchema
+export type RegisterGatewayModelRequest = z.infer<
+  typeof registerGatewayModelRequestSchema
 >
-export type ImportGatewayModelsResponse = z.infer<
-  typeof importGatewayModelsResponseSchema
+export type RegisterGatewayModelResponse = z.infer<
+  typeof registerGatewayModelResponseSchema
 >
 export type DeleteModelsRequest = z.infer<typeof deleteModelsRequestSchema>
 export type DeleteModelsResponse = z.infer<typeof deleteModelsResponseSchema>

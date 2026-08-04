@@ -1,7 +1,7 @@
 /**
  * 模型分类（modelCategory）归一化 —— 单一真相源。
  *
- * 把网关模型 id + `/api/pricing` 元数据归类到 modelCategory
+ * 把模型 id 与 Canvas 自有元数据归类到 modelCategory
  * （image / video / chat / embedding / audio / other）。
  * 前后端共用本模块，避免各自维护启发式造成漂移。
  *
@@ -33,7 +33,7 @@ export type GatewayModelKindHints = {
 /** 管理员覆盖启发式分类时，写入 `AiModelRow.metadata` 的键。 */
 export const AI_MODEL_KIND_METADATA_KEY = 'modelKind'
 
-/** 网关导入时的上游快照（便于后台复核），存于 metadata 的键。 */
+/** 网关注册时的上游发现快照（便于后台复核），存于 metadata 的键。 */
 export const AI_MODEL_GATEWAY_HINTS_METADATA_KEY = 'gatewayHints'
 
 /** 管理员声明该模型可安全接收哪些 reasoning_effort 档位。 */
@@ -158,7 +158,22 @@ function isImageModelId(lower: string): boolean {
     return true
   }
   if (lower.includes('image') && !lower.includes('text-embedding')) return true
-  return false
+  return (
+    lower.includes('dall-e') ||
+    lower.includes('flux-') ||
+    lower.startsWith('flux') ||
+    lower.includes('stable-diffusion') ||
+    lower.includes('sdxl') ||
+    lower.includes('midjourney') ||
+    lower.startsWith('mj-') ||
+    lower.includes('ideogram') ||
+    lower.includes('recraft') ||
+    lower.includes('imagen-') ||
+    lower.includes('seedream') ||
+    lower.includes('hidream') ||
+    lower.includes('kolors') ||
+    lower.includes('nano-banana')
+  )
 }
 
 function isVideoModelId(lower: string): boolean {
@@ -172,7 +187,11 @@ function isVideoModelId(lower: string): boolean {
     lower.includes('videoedit') ||
     lower.includes('video-edit') ||
     lower.includes('video_edit') ||
-    /\bvideo\b/.test(lower)
+    /\bvideo\b/.test(lower) ||
+    /(^|[^a-z0-9])(veo|sora|kling|hailuo|seedance|vidu|pixverse|runway|pika)([^a-z0-9]|$)/.test(
+      lower
+    ) ||
+    lower.includes('cogvideo')
   )
 }
 
@@ -194,6 +213,9 @@ function isAudioModelId(lower: string): boolean {
     lower.includes('lyrics') ||
     lower.includes('music') ||
     lower.includes('suno') ||
+    /(^|[^a-z0-9])udio([^a-z0-9]|$)/.test(lower) ||
+    lower.includes('elevenlabs') ||
+    lower.includes('riffusion') ||
     lower.includes('-audio') ||
     lower.endsWith('-audio') ||
     (lower.includes('voice') && !lower.includes('invoice'))

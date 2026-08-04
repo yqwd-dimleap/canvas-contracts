@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { timestampSchema } from '../shared/timestamp.js'
 
 /**
- * 模型类别（按网关返回的模型列表做归类）。
- * 后台用于将导入的模型分到 image / video / chat / embedding / audio / other，
+ * Canvas 模型类别。上游发现只提供模型身份；后台注册时显式选择
+ * image / video / chat / embedding / audio / other，
  * 也是 node_type_models 配置中“某类节点可用哪些模型”的映射键。
  *
  * 前端 helpers 的 ModelCategoryId 收敛到此枚举（单一真相源）。
