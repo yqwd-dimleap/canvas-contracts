@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { updateAdminModelRequestSchema } from '../src/admin/responses.js'
-import { buildConfiguredChatGenerationPayload } from '../src/models/generation-payload.js'
+import {
+  buildConfiguredAudioGenerationPayload,
+  buildConfiguredChatGenerationPayload
+} from '../src/models/generation-payload.js'
 import {
   buildGenerationPayloadFromConfig,
   createDefaultGenerationPayloadConfig,
@@ -117,6 +120,27 @@ describe('generation payload config capabilities', () => {
       model: MODEL_ID,
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.5
+    })
+  })
+
+  test('audio build entry uses a provider-neutral prompt payload', () => {
+    const payload = createDefaultGenerationPayloadConfig('audio')
+    const configured = buildConfiguredAudioGenerationPayload(
+      {
+        model: MODEL_ID,
+        prompt: 'Write lyrics about the sea',
+        params: {},
+        references: { items: [] },
+        system: {}
+      },
+      mergeGenerationPayloadConfig(null, payload)
+    )
+
+    expect(configured.config.mediaType).toBe('audio')
+    expect(configured.config.endpoint).toBe('/v1/audio/generations')
+    expect(configured.payload).toEqual({
+      model: MODEL_ID,
+      prompt: 'Write lyrics about the sea'
     })
   })
 

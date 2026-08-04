@@ -177,6 +177,21 @@ export const videoGenerationParamsSchema = z
   })
   .strict()
 
+/** Audio-category generation request (including the Lyrics use case). */
+export const audioGenerationParamsSchema = z
+  .object({
+    prompt: z.string().describe('Generation prompt.'),
+    model: z.string().min(1).describe('Configured audio-category model id.'),
+    params: generationParamsSchema.default({}),
+    references: generationReferencesSchema
+      .default({ items: [] })
+      .describe('Reference media; kept separate from model controls.'),
+    system: generationSystemSchema
+      .default({})
+      .describe('Canvas persistence context; omit for standalone API tests.')
+  })
+  .strict()
+
 /** Chat 消息（front-end → agent 的结构化消息数组）。 */
 export const chatGenerationMessageSchema = z.looseObject({
   role: z.string().min(1),

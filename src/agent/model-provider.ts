@@ -14,9 +14,31 @@ export const modelCategorySchema = z.enum([
   'chat',
   'embedding',
   'audio',
-  'lyrics',
   'other'
 ])
+
+/** Categories that can be configured as generation model inputs. */
+export const generationModelCategorySchema = modelCategorySchema.extract([
+  'image',
+  'video',
+  'chat',
+  'audio'
+])
+
+export type GenerationModelCategory = z.infer<
+  typeof generationModelCategorySchema
+>
+
+export const GENERATION_MODEL_CATEGORIES = generationModelCategorySchema.options
+
+export function isGenerationModelCategory(
+  value: unknown
+): value is GenerationModelCategory {
+  return (
+    typeof value === 'string' &&
+    (GENERATION_MODEL_CATEGORIES as readonly string[]).includes(value)
+  )
+}
 
 /** 模型类别的稳定顺序（UI 分组/迭代用）。顺序即枚举声明顺序。 */
 export const MODEL_CATEGORIES = modelCategorySchema.options

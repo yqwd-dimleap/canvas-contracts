@@ -1,5 +1,14 @@
 import { z } from 'zod'
+import {
+  generationModelCategorySchema,
+  modelPricingConfigSchema,
+  modelProviderModelSchema
+} from '../agent/model-provider.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
+import {
+  generationModelPreferencesSchema,
+  userGenerationModelPreferenceRowSchema
+} from '../auth/user-settings.js'
 import { canvasResourceStorageSchema } from '../canvas/resources/types.js'
 import { timestampSchema } from '../shared/timestamp.js'
 import { workspaceAssetMediaMetadataSchema } from '../storage/workspace-assets.js'
@@ -48,6 +57,11 @@ export const generationTaskResultSchema = z.object({
   title: z.string().optional(),
   errorInfo: z.string().optional()
 })
+
+/** Canonical synchronous response for the Lyrics generation use case. */
+export const lyricsGenerationResultSchema = z
+  .object({ text: z.string().trim().min(1) })
+  .strict()
 
 export const generationTaskSchema = z.object({
   id: z.string().min(1),
@@ -114,6 +128,9 @@ export const listGenerationTasksApiResponseSchema = apiSuccessResponseSchema(
 export type GenerationTaskType = z.infer<typeof generationTaskTypeSchema>
 export type GenerationTaskStatus = z.infer<typeof generationTaskStatusSchema>
 export type GenerationTaskResult = z.infer<typeof generationTaskResultSchema>
+export type LyricsGenerationResult = z.infer<
+  typeof lyricsGenerationResultSchema
+>
 export type GenerationTask = z.infer<typeof generationTaskSchema>
 export type GenerationTaskDocument = z.infer<
   typeof generationTaskDocumentSchema
@@ -126,4 +143,55 @@ export type UpdateGenerationTaskRequest = z.infer<
 >
 export type ListGenerationTasksResponse = z.infer<
   typeof listGenerationTasksResponseSchema
+>
+
+// ============================================================================
+// Generation Model Catalog (single model-fetch shape)
+// ============================================================================
+
+/**
+ * 一条可用于生成的模型记录：模型定义 + 其所属 provider。
+ */
+export const generationCatalogModelSchema = modelProviderModelSchema.extend({
+  provider: z.string().min(1)
+})
+
+/**
+ * 模型获取的唯一响应形状。来源与登录态无关：
+ * - 未登录：`generationModelPreferences` 为空，每个 row 的 `selectedModelId`
+ *   等于 `systemDefaultModelId`，`userModelId` 为 null。
+ * - 已登录：在同一份目录上叠加该用户的个性化选择。
+ *
+ * `models` 是扁平目录（含 metadata，供首页展示等只读消费）；`rows` 是按生成
+ * 用例分组的可选模型与当前选择。两者派生自同一份启用模型，不得各自成源。
+ */
+export const generationModelCatalogViewSchema = z.object({
+  models: z.array(generationCatalogModelSchema).default([]),
+  rows: z.array(userGenerationModelPreferenceRowSchema).default([]),
+  generationModelPreferences: generationModelPreferencesSchema,
+  agentRuntimePricing: z
+    .object({
+      modelId: z.string().min(1),
+      pricing: modelPricingConfigSchema
+    })
+    .optional()
+})
+
+export const generationModelCatalogQuerySchema = z.object({
+  /** 仅过滤 `models`；`rows` 始终覆盖全部生成用例。 */
+  mediaType: generationModelCategorySchema.optional()
+})
+
+export const generationModelCatalogApiResponseSchema = apiSuccessResponseSchema(
+  generationModelCatalogViewSchema
+)
+
+export type GenerationCatalogModel = z.infer<
+  typeof generationCatalogModelSchema
+>
+export type GenerationModelCatalogView = z.infer<
+  typeof generationModelCatalogViewSchema
+>
+export type GenerationModelCatalogQuery = z.infer<
+  typeof generationModelCatalogQuerySchema
 >

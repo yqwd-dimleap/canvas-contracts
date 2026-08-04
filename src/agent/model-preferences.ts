@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ModelCategory } from './model-provider.js'
+import type { GenerationModelCategory } from './model-provider.js'
 
 export const canvasGenerationUseCaseSchema = z.enum([
   'text-to-image',
@@ -14,7 +14,7 @@ export const canvasGenerationUseCaseSchema = z.enum([
 
 export interface GenerationUseCaseModelPreference {
   useCase: CanvasGenerationUseCase
-  category: ModelCategory
+  category: GenerationModelCategory
 }
 
 /**
@@ -30,8 +30,8 @@ export const GENERATION_USE_CASE_MODEL_CATEGORIES = {
   'image-to-video': 'video',
   'video-edit': 'video',
   'video-merge': 'video',
-  lyrics: 'chat'
-} as const satisfies Record<CanvasGenerationUseCase, ModelCategory>
+  lyrics: 'audio'
+} as const satisfies Record<CanvasGenerationUseCase, GenerationModelCategory>
 
 export const GENERATION_USE_CASE_MODEL_PREFERENCES =
   canvasGenerationUseCaseSchema.options.map((useCase) => ({
@@ -41,7 +41,7 @@ export const GENERATION_USE_CASE_MODEL_PREFERENCES =
 
 export function getModelCategoryForGenerationUseCase(
   useCase: CanvasGenerationUseCase
-): ModelCategory {
+): GenerationModelCategory {
   return GENERATION_USE_CASE_MODEL_CATEGORIES[useCase]
 }
 

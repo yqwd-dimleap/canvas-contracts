@@ -1,16 +1,12 @@
 import { z } from 'zod'
+import { generationModelCategorySchema } from '../agent/model-provider.js'
 import {
   generationReferenceMediaTypeSchema,
   generationReferenceRoleSchema,
   generationReferencesSchema
 } from './params.js'
 
-export const generationPayloadMediaTypeSchema = z.enum([
-  'image',
-  'video',
-  'chat',
-  'lyrics'
-])
+export const generationPayloadMediaTypeSchema = generationModelCategorySchema
 
 const TEMPLATE_RE = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g
 const EXACT_TEMPLATE_RE = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/
@@ -283,6 +279,7 @@ const DEFAULT_IMAGE_GENERATION_ENDPOINT = '/v1/images/generations'
 const DEFAULT_IMAGE_REFERENCE_ENDPOINT = '/v1/images/edits'
 const DEFAULT_VIDEO_GENERATION_ENDPOINT = '/v1/videos'
 const DEFAULT_CHAT_GENERATION_ENDPOINT = '/chat/completions'
+const DEFAULT_AUDIO_GENERATION_ENDPOINT = '/v1/audio/generations'
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -869,7 +866,7 @@ export function generationPayloadTemplateVariables(
   const direct: GenerationTemplateVariable[] = [
     { path: 'model', group: 'direct', description: 'model id' },
     { path: 'prompt', group: 'direct', description: 'prompt text' },
-    ...(config.mediaType === 'chat' || config.mediaType === 'lyrics'
+    ...(config.mediaType === 'chat'
       ? [
           {
             path: 'messages',
@@ -1050,6 +1047,14 @@ export function hasGenerationPayloadConfig(input: {
 export function createDefaultGenerationPayloadConfig(
   mediaType: GenerationPayloadMediaType
 ): GenerationPayloadConfig {
+  if (
+    mediaType !== 'image' &&
+    mediaType !== 'video' &&
+    mediaType !== 'chat' &&
+    mediaType !== 'audio'
+  ) {
+    return unsupportedGenerationPayloadMediaType(mediaType)
+  }
   const payload =
     mediaType === 'image'
       ? {
@@ -1218,30 +1223,15 @@ export function createDefaultGenerationPayloadConfig(
               }
             }
           }
-        : mediaType === 'lyrics'
+        : mediaType === 'audio'
           ? {
-              mediaType: 'lyrics',
-              endpoint: DEFAULT_CHAT_GENERATION_ENDPOINT,
+              mediaType: 'audio',
+              endpoint: DEFAULT_AUDIO_GENERATION_ENDPOINT,
               pricingBindings: {},
               controls: [
                 {
-                  key: 'mode',
-                  label: 'Mode',
-                  type: 'select',
-                  defaultValue: 'write_full_song',
-                  options: ['write_full_song', 'continue']
-                },
-                {
-                  key: 'lyrics',
-                  label: 'Existing Lyrics',
-                  type: 'text',
-                  defaultValue: ''
-                },
-                {
-                  key: 'title',
-                  label: 'Title',
-                  type: 'text',
-                  defaultValue: ''
+                  key: 'referenceMedia',
+                  type: 'referenceMedia'
                 }
               ],
               request: {
@@ -1250,10 +1240,9 @@ export function createDefaultGenerationPayloadConfig(
                 headers: {},
                 multipartFields: [],
                 body: {
-                  mode: '{{params.mode}}',
+                  model: '{{model}}',
                   prompt: '{{prompt}}',
-                  lyrics: '{{params.lyrics}}',
-                  title: '{{params.title}}'
+                  referenceMedia: '{{helpers.references.typedMedia}}'
                 }
               }
             }
@@ -1309,4 +1298,8 @@ export function createDefaultGenerationPayloadConfig(
               }
             }
   return generationPayloadConfigSchema.parse(payload)
+}
+
+function unsupportedGenerationPayloadMediaType(value: never): never {
+  throw new Error(`Unsupported generation payload media type: ${String(value)}`)
 }

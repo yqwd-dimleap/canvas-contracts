@@ -12,6 +12,7 @@ import {
   readGenerationPayloadConfig
 } from './payload.js'
 import type {
+  AudioGenerationParams,
   ChatGenerationParams,
   ImageGenerationParams,
   VideoGenerationParams
@@ -78,6 +79,24 @@ export function normalizeVideoGenerationParams(
 
   const prompt = trimmedString(params.prompt)
   if (!prompt) throw new Error('Video prompt is required.')
+
+  return {
+    model,
+    prompt,
+    params: compactGenerationRecord(record(params.params)),
+    references: normalizeReferences(params.references),
+    system: normalizeSystem(params.system)
+  }
+}
+
+export function normalizeAudioGenerationParams(
+  params: AudioGenerationParams
+): AudioGenerationParams {
+  const model = trimmedString(params.model)
+  if (!model) throw new Error('Audio model is required.')
+
+  const prompt = trimmedString(params.prompt)
+  if (!prompt) throw new Error('Audio prompt is required.')
 
   return {
     model,
@@ -179,6 +198,39 @@ export function buildConfiguredImageGenerationPayload(
   }
 }
 
+export type ConfiguredAudioGenerationPayload = {
+  runtime: AudioGenerationParams
+  payload: Record<string, unknown>
+  config: GenerationPayloadConfig
+  endpoint: string
+}
+
+export function buildConfiguredAudioGenerationPayload(
+  params: AudioGenerationParams,
+  metadata?: Record<string, unknown> | null,
+  options?: GenerationPayloadBuildOptions
+): ConfiguredAudioGenerationPayload {
+  const normalized = normalizeAudioGenerationParams(params)
+  const payloadConfig = readGenerationPayloadConfig(metadata)
+  if (payloadConfig?.mediaType !== 'audio') {
+    throw new Error(
+      `Generation payload is not configured for model ${normalized.model}.`
+    )
+  }
+  const configured = buildGenerationPayloadFromConfig(
+    payloadConfig,
+    normalized,
+    options
+  )
+
+  return {
+    runtime: configured.runtime as AudioGenerationParams,
+    payload: configured.payload,
+    config: configured.config,
+    endpoint: configured.config.endpoint
+  }
+}
+
 export type ConfiguredChatGenerationPayload = {
   runtime: ChatGenerationParams
   payload: Record<string, unknown>
@@ -193,10 +245,7 @@ export function buildConfiguredChatGenerationPayload(
 ): ConfiguredChatGenerationPayload {
   const normalized = normalizeChatGenerationParams(params)
   const payloadConfig = readGenerationPayloadConfig(metadata)
-  if (
-    payloadConfig?.mediaType !== 'chat' &&
-    payloadConfig?.mediaType !== 'lyrics'
-  ) {
+  if (payloadConfig?.mediaType !== 'chat') {
     throw new Error(
       `Generation payload is not configured for model ${normalized.model}.`
     )

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  modelCategorySchema,
   modelPricingConfigSchema,
   modelProviderSchema
 } from '../agent/model-provider.js'
@@ -172,15 +173,7 @@ export const gatewayModelsResponseSchema = z.object({
       enableGroups: z.array(z.string()).default([]),
       supportedEndpointTypes: z.array(z.string()).default([]),
       contextWindow: z.number().optional(),
-      category: z.enum([
-        'image',
-        'video',
-        'chat',
-        'embedding',
-        'audio',
-        'lyrics',
-        'other'
-      ]),
+      category: modelCategorySchema,
       pricing: z.unknown().optional(),
       pricingAvailable: z.boolean().optional(),
       pricingError: z.string().optional(),

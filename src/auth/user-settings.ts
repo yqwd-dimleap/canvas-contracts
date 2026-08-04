@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { canvasGenerationUseCaseSchema } from '../agent/model-preferences.js'
 import {
-  modelCategorySchema,
+  generationModelCategorySchema,
   modelPricingConfigSchema
 } from '../agent/model-provider.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
@@ -62,31 +62,20 @@ export const userGenerationModelPreferenceModelSchema = z.object({
   modelId: z.string().min(1),
   displayName: z.string().min(1),
   provider: z.string().min(1).optional(),
-  category: modelCategorySchema,
+  category: generationModelCategorySchema,
   pricing: modelPricingConfigSchema.optional(),
-  /** Required for image/video execution; chat preferences may not need one. */
+  /** Generation candidates carry their executable backend payload config. */
   payload: generationPayloadConfigSchema.optional(),
   isSystemDefault: z.boolean().default(false)
 })
 
 export const userGenerationModelPreferenceRowSchema = z.object({
   useCase: canvasGenerationUseCaseSchema,
-  category: modelCategorySchema,
+  category: generationModelCategorySchema,
   systemDefaultModelId: z.string().min(1).nullable(),
   selectedModelId: z.string().min(1).nullable(),
   userModelId: z.string().min(1).nullable(),
   models: z.array(userGenerationModelPreferenceModelSchema).default([])
-})
-
-export const userGenerationModelPreferencesViewSchema = z.object({
-  generationModelPreferences: generationModelPreferencesSchema,
-  rows: z.array(userGenerationModelPreferenceRowSchema),
-  agentRuntimePricing: z
-    .object({
-      modelId: z.string().min(1),
-      pricing: modelPricingConfigSchema
-    })
-    .optional()
 })
 
 export type UserSettings = z.infer<typeof userSettingsSchema>
@@ -99,21 +88,12 @@ export type UserGenerationModelPreferenceModel = z.infer<
 export type UserGenerationModelPreferenceRow = z.infer<
   typeof userGenerationModelPreferenceRowSchema
 >
-export type UserGenerationModelPreferencesView = z.infer<
-  typeof userGenerationModelPreferencesViewSchema
->
 // ── 用户相关端点的标准信封响应 schema ──
 
 /** GET /api/user/roles —— 当前用户角色列表。 */
 export const userRolesApiResponseSchema = apiSuccessResponseSchema(
   z.object({ roles: z.array(z.string()) })
 )
-
-/** GET/PATCH /api/user/model-preferences —— 生成模型偏好视图。 */
-export const userGenerationModelPreferencesApiResponseSchema =
-  apiSuccessResponseSchema(
-    z.object({ preferences: userGenerationModelPreferencesViewSchema })
-  )
 
 /** GET /api/user/init-status —— 用户初始化状态。 */
 export const userInitStatusApiResponseSchema = apiSuccessResponseSchema(

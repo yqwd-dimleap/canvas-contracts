@@ -11,6 +11,7 @@
 import { hasGenerationPayloadConfiguration } from '../models/generation-payload.js'
 import { readGenerationPayloadConfig } from '../models/payload.js'
 import {
+  isGenerationModelCategory,
   MODEL_CATEGORIES,
   type ModelCategory,
   type ModelReasoningEffort,
@@ -114,7 +115,8 @@ export function categoryFromSupportedEndpointTypes(
     endpoints.some(
       (endpoint) =>
         endpointIncludes(endpoint, 'audio') ||
-        endpointIncludes(endpoint, 'music')
+        endpointIncludes(endpoint, 'music') ||
+        endpointIncludes(endpoint, 'lyrics')
     )
   ) {
     return 'audio'
@@ -189,6 +191,9 @@ function isAudioModelId(lower: string): boolean {
     lower.includes('whisper') ||
     lower.includes('tts') ||
     lower.includes('speech') ||
+    lower.includes('lyrics') ||
+    lower.includes('music') ||
+    lower.includes('suno') ||
     lower.includes('-audio') ||
     lower.endsWith('-audio') ||
     (lower.includes('voice') && !lower.includes('invoice'))
@@ -331,11 +336,7 @@ export function getEffectiveModelCategory(
   extraHints?: GatewayModelKindHints
 ): ModelCategoryId {
   const payload = readGenerationPayloadConfig(metadata)
-  if (
-    payload?.mediaType === 'image' ||
-    payload?.mediaType === 'video' ||
-    payload?.mediaType === 'chat'
-  ) {
+  if (isGenerationModelCategory(payload?.mediaType)) {
     return payload.mediaType
   }
   const raw = metadata?.[AI_MODEL_KIND_METADATA_KEY]

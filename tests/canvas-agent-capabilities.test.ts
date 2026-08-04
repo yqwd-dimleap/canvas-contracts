@@ -4,6 +4,10 @@ import {
   GENERATION_USE_CASE_MODEL_CATEGORIES,
   GENERATION_USE_CASE_MODEL_PREFERENCES
 } from '../src/agent/model-preferences.js'
+import {
+  generationModelCategorySchema,
+  modelCategorySchema
+} from '../src/agent/model-provider.js'
 import { userGenerationModelPreferenceRowSchema } from '../src/auth/user-settings.js'
 import { creditOperationIdSchema } from '../src/billing/schema.js'
 import {
@@ -16,6 +20,7 @@ import {
   canvasAgentToolIdentifierSchema,
   createDefaultCanvasAgentCapabilityManifest
 } from '../src/canvas/agent/capabilities.js'
+import { generationPayloadMediaTypeSchema } from '../src/models/payload.js'
 
 describe('default Canvas2D agent capabilities', () => {
   test('does not expose element types without an implemented Canvas2D renderer', () => {
@@ -89,9 +94,19 @@ describe('default Canvas2D agent capabilities', () => {
     ).toBe(false)
   })
 
-  test('accepts the lyrics generation use case (chat category)', () => {
+  test('maps the lyrics use case to the canonical audio model category', () => {
     expect(canvasGenerationUseCaseSchema.safeParse('lyrics').success).toBe(true)
-    expect(GENERATION_USE_CASE_MODEL_CATEGORIES.lyrics).toBe('chat')
+    expect(GENERATION_USE_CASE_MODEL_CATEGORIES.lyrics).toBe('audio')
+    expect(modelCategorySchema.safeParse('lyrics').success).toBe(false)
+    expect(generationModelCategorySchema.options).toEqual([
+      'image',
+      'video',
+      'chat',
+      'audio'
+    ])
+    expect(generationPayloadMediaTypeSchema.options).toEqual(
+      generationModelCategorySchema.options
+    )
     expect(
       GENERATION_USE_CASE_MODEL_PREFERENCES.map((item) => item.useCase)
     ).toEqual(canvasGenerationUseCaseSchema.options)
@@ -101,7 +116,7 @@ describe('default Canvas2D agent capabilities', () => {
     const row = userGenerationModelPreferenceRowSchema.parse({
       useCase: 'lyrics',
       label: 'backend-owned label',
-      category: 'chat',
+      category: 'audio',
       systemDefaultModelId: null,
       selectedModelId: null,
       userModelId: null,
