@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import {
   billingCatalogApiResponseSchema,
-  billingCatalogSchema
+  billingCatalogSchema,
+  billingPlanCatalogItemSchema,
+  creditBalanceBreakdownSchema
 } from '../src/billing/index.js'
 
 const catalog = {
@@ -13,7 +15,9 @@ const catalog = {
       monthlyPriceUsd: 19,
       yearlyPriceUsd: 15.2,
       monthlyPriceCnyFen: 13800,
-      yearlyPriceCnyFen: 11040
+      yearlyPriceCnyFen: 11040,
+      includedSeats: 1,
+      creditScope: 'account' as const
     }
   ],
   creditPacks: [{ id: 'pack_s', credits: 500, priceUsd: 9, cnyFen: 6900 }]
@@ -40,5 +44,41 @@ describe('billing catalog contracts', () => {
         ]
       })
     ).toThrow()
+  })
+
+  test('describes Team credits as global member entitlements', () => {
+    expect(
+      billingPlanCatalogItemSchema.parse({
+        ...catalog.plans[0],
+        id: 'team',
+        includedSeats: 5,
+        monthlyCreditsPerSeat: 1000,
+        creditScope: 'member_global'
+      })
+    ).toMatchObject({
+      includedSeats: 5,
+      monthlyCreditsPerSeat: 1000,
+      creditScope: 'member_global'
+    })
+  })
+
+  test('keeps personal, Team, top-up, legacy, and manual balances separate', () => {
+    expect(
+      creditBalanceBreakdownSchema.parse({
+        total: 150,
+        personal: 10,
+        team: 20,
+        topUp: 30,
+        legacy: 40,
+        manual: 50
+      })
+    ).toEqual({
+      total: 150,
+      personal: 10,
+      team: 20,
+      topUp: 30,
+      legacy: 40,
+      manual: 50
+    })
   })
 })

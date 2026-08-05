@@ -40,6 +40,7 @@ export const usageEventTypeSchema = z.enum([
   'video.generation',
   'lyrics.generation',
   'billing.credit_grant',
+  'billing.credit_adjustment',
   'billing.payment_settled'
 ])
 
@@ -97,12 +98,32 @@ export type CreditOperationConfig = z.infer<typeof creditOperationConfigSchema>
  */
 
 /** 用户额度快照：serializeBilling 的产出（不含 metadata/时间戳等实体字段）。 */
+export const creditBalanceBreakdownSchema = z.object({
+  /** 可消费总额；始终与 billingSnapshot.credits 一致。 */
+  total: z.number().int().nonnegative(),
+  /** 当前个人套餐周期内的余额。 */
+  personal: z.number().int().nonnegative(),
+  /** 当前所有有效 Team 成员权益的余额，可在产品内全局使用。 */
+  team: z.number().int().nonnegative(),
+  /** 一次性加购余额，不随套餐周期清零。 */
+  topUp: z.number().int().nonnegative(),
+  /** 分桶账本上线前无法可靠归类的历史余额。 */
+  legacy: z.number().int().nonnegative(),
+  /** 管理员人工调整余额；独立于套餐与已购加购余额。 */
+  manual: z.number().int().nonnegative().default(0)
+})
+
+export type CreditBalanceBreakdown = z.infer<
+  typeof creditBalanceBreakdownSchema
+>
+
 export const billingSnapshotSchema = z.object({
   plan: z.string(),
   status: z.string(),
   credits: z.number(),
   monthlyCreditLimit: z.number(),
-  renewsAt: z.string().nullable()
+  renewsAt: z.string().nullable(),
+  creditBalances: creditBalanceBreakdownSchema
 })
 
 export type BillingSnapshot = z.infer<typeof billingSnapshotSchema>
@@ -142,7 +163,13 @@ export const billingPlanCatalogItemSchema = z.object({
   monthlyPriceUsd: z.number().nonnegative(),
   yearlyPriceUsd: z.number().nonnegative(),
   monthlyPriceCnyFen: z.number().int().nonnegative(),
-  yearlyPriceCnyFen: z.number().int().nonnegative()
+  yearlyPriceCnyFen: z.number().int().nonnegative(),
+  /** Team 套餐包含的总席位数；个人套餐为 1。 */
+  includedSeats: z.number().int().positive().default(1),
+  /** Team 套餐每个活跃成员每周期获得的额度。 */
+  monthlyCreditsPerSeat: z.number().int().nonnegative().optional(),
+  /** 额度作用域。member_global 表示成员可在产品内全局使用。 */
+  creditScope: z.enum(['account', 'member_global']).default('account')
 })
 
 export type BillingPlanCatalogItem = z.infer<
@@ -185,6 +212,7 @@ export const paymentOrderSchema = z.object({
   userId: z.string(),
   planId: z.string().optional(),
   orderKind: z.enum(['subscription', 'credit_pack']).optional(),
+  billingCycle: z.enum(['monthly', 'yearly']).optional(),
   creditPackId: z.string().optional(),
   grantCredits: z.number().optional(),
   amount: z.number().optional(),

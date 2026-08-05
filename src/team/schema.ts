@@ -22,6 +22,16 @@ export const teamInviteStatusSchema = z.enum([
 ])
 export type TeamInviteStatus = z.infer<typeof teamInviteStatusSchema>
 
+export const teamInviteDeliveryStatusSchema = z.enum([
+  'not_requested',
+  'pending',
+  'sent',
+  'failed'
+])
+export type TeamInviteDeliveryStatus = z.infer<
+  typeof teamInviteDeliveryStatusSchema
+>
+
 export const teamSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
@@ -60,6 +70,10 @@ export const teamInviteSchema = z.object({
   acceptedByUserId: z.string().nullable().default(null),
   expiresAt: timestampSchema,
   acceptedAt: nullableTimestampSchema,
+  deliveryStatus: teamInviteDeliveryStatusSchema.default('not_requested'),
+  deliveryAttemptCount: z.number().int().min(0).default(0),
+  deliveryAttemptedAt: nullableTimestampSchema.default(null),
+  deliverySentAt: nullableTimestampSchema.default(null),
   metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: timestampSchema,
   updatedAt: timestampSchema
@@ -130,10 +144,39 @@ export const createTeamInviteRequestSchema = z.object({
     .optional()
     .or(z.literal('').transform(() => undefined)),
   role: teamRoleSchema.exclude(['owner']).default('member'),
-  expiresInDays: z.number().int().min(1).max(30).default(7)
+  expiresInDays: z.number().int().min(1).max(30).default(7),
+  locale: z.enum(['en-US', 'zh-CN']).optional()
 })
 export type CreateTeamInviteRequest = z.infer<
   typeof createTeamInviteRequestSchema
+>
+
+export const resendTeamInviteRequestSchema = z.object({
+  locale: z.enum(['en-US', 'zh-CN'])
+})
+export type ResendTeamInviteRequest = z.infer<
+  typeof resendTeamInviteRequestSchema
+>
+
+/** Agent -> frontend internal transactional email request. */
+export const teamInviteEmailRequestSchema = z.object({
+  inviteId: z.string().min(1),
+  deliveryAttempt: z.number().int().positive(),
+  actorUserId: z.string().min(1),
+  recipientEmail: z.string().trim().email(),
+  teamName: z.string().trim().min(1).max(80),
+  role: teamRoleSchema.exclude(['owner']),
+  expiresAt: timestampSchema,
+  inviteUrl: z.string().url(),
+  locale: z.enum(['en-US', 'zh-CN'])
+})
+export type TeamInviteEmailRequest = z.infer<
+  typeof teamInviteEmailRequestSchema
+>
+
+export const teamInviteEmailResponseSchema = z.object({ sent: z.literal(true) })
+export type TeamInviteEmailResponse = z.infer<
+  typeof teamInviteEmailResponseSchema
 >
 
 export const acceptTeamInviteRequestSchema = z.object({
