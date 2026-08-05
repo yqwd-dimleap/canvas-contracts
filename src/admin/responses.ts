@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   modelCategorySchema,
   modelPricingConfigSchema,
+  modelPricingConfigSupportsCategory,
   modelProviderSchema
 } from '../agent/model-provider.js'
 import {
@@ -53,6 +54,19 @@ function validateModelMetadata(
   validateModelShowcaseMetadata(metadata, context)
 }
 
+function validateCategoryPricing(
+  modelKind: z.infer<typeof modelCategorySchema>,
+  pricing: z.infer<typeof modelPricingConfigSchema>,
+  context: z.RefinementCtx
+) {
+  if (modelPricingConfigSupportsCategory(modelKind, pricing)) return
+  context.addIssue({
+    code: 'custom',
+    path: ['pricing', 'unit'],
+    message: `Pricing unit is not supported for ${modelKind} models.`
+  })
+}
+
 export const updateAdminModelRequestSchema = z
   .object({
     id: z.string().trim().min(1).optional(),
@@ -61,7 +75,7 @@ export const updateAdminModelRequestSchema = z
     displayName: z.string().optional(),
     enabled: z.boolean().optional(),
     pricing: modelPricingConfigSchema.optional(),
-    modelKind: z.string().nullable().optional(),
+    modelKind: modelCategorySchema.nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
@@ -69,9 +83,12 @@ export const updateAdminModelRequestSchema = z
     message: 'modelId or id is required',
     path: ['modelId']
   })
-  .superRefine((value, context) =>
+  .superRefine((value, context) => {
     validateModelMetadata(value.metadata, context)
-  )
+    if (value.modelKind && value.pricing) {
+      validateCategoryPricing(value.modelKind, value.pricing, context)
+    }
+  })
 
 /** PATCH body for a model identified by provider and modelId in the URL. */
 export const adminModelPatchRequestSchema = z
@@ -79,13 +96,16 @@ export const adminModelPatchRequestSchema = z
     displayName: z.string().optional(),
     enabled: z.boolean().optional(),
     pricing: modelPricingConfigSchema.optional(),
-    modelKind: z.string().nullable().optional(),
+    modelKind: modelCategorySchema.nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
-  .superRefine((value, context) =>
+  .superRefine((value, context) => {
     validateModelMetadata(value.metadata, context)
-  )
+    if (value.modelKind && value.pricing) {
+      validateCategoryPricing(value.modelKind, value.pricing, context)
+    }
+  })
 
 export const updateAdminModelResponseSchema = z.object({
   success: z.literal(true)
@@ -100,9 +120,10 @@ export const registerGatewayModelRequestSchema = z
     metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
-  .superRefine((value, context) =>
+  .superRefine((value, context) => {
     validateModelMetadata(value.metadata, context)
-  )
+    validateCategoryPricing(value.modelKind, value.pricing, context)
+  })
 
 export const registerGatewayModelResponseSchema = z.object({
   registered: z.literal(true)

@@ -357,12 +357,12 @@ export function getEffectiveModelCategory(
   metadata: Record<string, unknown> | null | undefined,
   extraHints?: GatewayModelKindHints
 ): ModelCategoryId {
+  const raw = metadata?.[AI_MODEL_KIND_METADATA_KEY]
+  if (isStoredModelKind(raw)) return raw
   const payload = readGenerationPayloadConfig(metadata)
   if (isGenerationModelCategory(payload?.mediaType)) {
     return payload.mediaType
   }
-  const raw = metadata?.[AI_MODEL_KIND_METADATA_KEY]
-  if (isStoredModelKind(raw)) return raw
   const fromMeta = readGatewayHintsFromMetadata(metadata)
   return categorizeGatewayModel(modelId, { ...fromMeta, ...extraHints })
 }

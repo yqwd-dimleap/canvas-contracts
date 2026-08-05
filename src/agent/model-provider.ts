@@ -50,6 +50,21 @@ export const modelPricingUnitSchema = z.enum([
   'run'
 ])
 
+/**
+ * 运行时真正支持的模型类别与计价单位组合。
+ *
+ * `other` 是管理侧的保留类别，因此允许保存任意费率卡；只有把模型明确归到
+ * 可执行类别后，才由对应运行时消费该价格。
+ */
+export const MODEL_PRICING_UNITS_BY_CATEGORY = {
+  image: ['image', 'run'],
+  video: ['second', 'run'],
+  chat: ['token'],
+  embedding: ['token'],
+  audio: ['token', 'run'],
+  other: ['token', 'image', 'second', 'run']
+} as const satisfies Record<ModelCategory, readonly ModelPricingUnit[]>
+
 export const modelReasoningEffortSchema = z.enum(['low', 'medium', 'high'])
 
 export const modelPricingTierModeSchema = z.enum(['volume', 'graduated'])
@@ -179,3 +194,18 @@ export type ModelPricingRule = z.infer<typeof modelPricingRuleSchema>
 export type ModelPricingConfig = z.infer<typeof modelPricingConfigSchema>
 export type ModelProviderModel = z.infer<typeof modelProviderModelSchema>
 export type ModelProvider = z.infer<typeof modelProviderSchema>
+
+export function modelPricingConfigSupportsCategory(
+  category: ModelCategory,
+  pricing: Pick<ModelPricingConfig, 'unit' | 'rules'>
+): boolean {
+  const supportedUnits = MODEL_PRICING_UNITS_BY_CATEGORY[
+    category
+  ] as readonly ModelPricingUnit[]
+  return (
+    supportedUnits.includes(pricing.unit) &&
+    pricing.rules.every(
+      (rule) => rule.unit === undefined || supportedUnits.includes(rule.unit)
+    )
+  )
+}
