@@ -93,7 +93,9 @@ export const generationTaskSchema = z.object({
 export const generationTaskDocumentSchema = generationTaskSchema.extend({
   projectId: z.string().nullable().optional(),
   createdAt: timestampSchema,
-  updatedAt: timestampSchema
+  updatedAt: timestampSchema,
+  deletedAt: timestampSchema.nullable().optional(),
+  deletedByUserId: z.string().nullable().optional()
 })
 
 export const createGenerationTaskRequestSchema = z.object({
@@ -129,6 +131,14 @@ export const listGenerationTasksApiResponseSchema = apiSuccessResponseSchema(
   listGenerationTasksResponseSchema
 )
 
+export const deleteGenerationTaskResponseSchema = z.object({
+  deleted: z.boolean()
+})
+
+export const deleteGenerationTaskApiResponseSchema = apiSuccessResponseSchema(
+  deleteGenerationTaskResponseSchema
+)
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -151,6 +161,9 @@ export type UpdateGenerationTaskRequest = z.infer<
 >
 export type ListGenerationTasksResponse = z.infer<
   typeof listGenerationTasksResponseSchema
+>
+export type DeleteGenerationTaskResponse = z.infer<
+  typeof deleteGenerationTaskResponseSchema
 >
 
 // ============================================================================
