@@ -94,9 +94,9 @@ describe('default Canvas2D agent capabilities', () => {
     ).toBe(false)
   })
 
-  test('maps the lyrics use case to the canonical audio model category', () => {
+  test('maps the lyrics use case to the canonical chat model category', () => {
     expect(canvasGenerationUseCaseSchema.safeParse('lyrics').success).toBe(true)
-    expect(GENERATION_USE_CASE_MODEL_CATEGORIES.lyrics).toBe('audio')
+    expect(GENERATION_USE_CASE_MODEL_CATEGORIES.lyrics).toBe('chat')
     expect(modelCategorySchema.safeParse('lyrics').success).toBe(false)
     expect(generationModelCategorySchema.options).toEqual([
       'image',
