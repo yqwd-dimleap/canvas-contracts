@@ -67,10 +67,6 @@
       "types": "./dist/storage/index.d.ts",
       "import": "./dist/storage/index.js"
     },
-    "./support": {
-      "types": "./dist/support/index.d.ts",
-      "import": "./dist/support/index.js"
-    },
     "./team": {
       "types": "./dist/team/index.d.ts",
       "import": "./dist/team/index.js"

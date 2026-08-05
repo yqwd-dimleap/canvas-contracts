@@ -70,7 +70,6 @@ src/
   models/      model catalog and endpoint contracts
   rag/         RAG request/response contracts
   storage/     object storage and imgproxy contracts
-  support/     support ticket requests, conversation and lifecycle
   team/        team membership contracts
   workspace/   app config, featured work, public work
 ```

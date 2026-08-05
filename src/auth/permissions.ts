@@ -14,7 +14,6 @@ export const resourceSchema = z.enum([
   'publish',
   'system',
   'workspace',
-  'support',
   'admin',
   'root'
 ])
