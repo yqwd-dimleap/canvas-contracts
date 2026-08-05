@@ -1,33 +1,21 @@
 # Changelog
 
-Current published package version: `2.2.0`.
+Latest immutable release tag present in this checkout: `v2.3.4`.
 
-The previous hand-maintained file stopped before the 2.x contract surface and
-contained removed Canvas graph examples, so it is not retained as API
-documentation. Annotated git tags and GitHub release/package history are the
-source of truth for published releases.
+`package.json` may be ahead while a release is prepared. Use
+`./scripts/release.sh status` plus the remote tag/package registry to determine
+whether that prepared version has actually been published.
+
+Annotated git tags and GitHub release/package history are the source of truth
+for published releases. This file intentionally does not duplicate historical
+schema examples or completed migration instructions.
 
 ## Unreleased
 
-### Breaking publication model changes
+No hand-maintained release notes are pending. Current schema, import, test, and
+migration guidance belongs in `README.md` and the owning service docs.
 
-- Replaced the legacy top-level project publication fields with one strict
-  `publication` object containing an immutable submission snapshot and review
-  decisions.
-- Reduced workspace project summaries to schema version 2 (`schemaVersion` and
-  backend-owned `media` only).
-- Removed duplicate featured-work identity, publication, description, and
-  generation fields. Cover generation now lives on `cover`, and `media`
-  contains only additional items.
-- Removed the admin publication `reset` action and redundant queue projection
-  fields.
-
-Migration: before releasing and deploying these contract changes, run the
-Agent `migrate-publication-model` data migration. It converts legacy project
-publication/summary documents and canonicalizes featured works. Choose the
-package release version separately through the normal release workflow.
-
-When a release needs human-facing migration notes, run
-`./scripts/release.sh --with-changelog` and add only the new version section
-above this note. Current schema and import guidance belongs in `README.md`,
-not in historical release entries.
+When a release needs human-facing notes, run
+`./scripts/release.sh --with-changelog` and add only that version's changes.
+Package version changes remain part of the explicit release workflow; ordinary
+feature, fix, test, or documentation work must not bump the version.

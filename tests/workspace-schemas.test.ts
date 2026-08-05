@@ -60,6 +60,12 @@ describe('shared workspace schemas', () => {
         plan: 'invalid'
       }).success
     ).toBe(false)
+    expect(
+      adminUserPatchRequestSchema.safeParse({
+        userId: 'user-1',
+        monthlyCreditLimit: 500
+      }).success
+    ).toBe(false)
   })
 
   test('keeps project session, runs, and publication snapshot typed', () => {

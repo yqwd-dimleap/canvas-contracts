@@ -24,6 +24,10 @@ cd canvas-frontend && bun run typecheck
 cd ../canvas-agent && bun run typecheck
 ```
 
+活动测试统一放在仓库根部 `tests/*.test.ts`，由 `bun run test` 收集。不要把测试
+共置到 `src/`，也不要用永久 `skip` 保存历史行为。`bun run check` 不包含 test，
+交付前需要同时运行 `bun run check && bun run test`。
+
 ## Import boundaries
 
 优先使用具体 subpath，不从消费方复制 schema：
@@ -70,7 +74,7 @@ src/
   models/      model catalog and endpoint contracts
   rag/         RAG request/response contracts
   storage/     object storage and imgproxy contracts
-  team/        team membership contracts
+  team/        Team、membership、邀请、可用性与创建资格 contracts
   workspace/   app config, featured work, public work
 ```
 
@@ -95,6 +99,14 @@ separate `./canvas/events` package subpath.
   and `tool.error`.
 - UI positions, Pixi objects, DOM state and renderer internals do not belong in
   contracts.
+- `Team` is persistent identity and membership data only. Subscription
+  availability and creation eligibility are response projections; do not add
+  `billingOwnerId`, persisted Team status, or a client-owned active Team field.
+- One owner may own one Team and any user may join multiple Teams. Invite
+  acceptance carries its token in the resource path, never in a request body.
+- Admin user mutations may select a plan/status or adjust the current balance,
+  but cannot override `monthlyCreditLimit`; paid-plan allowance is owned by the
+  backend billing catalog and activation must create a real subscription term.
 
 Do not add React Flow shapes, client-owned message reducers, custom
 `agent.event` envelopes, retired control events, or fields that duplicate
@@ -105,7 +117,7 @@ LangGraph/Deep Agents state.
 - Package versions, persisted schema versions, and wire protocol versions are
   independent version spaces. Never copy a package major into a schema or
   protocol version.
-- The current baselines are package `2.2.x`, CanvasDocument schema `1`,
+- The current baselines are package `2.3.x`, CanvasDocument schema `1`,
   workspace Canvas schema `2`, and Canvas Agent application protocol `v2`.
 - Schema and protocol versions advance only with an explicit migration plan;
   ordinary package releases must not change them.

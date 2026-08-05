@@ -8,11 +8,23 @@ import {
 export const teamRoleSchema = z.enum(['owner', 'admin', 'member'])
 export type TeamRole = z.infer<typeof teamRoleSchema>
 
-export const teamStatusSchema = z.enum(['active', 'archived'])
-export type TeamStatus = z.infer<typeof teamStatusSchema>
-
 export const teamMembershipStatusSchema = z.enum(['active', 'removed'])
 export type TeamMembershipStatus = z.infer<typeof teamMembershipStatusSchema>
+
+export const teamAvailabilitySchema = z.enum([
+  'available',
+  'subscription_inactive'
+])
+export type TeamAvailability = z.infer<typeof teamAvailabilitySchema>
+
+export const teamCreationEligibilitySchema = z.enum([
+  'eligible',
+  'subscription_required',
+  'team_exists'
+])
+export type TeamCreationEligibility = z.infer<
+  typeof teamCreationEligibilitySchema
+>
 
 export const teamInviteStatusSchema = z.enum([
   'pending',
@@ -36,8 +48,6 @@ export const teamSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(80),
   ownerId: z.string().min(1),
-  billingOwnerId: z.string().min(1),
-  status: teamStatusSchema.default('active'),
   seatsLimit: z.number().int().min(1).default(5),
   metadata: z.record(z.string(), z.unknown()).default({}),
   createdAt: timestampSchema,
@@ -104,10 +114,12 @@ export const teamOverviewSchema = z.object({
   teams: z.array(
     z.object({
       team: teamSchema,
-      membership: teamMemberSchema
+      membership: teamMemberSchema,
+      availability: teamAvailabilitySchema
     })
   ),
-  activeTeamId: z.string().nullable().default(null)
+  defaultTeamId: z.string().nullable().default(null),
+  creationEligibility: teamCreationEligibilitySchema
 })
 export type TeamOverview = z.infer<typeof teamOverviewSchema>
 
@@ -135,6 +147,9 @@ export const createTeamRequestSchema = z.object({
   name: z.string().trim().min(2).max(80)
 })
 export type CreateTeamRequest = z.infer<typeof createTeamRequestSchema>
+
+export const updateTeamRequestSchema = createTeamRequestSchema
+export type UpdateTeamRequest = z.infer<typeof updateTeamRequestSchema>
 
 export const createTeamInviteRequestSchema = z.object({
   email: z
@@ -179,13 +194,6 @@ export type TeamInviteEmailResponse = z.infer<
   typeof teamInviteEmailResponseSchema
 >
 
-export const acceptTeamInviteRequestSchema = z.object({
-  token: z.string().min(20)
-})
-export type AcceptTeamInviteRequest = z.infer<
-  typeof acceptTeamInviteRequestSchema
->
-
 export const updateTeamMemberRoleRequestSchema = z.object({
   role: teamRoleSchema.exclude(['owner'])
 })
@@ -200,22 +208,35 @@ export const teamOverviewApiResponseSchema = apiSuccessResponseSchema(
   z.object({ overview: teamOverviewSchema })
 )
 
-/** 单个团队详情：POST /api/teams、GET/:id、接受邀请、成员增删改后统一返回。 */
+/** 单个团队详情：创建、查询、改名、接受邀请和成员角色更新统一返回。 */
 export const teamDetailApiResponseSchema = apiSuccessResponseSchema(
   z.object({ detail: teamDetailSchema })
 )
 
-/** POST /api/teams/:teamId/invites —— 新建邀请。 */
+/** POST /api/teams/:teamId/invitations —— 新建邀请。 */
 export const teamInviteApiResponseSchema = apiSuccessResponseSchema(
   z.object({ invite: teamInviteViewSchema })
 )
 
-/** GET /api/teams/invites/:token —— 邀请预览（公开，无需登录）。 */
+/** GET /api/teams/invitations/:token —— 邀请预览（公开，无需登录）。 */
 export const teamInvitePreviewApiResponseSchema = apiSuccessResponseSchema(
   z.object({ preview: teamInvitePreviewSchema })
 )
 
-/** DELETE /api/teams/:teamId/invites/:inviteId —— 撤销邀请。 */
+/** DELETE /api/teams/:teamId/invitations/:inviteId —— 撤销邀请。 */
 export const teamRevokeInviteApiResponseSchema = apiSuccessResponseSchema(
-  z.object({ deleted: z.boolean() })
+  z.object({ revoked: z.boolean() })
+)
+
+export const teamMemberRemovalSchema = z.object({
+  teamId: z.string().min(1),
+  removedMemberId: z.string().min(1),
+  actorLeft: z.boolean(),
+  detail: teamDetailSchema.nullable()
+})
+export type TeamMemberRemoval = z.infer<typeof teamMemberRemovalSchema>
+
+/** DELETE /api/teams/:teamId/members/:memberId —— 移除成员或自行退出。 */
+export const teamMemberRemovalApiResponseSchema = apiSuccessResponseSchema(
+  z.object({ removal: teamMemberRemovalSchema })
 )

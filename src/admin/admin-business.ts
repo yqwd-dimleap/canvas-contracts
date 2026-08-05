@@ -87,7 +87,6 @@ export const USER_BILLING_STATUSES = [
 
 const adminUserPatchFields = {
   credits: z.number().int().min(0).max(1_000_000_000).optional(),
-  monthlyCreditLimit: z.number().int().min(0).max(1_000_000_000).optional(),
   plan: z.enum(BILLING_PLAN_IDS).optional(),
   status: z.enum(USER_BILLING_STATUSES).optional(),
   roles: z.array(z.string()).optional()
@@ -96,7 +95,6 @@ const adminUserPatchFields = {
 function requireAdminUserPatch(
   value: {
     credits?: number
-    monthlyCreditLimit?: number
     plan?: string
     status?: string
     roles?: string[]
@@ -105,15 +103,13 @@ function requireAdminUserPatch(
 ) {
   const hasPatch =
     value.credits !== undefined ||
-    value.monthlyCreditLimit !== undefined ||
     value.plan !== undefined ||
     value.status !== undefined ||
     value.roles !== undefined
   if (!hasPatch) {
     context.addIssue({
       code: 'custom',
-      message:
-        'At least one of credits, monthlyCreditLimit, plan, status, roles is required'
+      message: 'At least one of credits, plan, status, roles is required'
     })
   }
 }
