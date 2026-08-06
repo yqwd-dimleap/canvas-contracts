@@ -150,7 +150,7 @@ export const modelPricingConfigSchema = z.object({
    * graduated 两种阶梯模式。
    */
   unit: modelPricingUnitSchema.default('image'),
-  currency: z.string().default('USD'),
+  currency: z.literal('USD').default('USD'),
   minimumCredits: z.number().min(0).default(0),
   rates: modelPricingRatesSchema,
   rules: z.array(modelPricingRuleSchema).default([])

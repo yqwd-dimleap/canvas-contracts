@@ -146,11 +146,10 @@ export type UsageEventRow = z.infer<typeof usageEventRowSchema>
 
 /** 支付方式（面向前端的公开视图）：listPublicPaymentMethodsForUser 的单项。 */
 export const publicPaymentMethodSchema = z.object({
-  provider: z.enum(['stripe', 'wechat', 'alipay', 'apple_pay']),
+  provider: z.literal('stripe'),
   displayName: z.string(),
   checkoutReady: z.boolean(),
-  publishableKey: z.string().optional(),
-  wechatReadiness: z.object({ blockers: z.array(z.string()) }).optional()
+  publishableKey: z.string().optional()
 })
 
 export type PublicPaymentMethod = z.infer<typeof publicPaymentMethodSchema>
@@ -162,8 +161,6 @@ export const billingPlanCatalogItemSchema = z.object({
   monthlyCredits: z.number().int().nonnegative(),
   monthlyPriceUsd: z.number().nonnegative(),
   yearlyPriceUsd: z.number().nonnegative(),
-  monthlyPriceCnyFen: z.number().int().nonnegative(),
-  yearlyPriceCnyFen: z.number().int().nonnegative(),
   /** Team 套餐包含的总席位数；个人套餐为 1。 */
   includedSeats: z.number().int().positive().default(1),
   /** Team 套餐每个活跃成员每周期获得的额度。 */
@@ -180,8 +177,7 @@ export type BillingPlanCatalogItem = z.infer<
 export const creditPackCatalogItemSchema = z.object({
   id: z.string().min(1),
   credits: z.number().int().positive(),
-  priceUsd: z.number().nonnegative(),
-  cnyFen: z.number().int().nonnegative()
+  priceUsd: z.number().nonnegative()
 })
 
 export type CreditPackCatalogItem = z.infer<typeof creditPackCatalogItemSchema>
@@ -216,16 +212,14 @@ export const paymentOrderSchema = z.object({
   creditPackId: z.string().optional(),
   grantCredits: z.number().optional(),
   amount: z.number().optional(),
-  currency: z.string().optional(),
-  provider: z.string().optional(),
+  currency: z.literal('USD').optional(),
+  provider: z.enum(['stripe', 'local']).optional(),
   status: paymentOrderStatusSchema.optional(),
-  qrCodeUrl: z.string().optional(),
   checkoutUrl: z.string().optional(),
   expiresAt: z.string().optional(),
   paidAt: z.string().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
-  wechatTransactionId: z.string().optional(),
   stripeSessionId: z.string().optional(),
   stripeInvoiceId: z.string().optional(),
   stripeSubscriptionId: z.string().optional(),
@@ -267,34 +261,11 @@ export const createCheckoutSessionApiResponseSchema = apiSuccessResponseSchema(
   z.object({ url: z.string() })
 )
 
-/** POST /api/billing/wechat/create-order —— 微信 Native 下单结果。 */
-export const wechatCreateOrderApiResponseSchema = apiSuccessResponseSchema(
-  z.object({
-    orderId: z.string(),
-    qrCodeUrl: z.string(),
-    amount: z.number(),
-    expiresAt: z.string().optional(),
-    reused: z.boolean().optional()
-  })
-)
-
-/** POST /api/billing/cancel-order & /wechat/cancel-order —— 取消结果。 */
+/** DELETE /api/billing/orders/:orderId —— 取消结果。 */
 export const cancelOrderApiResponseSchema = apiSuccessResponseSchema(
   z.object({
     orderId: z.string(),
     status: paymentOrderStatusSchema
-  })
-)
-
-/** GET /api/billing/wechat/order-status —— 订单最新状态。 */
-export const wechatOrderStatusApiResponseSchema = apiSuccessResponseSchema(
-  z.object({
-    orderId: z.string(),
-    status: paymentOrderStatusSchema,
-    amount: z.number().optional(),
-    planId: z.string().optional(),
-    createdAt: z.string().optional(),
-    paidAt: z.string().nullish()
   })
 )
 

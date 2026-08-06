@@ -37,7 +37,7 @@ export const adminUserStatsSchema = z.object({
   }),
   payments: z.object({
     paidOrders: z.number(),
-    paidAmountFen: z.number(),
+    paidAmountUsdCents: z.number(),
     lastPaidAt: z.string().nullable()
   })
 })
@@ -152,14 +152,13 @@ export const adminOrderRowSchema = z.object({
   creditPackId: z.string().nullish(),
   grantCredits: z.number().optional(),
   amount: z.number().optional(),
-  currency: z.string().nullish(),
-  provider: z.string().nullish(),
+  currency: z.literal('USD').nullish(),
+  provider: z.enum(['stripe', 'local']).nullish(),
   status: adminOrderStatusSchema.optional(),
   expiresAt: z.string().nullish(),
   paidAt: z.string().nullish(),
   createdAt: z.string().nullish(),
   updatedAt: z.string().nullish(),
-  wechatTransactionId: z.string().nullish(),
   stripeSessionId: z.string().nullish(),
   stripeInvoiceId: z.string().nullish(),
   stripeSubscriptionId: z.string().nullish(),
@@ -169,7 +168,7 @@ export const adminOrderRowSchema = z.object({
 
 export const adminOrdersSummarySchema = z.record(
   z.string(),
-  z.object({ count: z.number(), amountFen: z.number() })
+  z.object({ count: z.number(), amountUsdCents: z.number() })
 )
 
 export const adminOrdersResponseSchema = z.object({
@@ -331,14 +330,14 @@ export const adminAnalyticsSchema = z.object({
   summary: z.object({
     totalUsers: z.number(),
     activeUsers30d: z.number(),
-    revenueCnyFen30d: z.number(),
+    revenueUsdCents30d: z.number(),
     costUsdCents30d: z.number(),
     usageEvents30d: z.number()
   }),
   trends: z.object({
     months: z.array(z.string()),
     activeUsers: z.array(z.number()),
-    revenueCnyFen: z.array(z.number()),
+    revenueUsdCents: z.array(z.number()),
     costUsdCents: z.array(z.number())
   })
 })
@@ -380,7 +379,7 @@ export const adminAnnouncementDeleteResponseSchema = z.object({
 
 export const adminPaymentConfigRowSchema = z.object({
   id: z.string(),
-  provider: z.enum(['stripe', 'wechat', 'alipay', 'apple_pay']).optional(),
+  provider: z.literal('stripe').optional(),
   displayName: z.string(),
   enabled: z.boolean(),
   config: z.record(z.string(), z.unknown()),

@@ -103,21 +103,21 @@ describe('admin usage overview contract', () => {
           summary: {
             totalUsers: 12,
             activeUsers30d: 5,
-            revenueCnyFen30d: 12_345,
+            revenueUsdCents30d: 12_345,
             costUsdCents30d: 678,
             usageEvents30d: 42
           },
           trends: {
             months: ['2026-07'],
             activeUsers: [5],
-            revenueCnyFen: [12_345],
+            revenueUsdCents: [12_345],
             costUsdCents: [678]
           }
         }
       }
     })
 
-    expect(result.data.analytics.summary.revenueCnyFen30d).toBe(12_345)
+    expect(result.data.analytics.summary.revenueUsdCents30d).toBe(12_345)
     expect(result.data.analytics.summary.costUsdCents30d).toBe(678)
   })
 })
