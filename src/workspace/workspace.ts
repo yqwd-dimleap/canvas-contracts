@@ -11,8 +11,9 @@ export const WORKSPACE_CONTEXT_QUERY = 'workspace_id' as const
  * A workspace is the sole content and authorization boundary for projects,
  * assets, brand kits, generation and deterministic media processing.
  *
- * Teams remain the organization, billing and membership domain. A team owns
- * one or more workspaces; a personal workspace is owned directly by a user.
+ * Teams remain the organization, billing and membership domain. In the current
+ * product model a team owns one workspace; a personal workspace is owned
+ * directly by a user.
  */
 export const workspaceKindSchema = z.enum(['personal', 'team'])
 export type WorkspaceKind = z.infer<typeof workspaceKindSchema>
