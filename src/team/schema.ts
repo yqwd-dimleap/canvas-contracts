@@ -173,12 +173,12 @@ export type ResendTeamInviteRequest = z.infer<
   typeof resendTeamInviteRequestSchema
 >
 
-/** Agent -> frontend internal transactional email request. */
+/** Team invite email delivery payload (consumed by the agent SMTP mailer). */
 export const teamInviteEmailRequestSchema = z.object({
   inviteId: z.string().min(1),
   deliveryAttempt: z.number().int().positive(),
   actorUserId: z.string().min(1),
-  recipientEmail: z.string().trim().email(),
+  recipientEmail: z.email(),
   teamName: z.string().trim().min(1).max(80),
   role: teamRoleSchema.exclude(['owner']),
   expiresAt: timestampSchema,
@@ -187,11 +187,6 @@ export const teamInviteEmailRequestSchema = z.object({
 })
 export type TeamInviteEmailRequest = z.infer<
   typeof teamInviteEmailRequestSchema
->
-
-export const teamInviteEmailResponseSchema = z.object({ sent: z.literal(true) })
-export type TeamInviteEmailResponse = z.infer<
-  typeof teamInviteEmailResponseSchema
 >
 
 export const updateTeamMemberRoleRequestSchema = z.object({

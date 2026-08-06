@@ -40,7 +40,7 @@ export const canvasActionErrorSchema = z.object({
 export const canvasActionCostSchema = z.object({
   credits: z.number().nonnegative().optional(),
   amount: z.number().nonnegative().optional(),
-  currency: z.string().min(1).optional(),
+  currency: z.literal('USD').optional(),
   estimated: z.boolean().optional()
 })
 

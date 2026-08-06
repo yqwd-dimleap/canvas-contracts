@@ -14,13 +14,11 @@ const catalog = {
       monthlyCredits: 2000,
       monthlyPriceUsd: 19,
       yearlyPriceUsd: 15.2,
-      monthlyPriceCnyFen: 13800,
-      yearlyPriceCnyFen: 11040,
       includedSeats: 1,
       creditScope: 'account' as const
     }
   ],
-  creditPacks: [{ id: 'pack_s', credits: 500, priceUsd: 9, cnyFen: 6900 }]
+  creditPacks: [{ id: 'pack_s', credits: 500, priceUsd: 9 }]
 }
 
 describe('billing catalog contracts', () => {
