@@ -64,16 +64,7 @@ export const adminUserPatchResponseSchema = z.object({
   user: userBillingSchema
 })
 
-export const BILLING_PLAN_IDS = [
-  'free',
-  'pro',
-  'pro_test',
-  'pro_lite',
-  'pro_std',
-  'pro_plus',
-  'pro_max',
-  'team'
-] as const
+export const BILLING_PLAN_IDS = ['free', 'pro', 'team'] as const
 export const USER_BILLING_STATUSES = [
   'active',
   'canceled',

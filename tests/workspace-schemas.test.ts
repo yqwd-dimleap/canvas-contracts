@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { adminUserPatchRequestSchema } from '../src/admin/admin-business.js'
+import {
+  adminUserPatchRequestSchema,
+  BILLING_PLAN_IDS
+} from '../src/admin/admin-business.js'
 import { setPasswordRequestSchema } from '../src/auth/session.js'
 import {
   WORKSPACE_PROJECT_CANVAS_SCHEMA_VERSION,
@@ -45,6 +48,7 @@ describe('shared workspace schemas', () => {
   })
 
   test('validates admin user mutations at the shared boundary', () => {
+    expect(BILLING_PLAN_IDS).toEqual(['free', 'pro', 'team'])
     expect(
       adminUserPatchRequestSchema.safeParse({
         userId: 'user-1',
@@ -57,7 +61,7 @@ describe('shared workspace schemas', () => {
     expect(
       adminUserPatchRequestSchema.safeParse({
         userId: 'user-1',
-        plan: 'invalid'
+        plan: 'retired_plan'
       }).success
     ).toBe(false)
     expect(
