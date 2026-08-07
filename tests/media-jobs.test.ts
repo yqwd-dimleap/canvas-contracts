@@ -43,6 +43,39 @@ describe('media job contracts', () => {
     ).toBe(false)
   })
 
+  test('accepts ordered video composition with safe defaults', () => {
+    expect(
+      createMediaJobRequestSchema.parse({
+        operation: 'video.compose',
+        inputs: [{ assetId: 'clip-1' }, { assetId: 'clip-2' }]
+      })
+    ).toMatchObject({
+      operation: 'video.compose',
+      options: {
+        transition: 'crossfade',
+        transitionDurationSeconds: 0.25,
+        resolution: '720p',
+        fps: 24,
+        audio: 'preserve'
+      }
+    })
+  })
+
+  test('rejects duplicate or single-clip video composition', () => {
+    expect(
+      createMediaJobRequestSchema.safeParse({
+        operation: 'video.compose',
+        inputs: [{ assetId: 'clip-1' }]
+      }).success
+    ).toBe(false)
+    expect(
+      createMediaJobRequestSchema.safeParse({
+        operation: 'video.compose',
+        inputs: [{ assetId: 'clip-1' }, { assetId: 'clip-1' }]
+      }).success
+    ).toBe(false)
+  })
+
   test('requires a separate media-job lifecycle', () => {
     expect(
       mediaJobSchema.parse({

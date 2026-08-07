@@ -330,6 +330,7 @@ export const CANVAS_AGENT_TOOL_NAMES = {
   inspectCanvas2dSelection: 'canvas2d_inspect_selection',
   searchCanvas2dRecipes: 'canvas2d_search_recipes',
   searchPromptTemplates: 'prompt_search_templates',
+  composeStoryboard: 'video_compose_storyboard',
   webSearch: 'web_search',
   mediaSearch: 'media_search',
   inspectPsd: 'media_inspect_psd',
@@ -505,6 +506,29 @@ export const DEFAULT_CANVAS_AGENT_TOOL_CAPABILITIES = [
     elementTypes: [],
     metadata: {
       uiGroup: 'reference'
+    }
+  },
+  {
+    name: CANVAS_AGENT_TOOL_NAMES.composeStoryboard,
+    title: 'Compose video storyboard',
+    activityTitle: {
+      'zh-CN': '编写分镜脚本',
+      'en-US': 'Compose storyboard'
+    },
+    description:
+      'Submit a shot-by-shot video storyboard with shared visual locks and explicit continuity handoffs.',
+    category: 'prompt',
+    runtime: 'langchain',
+    permission: 'read',
+    enabled: true,
+    visible: true,
+    streaming: false,
+    interruptible: true,
+    requiresConfirmation: false,
+    actionTypes: [],
+    elementTypes: [],
+    metadata: {
+      uiGroup: 'apply'
     }
   },
   {

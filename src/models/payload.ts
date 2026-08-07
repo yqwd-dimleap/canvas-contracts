@@ -1213,7 +1213,6 @@ export function createDefaultGenerationPayloadConfig(
                 imgUrl: '{{helpers.references.firstImageUrl}}',
                 mergeReferenceImageUrls: '{{helpers.references.imageUrls}}',
                 referenceMedia: '{{helpers.references.typedMedia}}',
-                mergeClipUrls: '{{helpers.references.clipUrls}}',
                 mergeVideoAspectRatio: '{{params.aspectRatio}}',
                 videoEditVideoUrl: '{{helpers.references.sourceVideoUrl}}',
                 drivingAudioUrl: '{{helpers.references.drivingAudioUrl}}',

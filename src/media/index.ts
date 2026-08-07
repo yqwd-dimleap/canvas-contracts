@@ -25,7 +25,8 @@ export const mediaJobOperationSchema = z.enum([
   'image.compose',
   'image.transform',
   'image.vectorize',
-  'video.poster'
+  'video.poster',
+  'video.compose'
 ])
 
 export const mediaJobStatusSchema = z.enum([
@@ -145,6 +146,20 @@ export const videoPosterOptionsSchema = z
   })
   .strict()
 
+/**
+ * Deterministic final-video assembly. Generative continuity belongs upstream;
+ * this operation only normalizes clips and joins them in the declared order.
+ */
+export const videoComposeOptionsSchema = z
+  .object({
+    transition: z.enum(['cut', 'crossfade']).default('crossfade'),
+    transitionDurationSeconds: z.number().min(0.1).max(1).default(0.25),
+    resolution: z.enum(['720p', '1080p']).default('720p'),
+    fps: z.union([z.literal(24), z.literal(25), z.literal(30)]).default(24),
+    audio: z.enum(['preserve', 'mute']).default('preserve')
+  })
+  .strict()
+
 const mediaJobRequestBaseSchema = z.object({
   projectId: z.string().trim().min(1).max(128).nullable().optional(),
   target: mediaJobTargetSchema.optional()
@@ -220,13 +235,38 @@ export const videoPosterMediaJobRequestSchema = mediaJobRequestBaseSchema
   })
   .strict()
 
+export const videoComposeMediaJobRequestSchema = mediaJobRequestBaseSchema
+  .extend({
+    operation: z.literal('video.compose'),
+    /** Input order is timeline order. */
+    inputs: z.array(mediaJobInputSchema).min(2).max(16),
+    options: videoComposeOptionsSchema.default({
+      transition: 'crossfade',
+      transitionDurationSeconds: 0.25,
+      resolution: '720p',
+      fps: 24,
+      audio: 'preserve'
+    })
+  })
+  .strict()
+  .refine(
+    (request) =>
+      new Set(request.inputs.map((input) => input.assetId)).size ===
+      request.inputs.length,
+    {
+      path: ['inputs'],
+      message: 'MEDIA_INPUT_ASSET_IDS_MUST_BE_UNIQUE'
+    }
+  )
+
 export const createMediaJobRequestSchema = z.discriminatedUnion('operation', [
   psdInspectMediaJobRequestSchema,
   psdExtractLayersMediaJobRequestSchema,
   imageComposeMediaJobRequestSchema,
   imageTransformMediaJobRequestSchema,
   imageVectorizeMediaJobRequestSchema,
-  videoPosterMediaJobRequestSchema
+  videoPosterMediaJobRequestSchema,
+  videoComposeMediaJobRequestSchema
 ])
 
 export const mediaPsdDocumentSchema = z.object({
@@ -276,7 +316,7 @@ export const mediaPsdLayerSchema = z.object({
 })
 
 export const mediaJobOutputSchema = z.object({
-  role: z.enum(['layer', 'image', 'vector', 'poster']),
+  role: z.enum(['layer', 'image', 'vector', 'poster', 'video']),
   assetId: z.string().min(1),
   sourceLayerId: z.string().min(1),
   name: z.string(),
@@ -343,7 +383,8 @@ export const mediaJobSchema = z.object({
     imageComposeOptionsSchema,
     imageTransformOptionsSchema,
     imageVectorizeOptionsSchema,
-    videoPosterOptionsSchema
+    videoPosterOptionsSchema,
+    videoComposeOptionsSchema
   ]),
   status: mediaJobStatusSchema,
   stage: mediaJobStageSchema,
@@ -378,7 +419,7 @@ export const mediaOperationDescriptorSchema = z.object({
   minInputs: z.number().int().positive(),
   maxInputs: z.number().int().positive(),
   available: z.boolean(),
-  outputRoles: z.array(z.enum(['layer', 'image', 'vector', 'poster']))
+  outputRoles: z.array(z.enum(['layer', 'image', 'vector', 'poster', 'video']))
 })
 
 export const mediaOperationsResponseSchema = z.object({
@@ -416,6 +457,7 @@ export type MediaPsdJobResult = z.infer<typeof mediaPsdJobResultSchema>
 export type MediaRasterJobResult = z.infer<typeof mediaRasterJobResultSchema>
 export type MediaVectorJobResult = z.infer<typeof mediaVectorJobResultSchema>
 export type MediaVideoJobResult = z.infer<typeof mediaVideoJobResultSchema>
+export type VideoComposeOptions = z.infer<typeof videoComposeOptionsSchema>
 export type MediaJobError = z.infer<typeof mediaJobErrorSchema>
 export type MediaJob = z.infer<typeof mediaJobSchema>
 export type MediaJobEventSummary = z.infer<typeof mediaJobEventSummarySchema>

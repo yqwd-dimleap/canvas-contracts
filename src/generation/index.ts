@@ -4,6 +4,10 @@ import {
   modelPricingConfigSchema,
   modelProviderModelSchema
 } from '../agent/model-provider.js'
+import {
+  canvasStoryboardSceneSchema,
+  canvasStoryboardVisualBibleSchema
+} from '../agent/storyboard.js'
 import { apiSuccessResponseSchema } from '../api/response.js'
 import {
   generationModelPreferencesSchema,
@@ -66,6 +70,23 @@ export const generationTaskResultSchema = z.object({
 /** Canonical synchronous response for the Lyrics generation use case. */
 export const lyricsGenerationResultSchema = z
   .object({ text: z.string().trim().min(1) })
+  .strict()
+
+/**
+ * Canonical synchronous response for the Video Script use case.
+ *
+ * Unlike Lyrics, this one is structured: the server prompts a chat model for a
+ * shot list, validates the parsed JSON against the storyboard scene contract
+ * and only then answers. Clients receive editable scenes, never raw model text.
+ */
+export const storyboardGenerationResultSchema = z
+  .object({
+    /** Creative theme the storyboard was derived from, usually the user intent. */
+    theme: z.string().optional(),
+    /** Shared appearance, world and style constraints for all generated shots. */
+    visualBible: canvasStoryboardVisualBibleSchema.optional(),
+    scenes: z.array(canvasStoryboardSceneSchema).min(1).max(12)
+  })
   .strict()
 
 export const generationTaskSchema = z.object({
@@ -148,6 +169,9 @@ export type GenerationTaskStatus = z.infer<typeof generationTaskStatusSchema>
 export type GenerationTaskResult = z.infer<typeof generationTaskResultSchema>
 export type LyricsGenerationResult = z.infer<
   typeof lyricsGenerationResultSchema
+>
+export type StoryboardGenerationResult = z.infer<
+  typeof storyboardGenerationResultSchema
 >
 export type GenerationTask = z.infer<typeof generationTaskSchema>
 export type GenerationTaskDocument = z.infer<
